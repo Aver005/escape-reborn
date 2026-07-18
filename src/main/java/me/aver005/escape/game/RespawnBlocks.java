@@ -178,7 +178,7 @@ public class RespawnBlocks
                 breaker.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 20 * 30, 1, false, true));
             }
             Msg.send(breaker, "respawn-block.broke-enemy",
-                Msg.ph("player", rb.ownerName), Msg.ph("gold", rb.tier.breakerGold()));
+                Msg.ph("player", rb.ownerName), Msg.ph("n", rb.tier.breakerGold()));
         }
 
         Player owner = Bukkit.getPlayer(rb.owner);

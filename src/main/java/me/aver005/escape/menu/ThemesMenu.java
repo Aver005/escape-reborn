@@ -103,7 +103,7 @@ public class ThemesMenu extends Menu
     {
         List<Component> lore = new ArrayList<>();
         lore.add(Msg.get("theme.lore-description", Msg.phMm("description", theme.getDescription())));
-        lore.add(Msg.get("theme.lore-gold", Msg.ph("gold", theme.getGold())));
+        lore.add(Msg.get("theme.lore-gold", Msg.ph("n", theme.getGold())));
         lore.add(turnInLine(theme));
         lore.add(Component.empty());
         lore.add(Msg.get("theme.lore-take"));
@@ -125,7 +125,7 @@ public class ThemesMenu extends Menu
         lore.add(Msg.get("theme.lore-description", Msg.phMm("description", theme.getDescription())));
         lore.add(Msg.get("theme.lore-progress",
             Msg.ph("progress", data.themeProgress), Msg.ph("amount", theme.getAmount())));
-        lore.add(Msg.get("theme.lore-gold", Msg.ph("gold", theme.getGold())));
+        lore.add(Msg.get("theme.lore-gold", Msg.ph("n", theme.getGold())));
         lore.add(turnInLine(theme));
         lore.add(Component.empty());
         lore.add(Msg.get("theme.lore-drop"));

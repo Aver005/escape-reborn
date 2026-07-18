@@ -13,6 +13,9 @@ Last updated: 2026-07-18
 - **Артефакты paper-api переименованы**: теперь `26.1.2.build.74-stable`
   (не `-R0.1-SNAPSHOT`). Репозиторий тот же: repo.papermc.io.
 - `api-version: '1.21'` в plugin.yml валиден на 26.x (это минимум, не таргет).
+- **Имя MiniMessage-плейсхолдера не должно совпадать с тегом** (`gold`, `red`,
+  `b`...): TagResolver затеняет встроенный тег по всей строке — «<gold><gold>
+  золота» превращалось в «1414 золота». Для чисел используем `<n>`.
 - **Gamerules реворкнуты в 26.x**: константы `GameRule.*` депрекейтнуты под
   удаление, новые живут в `org.bukkit.GameRules` с ванильными именами 26.1:
   `DO_MOB_SPAWNING`→`SPAWN_MOBS`, `DO_INSOMNIA`→`SPAWN_PHANTOMS`,

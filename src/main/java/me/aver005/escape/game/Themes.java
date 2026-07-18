@@ -75,7 +75,7 @@ public class Themes
             giveOrDrop(p, createPackage(theme, p));
         }
 
-        Msg.send(p, "theme.taken", Msg.phMm("description", theme.getDescription()), Msg.ph("gold", theme.getGold()));
+        Msg.send(p, "theme.taken", Msg.phMm("description", theme.getDescription()), Msg.ph("n", theme.getGold()));
         p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_TRADE, 1.0f, 1.0f);
         return true;
     }
@@ -231,7 +231,7 @@ public class Themes
             data.completedThemes.add(theme.getId());
         }
         plugin.stats().add(p.getUniqueId(), p.getName(), "quests_completed", 1);
-        Msg.send(p, "theme.complete", Msg.ph("gold", theme.getGold()));
+        Msg.send(p, "theme.complete", Msg.ph("n", theme.getGold()));
         p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
 
         double chance = plugin.getConfig().getDouble("themes.key-chance", 0.10);
