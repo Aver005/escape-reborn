@@ -328,10 +328,12 @@ public class GameListener implements Listener
         if (!(e.getInventory().getHolder() instanceof Chest chest)) {return;}
 
         Location loc = chest.getBlock().getLocation();
-        if (session.getActiveChests().contains(loc))
+        if (!session.getActiveChests().contains(loc))
         {
-            session.handleChestLooted(p, loc);
+            // dynamic-chests: немаркированный сундук становится игровым при открытии
+            if (!session.registerDynamicChest(chest)) {return;}
         }
+        session.handleChestLooted(p, loc);
     }
 
     @EventHandler

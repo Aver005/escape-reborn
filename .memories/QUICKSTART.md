@@ -1,6 +1,6 @@
 # QUICKSTART
 
-Last updated: 2026-07-18
+Last updated: 2026-07-19
 
 ## Что это
 
@@ -36,6 +36,7 @@ Last updated: 2026-07-18
 ## Быстрая ориентация
 
 - Игровые данные в рантайме: `plugins/Escape/` (arenas/<ID>/, traders.yml,
-  contracts.yml, snapshots/, stats.db) — схема в `docs/08-reborn-guide.md`.
+  contracts.yml, themes.yml, snapshots/, stats.db) — схема в
+  `docs/08-reborn-guide.md`.
 - Настройка арены админом — маркеры-предметы, цепочка команд:
   админ-квикстарт в `docs/08-reborn-guide.md`.

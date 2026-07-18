@@ -46,6 +46,7 @@ public class Arena
     private int startGold = 24;
     private int wearMinPercent = 40;  // случайный износ лута с прочностью, %
     private int wearMaxPercent = 90;  // 0 = износ выключен
+    private boolean dynamicChests = false; // немаркированный сундук при открытии становится игровым
     private Location lobby;
     private List<String> contractIds = new ArrayList<>();
     private List<String> deadMessages = new ArrayList<>();
@@ -98,6 +99,7 @@ public class Arena
         arena.startGold = cfg.getInt("start-gold", 24);
         arena.wearMinPercent = cfg.getInt("wear-min-percent", 40);
         arena.wearMaxPercent = cfg.getInt("wear-max-percent", 90);
+        arena.dynamicChests = cfg.getBoolean("dynamic-chests", false);
         arena.lobby = cfg.getLocation("lobby");
         arena.contractIds = new ArrayList<>(cfg.getStringList("contracts"));
         arena.deadMessages = new ArrayList<>(cfg.getStringList("dead-messages"));
@@ -159,6 +161,7 @@ public class Arena
         cfg.set("start-gold", startGold);
         cfg.set("wear-min-percent", wearMinPercent);
         cfg.set("wear-max-percent", wearMaxPercent);
+        cfg.set("dynamic-chests", dynamicChests);
         cfg.set("lobby", lobby);
         cfg.set("contracts", contractIds);
         cfg.set("dead-messages", deadMessages);
@@ -276,6 +279,8 @@ public class Arena
     public void setWearMinPercent(int v) {this.wearMinPercent = v;}
     public int getWearMaxPercent() {return wearMaxPercent;}
     public void setWearMaxPercent(int v) {this.wearMaxPercent = v;}
+    public boolean isDynamicChests() {return dynamicChests;}
+    public void setDynamicChests(boolean v) {this.dynamicChests = v;}
     public Location getLobby() {return lobby;}
     public void setLobby(Location v) {this.lobby = v;}
     public List<String> getContractIds() {return contractIds;}

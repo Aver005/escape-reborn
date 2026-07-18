@@ -72,6 +72,8 @@ public class GameSession
     private final LinkedHashMap<Location, BlockData> editedBlocks = new LinkedHashMap<>();
     private final Set<Location> activeChests = new HashSet<>();
     private final Map<Location, UUID> chestStands = new HashMap<>();
+    /** Исходное содержимое динамических сундуков (вернуть после матча). */
+    private final Map<Location, ItemStack[]> dynamicChestOriginals = new HashMap<>();
     private final List<Location> traderLocations = new ArrayList<>();
     private final Set<UUID> spawnedEntities = new HashSet<>();
     private final Set<UUID> droppedItems = new HashSet<>();
@@ -435,19 +437,50 @@ public class GameSession
                 generateChestLoot(chest);
             }
             activeChests.add(block.getLocation());
-
-            ArmorStand stand = loc.getWorld().spawn(loc.clone().add(0.5, -1, 0.5), ArmorStand.class, as ->
-            {
-                as.setVisible(false);
-                as.setGravity(false);
-                as.setInvulnerable(true);
-                as.setCanPickupItems(false);
-                as.setCustomNameVisible(false);
-                as.setPersistent(true);
-            });
-            spawnedEntities.add(stand.getUniqueId());
-            chestStands.put(block.getLocation(), stand.getUniqueId());
+            spawnChestStand(block.getLocation());
         }
+    }
+
+    private void spawnChestStand(Location chestLoc)
+    {
+        ArmorStand stand = chestLoc.getWorld().spawn(chestLoc.clone().add(0.5, -1, 0.5), ArmorStand.class, as ->
+        {
+            as.setVisible(false);
+            as.setGravity(false);
+            as.setInvulnerable(true);
+            as.setCanPickupItems(false);
+            as.setCustomNameVisible(false);
+            as.setPersistent(true);
+        });
+        spawnedEntities.add(stand.getUniqueId());
+        chestStands.put(chestLoc, stand.getUniqueId());
+    }
+
+    /**
+     * Динамические сундуки (dynamic-chests): немаркированный сундук при первом
+     * открытии получает лут и становится игровым (рефилл/LOOT/ключик).
+     * Исходное содержимое запоминается и возвращается после матча.
+     */
+    public boolean registerDynamicChest(Chest chest)
+    {
+        if (phase != Phase.RUNNING || !arena.isDynamicChests()) {return false;}
+        Block block = chest.getBlock();
+        if (!block.getWorld().getName().equals(arena.getWorldName())) {return false;}
+        Location loc = block.getLocation();
+        if (activeChests.contains(loc)) {return false;}
+
+        ItemStack[] contents = chest.getInventory().getContents();
+        ItemStack[] originals = new ItemStack[contents.length];
+        for (int i = 0; i < contents.length; i++)
+        {
+            originals[i] = contents[i] == null ? null : contents[i].clone();
+        }
+        dynamicChestOriginals.put(loc, originals);
+
+        generateChestLoot(chest);
+        activeChests.add(loc);
+        spawnChestStand(loc);
+        return true;
     }
 
     public void generateChestLoot(Chest chest)
@@ -1144,6 +1177,18 @@ public class GameSession
             if (loc.getWorld() == null) {continue;}
             if (loc.getBlock().getState() instanceof Chest chest) {chest.getInventory().clear();}
         }
+
+        // динамические сундуки — это блоки карты: вернуть их исходное содержимое
+        for (Map.Entry<Location, ItemStack[]> entry : dynamicChestOriginals.entrySet())
+        {
+            Location loc = entry.getKey();
+            if (loc.getWorld() == null) {continue;}
+            if (loc.getBlock().getState() instanceof Chest chest)
+            {
+                chest.getInventory().setContents(entry.getValue());
+            }
+        }
+        dynamicChestOriginals.clear();
 
         // вернуть все изменённые блоки (решётки, сундуки, руды, столы)
         for (Map.Entry<Location, BlockData> entry : editedBlocks.entrySet())
