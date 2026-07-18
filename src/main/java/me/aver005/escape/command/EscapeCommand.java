@@ -47,7 +47,8 @@ public class EscapeCommand implements TabExecutor
         "createvillager", "villagername", "addtrade");
     private static final List<String> ARENA_SETTINGS = List.of(
         "duration", "eventinterval", "salaryinterval", "salarygold", "glowtime", "glowgold",
-        "chests", "traders", "tables", "forkuses", "startgold", "startdelay", "startdelayfull");
+        "chests", "traders", "tables", "forkuses", "startgold", "startdelay", "startdelayfull",
+        "wearmin", "wearmax");
 
     private final EscapePlugin plugin;
 
@@ -294,10 +295,12 @@ public class EscapeCommand implements TabExecutor
                 if (arena == null) {return true;}
                 if (args.length < 4) {Msg.send(p, "errors.not-enough-args"); return true;}
                 String key = args[2].toLowerCase(Locale.ROOT);
-                Integer n = parseInt(p, args[3], 1, Integer.MAX_VALUE);
+                Integer n = parseInt(p, args[3], key.startsWith("wear") ? 0 : 1, Integer.MAX_VALUE);
                 if (n == null) {return true;}
                 switch (key)
                 {
+                    case "wearmin" -> arena.setWearMinPercent(Math.min(99, n));
+                    case "wearmax" -> arena.setWearMaxPercent(Math.min(99, n));
                     case "duration" -> arena.setDurationSeconds(n);
                     case "eventinterval" -> arena.setEventIntervalSeconds(n);
                     case "salaryinterval" -> arena.setSalaryIntervalSeconds(n);

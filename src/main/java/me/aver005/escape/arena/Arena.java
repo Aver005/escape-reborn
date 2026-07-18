@@ -10,6 +10,7 @@ import java.util.Map;
 import me.aver005.escape.game.GameSession;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -43,6 +44,8 @@ public class Arena
     private int startDelayFullSeconds = 10;
     private int forkUses = 1;
     private int startGold = 24;
+    private int wearMinPercent = 40;  // случайный износ лута с прочностью, %
+    private int wearMaxPercent = 90;  // 0 = износ выключен
     private Location lobby;
     private List<String> contractIds = new ArrayList<>();
     private List<String> deadMessages = new ArrayList<>();
@@ -93,6 +96,8 @@ public class Arena
         arena.startDelayFullSeconds = cfg.getInt("start-delay-full-seconds", 10);
         arena.forkUses = cfg.getInt("fork-uses", 1);
         arena.startGold = cfg.getInt("start-gold", 24);
+        arena.wearMinPercent = cfg.getInt("wear-min-percent", 40);
+        arena.wearMaxPercent = cfg.getInt("wear-max-percent", 90);
         arena.lobby = cfg.getLocation("lobby");
         arena.contractIds = new ArrayList<>(cfg.getStringList("contracts"));
         arena.deadMessages = new ArrayList<>(cfg.getStringList("dead-messages"));
@@ -109,7 +114,19 @@ public class Arena
         YamlConfiguration lootCfg = YamlConfiguration.loadConfiguration(new File(folder, "loot.yml"));
         for (Map<?, ?> entry : lootCfg.getMapList("items"))
         {
-            ItemStack item = readItem(entry.get("item"));
+            // простой рукописный формат: {type: STONE_SWORD, weight: 20, amount: 1}
+            ItemStack item;
+            if (entry.get("type") instanceof String typeName)
+            {
+                Material mat = Material.matchMaterial(typeName);
+                if (mat == null || mat.isAir()) {continue;}
+                int amount = entry.get("amount") instanceof Number n ? Math.max(1, n.intValue()) : 1;
+                item = new ItemStack(mat, amount);
+            }
+            else
+            {
+                item = readItem(entry.get("item"));
+            }
             Object weight = entry.get("weight");
             if (item == null) {continue;}
             arena.loot.add(new WeightedItem(item, weight instanceof Number n ? Math.max(1, n.intValue()) : 1));
@@ -140,6 +157,8 @@ public class Arena
         cfg.set("start-delay-full-seconds", startDelayFullSeconds);
         cfg.set("fork-uses", forkUses);
         cfg.set("start-gold", startGold);
+        cfg.set("wear-min-percent", wearMinPercent);
+        cfg.set("wear-max-percent", wearMaxPercent);
         cfg.set("lobby", lobby);
         cfg.set("contracts", contractIds);
         cfg.set("dead-messages", deadMessages);
@@ -253,6 +272,10 @@ public class Arena
     public void setForkUses(int v) {this.forkUses = v;}
     public int getStartGold() {return startGold;}
     public void setStartGold(int v) {this.startGold = v;}
+    public int getWearMinPercent() {return wearMinPercent;}
+    public void setWearMinPercent(int v) {this.wearMinPercent = v;}
+    public int getWearMaxPercent() {return wearMaxPercent;}
+    public void setWearMaxPercent(int v) {this.wearMaxPercent = v;}
     public Location getLobby() {return lobby;}
     public void setLobby(Location v) {this.lobby = v;}
     public List<String> getContractIds() {return contractIds;}

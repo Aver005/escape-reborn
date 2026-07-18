@@ -1,0 +1,82 @@
+# ============================================================================
+# Пример «бомжатского» тюремного пула лута для арены Escape.
+# Копировать в plugins/Escape/arenas/<ID>/loot.yml (при выключенной арене),
+# затем /escape reload. Или использовать как справочник для additem/edititems.
+#
+# Формат записи (рукописный, поддерживается наравне с сериализованным):
+#   - type: STONE_SWORD     # материал (Material)
+#     weight: 20            # вес в рулетке (1-250): чем больше, тем чаще
+#     amount: 1             # необязательно, по умолчанию 1
+#
+# ИЗНОС: прочность руками задавать не нужно! Арена сама раскатывает каждому
+# найденному предмету случайный износ в пределах wear-min/max-percent
+# (по умолчанию 40-90%). Настройка:
+#   /escape set <ID> wearmin 40
+#   /escape set <ID> wearmax 90     (0 = износ выключен)
+# Так одна и та же «каменная лопата» каждый раз ломана по-разному.
+# ============================================================================
+
+items:
+  # ---------- инструменты: деревянный хлам (самое частое) ----------
+  - {type: WOODEN_PICKAXE, weight: 40}
+  - {type: WOODEN_SHOVEL, weight: 40}
+  - {type: WOODEN_AXE, weight: 32}
+  - {type: WOODEN_HOE, weight: 30}
+
+  # ---------- инструменты: каменные (обычные) ----------
+  - {type: STONE_PICKAXE, weight: 24}
+  - {type: STONE_SHOVEL, weight: 24}
+  - {type: STONE_AXE, weight: 18}
+  - {type: STONE_HOE, weight: 16}
+
+  # ---------- инструменты: золотые (блестит, но крошится) ----------
+  - {type: GOLDEN_PICKAXE, weight: 10}
+  - {type: GOLDEN_SHOVEL, weight: 10}
+  - {type: GOLDEN_AXE, weight: 8}
+  - {type: GOLDEN_HOE, weight: 6}
+
+  # ---------- инструменты: железные (потолок, редкость) ----------
+  - {type: IRON_PICKAXE, weight: 5}
+  - {type: IRON_SHOVEL, weight: 5}
+  - {type: IRON_AXE, weight: 3}
+
+  # ---------- инструменты: разный инвентарь завхоза ----------
+  - {type: FISHING_ROD, weight: 12}
+  - {type: SHEARS, weight: 10}
+  - {type: FLINT_AND_STEEL, weight: 8}
+  - {type: BRUSH, weight: 8}
+
+  # ---------- оружие: максимум камень ----------
+  - {type: WOODEN_SWORD, weight: 34}
+  - {type: STONE_SWORD, weight: 18}
+  - {type: GOLDEN_SWORD, weight: 8}
+  - {type: BOW, weight: 6}
+  - {type: ARROW, weight: 10, amount: 3}
+
+  # ---------- оружие: приколы (алмаз только «не тем концом») ----------
+  - {type: DIAMOND_SHOVEL, weight: 2}
+  - {type: DIAMOND_HOE, weight: 2}
+
+  # ---------- броня: кожаное рваньё (самое частое) ----------
+  - {type: LEATHER_HELMET, weight: 28}
+  - {type: LEATHER_CHESTPLATE, weight: 22}
+  - {type: LEATHER_LEGGINGS, weight: 22}
+  - {type: LEATHER_BOOTS, weight: 28}
+
+  # ---------- броня: кольчуга (тюремная классика) ----------
+  - {type: CHAINMAIL_HELMET, weight: 12}
+  - {type: CHAINMAIL_CHESTPLATE, weight: 7}
+  - {type: CHAINMAIL_LEGGINGS, weight: 8}
+  - {type: CHAINMAIL_BOOTS, weight: 12}
+
+  # ---------- броня: золотая (понты) ----------
+  - {type: GOLDEN_HELMET, weight: 8}
+  - {type: GOLDEN_CHESTPLATE, weight: 4}
+  - {type: GOLDEN_LEGGINGS, weight: 5}
+  - {type: GOLDEN_BOOTS, weight: 8}
+
+  # ---------- броня: железная, очень изношенная (потолок) ----------
+  - {type: IRON_HELMET, weight: 4}
+  - {type: IRON_CHESTPLATE, weight: 2}
+  - {type: IRON_LEGGINGS, weight: 3}
+  - {type: IRON_BOOTS, weight: 4}

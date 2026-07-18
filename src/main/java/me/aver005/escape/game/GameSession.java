@@ -492,9 +492,32 @@ public class GameSession
         for (WeightedItem entry : loot)
         {
             roll -= entry.weight();
-            if (roll < 0) {return entry.item().clone();}
+            if (roll < 0) {return applyWear(entry.item().clone());}
         }
-        return loot.get(loot.size() - 1).item().clone();
+        return applyWear(loot.get(loot.size() - 1).item().clone());
+    }
+
+    /**
+     * Случайный износ лута (wear-min/max-percent арены): каждый найденный
+     * предмет с прочностью ломан по-своему. Предметы с уже заданным уроном
+     * (выставлен руками через additem) не трогаются.
+     */
+    private ItemStack applyWear(ItemStack item)
+    {
+        int maxPct = arena.getWearMaxPercent();
+        if (maxPct <= 0) {return item;}
+        int maxDurability = item.getType().getMaxDurability();
+        if (maxDurability <= 0 || !(item.getItemMeta() instanceof Damageable meta)) {return item;}
+        if (meta.hasDamage()) {return item;}
+
+        int minPct = Math.max(0, Math.min(arena.getWearMinPercent(), maxPct));
+        maxPct = Math.min(99, maxPct);
+        int pct = minPct + RANDOM.nextInt(maxPct - minPct + 1);
+        int damage = Math.min(maxDurability - 1, maxDurability * pct / 100);
+        if (damage <= 0) {return item;}
+        meta.setDamage(damage);
+        item.setItemMeta(meta);
+        return item;
     }
 
     private void spawnTraders()

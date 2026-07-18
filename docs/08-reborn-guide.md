@@ -86,10 +86,21 @@ stats.db            — статистика (SQLite)
 
 /escape additem ТЮРЬМА 50         — предмет из руки в лут с весом 50 (1–250)
 /escape edititems ТЮРЬМА          — GUI-редактор пула
+```
+
+Пул лута можно писать и руками: `arenas/<ID>/loot.yml` поддерживает простой
+формат `- {type: STONE_SWORD, weight: 20, amount: 1}`. Готовый «тюремный»
+пул — [examples/loot-prison.yml](examples/loot-prison.yml). Предметам с
+прочностью арена сама раскатывает **случайный износ** в пределах
+`wearmin`–`wearmax` % (дефолт 40–90; 0 = выключить); предметы, добавленные
+через `additem` с уже выставленным уроном, не трогаются.
+
+```
 
 /escape set ТЮРЬМА duration 1200  — числовые параметры (duration/eventinterval/salaryinterval/
                                     salarygold/glowtime/glowgold/chests/traders/tables/
-                                    forkuses/startgold/startdelay/startdelayfull)
+                                    forkuses/startgold/startdelay/startdelayfull/
+                                    wearmin/wearmax — случайный износ лута в %, дефолт 40-90)
 /escape worldsetup ТЮРЬМА         — применить gamerules к миру арены (см. ниже)
 /escape enable ТЮРЬМА             — открыть арену игрокам
 ```
