@@ -257,6 +257,22 @@ public class RespawnBlocks
             return;
         }
 
+        applyRespawn(p, rb);
+        if (rb.charges <= 0) {destroy(rb, DestroyReason.EXHAUSTED, null);}
+    }
+
+    /** Мгновенная материализация на блоке (возврат из оффлайна): тратит заряд. */
+    public void materializeOnBlock(Player p)
+    {
+        RespawnBlock rb = byOwner.get(p.getUniqueId());
+        if (rb == null || !rb.isPlaced() || rb.charges <= 0) {return;}
+        rb.charges--;
+        applyRespawn(p, rb);
+        if (rb.charges <= 0) {destroy(rb, DestroyReason.EXHAUSTED, null);}
+    }
+
+    private void applyRespawn(Player p, RespawnBlock rb)
+    {
         Location target = rb.placedAt.clone().add(0.5, 1, 0.5);
         target.getChunk().load();
         p.teleport(target);
@@ -270,8 +286,6 @@ public class RespawnBlocks
             p.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0, false, false));
         }
         Msg.send(p, "respawn-block.respawned", Msg.ph("charges", rb.charges));
-
-        if (rb.charges <= 0) {destroy(rb, DestroyReason.EXHAUSTED, null);}
     }
 
     /** Отменить ожидающее возрождение (выход из матча). true — оно было. */

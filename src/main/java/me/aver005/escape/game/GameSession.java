@@ -92,12 +92,14 @@ public class GameSession
     private boolean glowActive = false;
     private boolean finalBattleStarted = false;
     private final RespawnBlocks respawnBlocks;
+    private final OfflineGuards offlineGuards;
 
     public GameSession(EscapePlugin plugin, Arena arena)
     {
         this.plugin = plugin;
         this.arena = arena;
         this.respawnBlocks = new RespawnBlocks(plugin, this);
+        this.offlineGuards = new OfflineGuards(plugin, this);
     }
 
     // ===== доступ =====
@@ -119,6 +121,7 @@ public class GameSession
     public Map<Location, UUID> getChestStands() {return chestStands;}
     public GameEvent getCurrentEvent() {return currentEvent;}
     public RespawnBlocks respawnBlocks() {return respawnBlocks;}
+    public OfflineGuards offlineGuards() {return offlineGuards;}
     public boolean isFinalBattle() {return finalBattleStarted;}
     public boolean isGlowActive() {return glowActive;}
 
@@ -206,12 +209,19 @@ public class GameSession
         if (lobby.contains(id)) {leave(p); return;}
         if (playing.contains(id))
         {
-            dropInventory(p, p.getLocation());
-            eliminate(p, true);
-            // снапшот не восстанавливаем сейчас — восстановится при заходе (файл остаётся)
-            plugin.arenas().unbind(id);
-            spectators.remove(id);
-            spectatorChat.remove(id);
+            // ожидание возрождения / финал / завершение — выбытие сразу, без стража
+            if (respawnBlocks.isAwaitingRespawn(id) || phase != Phase.RUNNING || finalBattleStarted)
+            {
+                dropInventory(p, p.getLocation());
+                eliminate(p, true);
+                // снапшот не восстанавливаем сейчас — восстановится при заходе (файл остаётся)
+                plugin.arenas().unbind(id);
+                spectators.remove(id);
+                spectatorChat.remove(id);
+                return;
+            }
+            // живой игрок в идущем матче: оффлайн-страж, игрок остаётся участником
+            offlineGuards.beginGuard(p);
             return;
         }
         if (spectators.remove(id))
@@ -219,6 +229,37 @@ public class GameSession
             spectatorChat.remove(id);
             plugin.arenas().unbind(id);
         }
+    }
+
+    /** Возврат игрока на сервер, пока сессия им владеет. true — обработано. */
+    public boolean handleRejoin(Player p)
+    {
+        if (!playing.contains(p.getUniqueId())) {return false;}
+        return offlineGuards.handleRejoin(p);
+    }
+
+    /** Заочное выбывание (оффлайн-страж не дождался владельца). */
+    public void eliminateOffline(UUID id, String name, boolean announce)
+    {
+        if (!playing.remove(id)) {return;}
+        gameChat.remove(id);
+        plugin.stats().add(id, name, "loses", 1);
+        respawnBlocks.onOwnerEliminated(id);
+        plugin.arenas().unbind(id);
+
+        if (announce)
+        {
+            gameChat.systemKey("offline-guard.eliminated", Msg.ph("player", name));
+            spectatorChat.systemKey("offline-guard.eliminated", Msg.ph("player", name));
+        }
+
+        if (playing.size() > 1)
+        {
+            gameChat.systemKey("game.players-left", Msg.ph("n", playing.size()));
+            spectatorChat.systemKey("game.players-left", Msg.ph("n", playing.size()));
+            return;
+        }
+        finish();
     }
 
     public void addWarmupDamage(Player damager, double dmg)
@@ -660,6 +701,7 @@ public class GameSession
         cancelTask(mainTask);
         mainTask = null;
         finalBattleStarted = true;
+        offlineGuards.onFinalBattle();
         if (respawnBlocks.hasPlacedBlocks())
         {
             gameChat.systemKey("respawn-block.annul-broadcast");
@@ -911,11 +953,17 @@ public class GameSession
             }
         }
 
+        announceDeath(p.getName());
+    }
+
+    /** Сообщение о смерти в оба канала (используется и оффлайн-стражами). */
+    public void announceDeath(String playerName)
+    {
         String deadMsgRaw = randomDeadMessage();
         gameChat.system(Msg.get("game.death-broadcast",
-            Msg.phC("message", Msg.mm(deadMsgRaw, Msg.ph("player", p.getName())))));
+            Msg.phC("message", Msg.mm(deadMsgRaw, Msg.ph("player", playerName)))));
         spectatorChat.system(Msg.get("game.death-broadcast",
-            Msg.phC("message", Msg.mm(deadMsgRaw, Msg.ph("player", p.getName())))));
+            Msg.phC("message", Msg.mm(deadMsgRaw, Msg.ph("player", playerName)))));
     }
 
     private void finishElimination(Player p, boolean quit)
@@ -971,14 +1019,14 @@ public class GameSession
         if (playing.size() == 1)
         {
             UUID winnerId = playing.iterator().next();
-            Player winner = Bukkit.getPlayer(winnerId);
             MatchPlayer data = matchData.get(winnerId);
-            if (winner != null && data != null)
+            if (data != null)
             {
-                plugin.stats().add(winnerId, winner.getName(), "wins", 1);
+                // победитель может быть и оффлайн (пережил всех под стражем) — статистика всё равно его
+                plugin.stats().add(winnerId, data.name, "wins", 1);
                 broadcastAll(Msg.get("game.win-header"));
                 broadcastAll(Component.empty());
-                broadcastAll(Msg.get("game.win-player", Msg.ph("player", winner.getName())));
+                broadcastAll(Msg.get("game.win-player", Msg.ph("player", data.name)));
                 broadcastAll(Msg.get("game.win-quests", Msg.ph("n", data.quests)));
                 broadcastAll(Msg.get("game.win-kills", Msg.ph("n", data.kills)));
                 broadcastAll(Msg.get("game.win-trades", Msg.ph("n", data.trades)));
@@ -1098,6 +1146,7 @@ public class GameSession
         glowActive = false;
         finalBattleStarted = false;
         respawnBlocks.clear();
+        offlineGuards.clear();
 
         dispose();
     }

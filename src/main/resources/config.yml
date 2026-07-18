@@ -33,3 +33,8 @@ chest-refill-seconds: 180
 respawn-block:
   lightning-interval-seconds: 300  # молния по всем установленным блокам
   respawn-delay-seconds: 5         # пауза в спектаторах перед возрождением
+
+# Оффлайн-страж (выход/краш живого игрока)
+offline-guard:
+  zombie-seconds: 90   # сколько стоит AFK-зомби
+  return-seconds: 240  # общее окно возврата (от момента выхода), после — выбытие

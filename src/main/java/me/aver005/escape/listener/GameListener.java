@@ -396,13 +396,41 @@ public class GameListener implements Listener
     public void onJoin(PlayerJoinEvent e)
     {
         Player p = e.getPlayer();
-        // восстановление после краша/выхода во время матча
-        if (session(p) == null && PlayerSnapshot.exists(plugin, p.getUniqueId()))
+
+        // возврат в матч, которым всё ещё владеет сессия (оффлайн-страж)
+        GameSession session = session(p);
+        if (session != null)
+        {
+            if (session.handleRejoin(p)) {return;}
+            plugin.arenas().unbind(p.getUniqueId());
+        }
+
+        // восстановление после краша/выбытия в отсутствие
+        if (PlayerSnapshot.exists(plugin, p.getUniqueId()))
         {
             plugin.getServer().getScheduler().runTask(plugin, () ->
             {
-                if (p.isOnline()) {PlayerSnapshot.restore(plugin, p);}
+                if (p.isOnline() && plugin.arenas().sessionOf(p) == null)
+                {
+                    PlayerSnapshot.restore(plugin, p);
+                }
             });
+        }
+    }
+
+    /** Смерть зомби-стража: убийца-игрок = смерть владельца. */
+    @EventHandler
+    public void onZombieDeath(org.bukkit.event.entity.EntityDeathEvent e)
+    {
+        if (!(e.getEntity() instanceof org.bukkit.entity.Zombie zombie)) {return;}
+        for (var arena : plugin.arenas().all().values())
+        {
+            GameSession session = arena.getSession();
+            if (session == null || !session.offlineGuards().ownsZombie(zombie.getUniqueId())) {continue;}
+            e.getDrops().clear();
+            e.setDroppedExp(0);
+            session.offlineGuards().onZombieDeath(zombie.getUniqueId(), zombie.getKiller());
+            return;
         }
     }
 }

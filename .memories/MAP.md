@@ -43,7 +43,8 @@ escape-reborn/
         │   ├── ChatChannel.java       # канал чата (формат из messages.yml, system/chat)
         │   ├── RespawnTier.java       # 5 уровней блока возрождения (цены/награды/анимации)
         │   ├── RespawnBlock.java      # данные блока одного игрока (уровень/заряды/позиция)
-        │   └── RespawnBlocks.java     # менеджер: установка/перенос/прокачка/респаун/молнии/прозрение
+        │   ├── RespawnBlocks.java     # менеджер: установка/перенос/прокачка/респаун/молнии/прозрение
+        │   └── OfflineGuards.java     # AFK-зомби при выходе живого игрока + окна возврата
         ├── contract/
         │   ├── Contract.java          # модель; isComplete() = готов к выдаче
         │   ├── ContractType.java      # KILLS/ACTIVATE/MINE/FIND/BREAK/LOOT
