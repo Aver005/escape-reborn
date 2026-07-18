@@ -2,6 +2,7 @@ package me.aver005.escape.listener;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.contract.ContractType;
+import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.menu.AssistantMenu;
 import me.aver005.escape.menu.ShopMenu;
@@ -86,6 +87,8 @@ public class GameListener implements Listener
         if (data != null) {data.ores++;}
         plugin.stats().add(p.getUniqueId(), p.getName(), "ores_mined", 1);
 
+        if (session.getCurrentEvent() == GameEvent.DIG) {session.flagEventAction(p);}
+
         session.progressContracts(p, ContractType.MINE, c -> type == Material.matchMaterial(c.getIdle()), 1);
         session.progressContracts(p, ContractType.BREAK, c -> type == Material.matchMaterial(c.getIdle()), 1);
     }
@@ -113,6 +116,8 @@ public class GameListener implements Listener
 
         if (session.isPlaying(victim.getUniqueId()) && session.isPlaying(damager.getUniqueId()))
         {
+            // «Кровавая луна»: урон между игроками x1.5
+            if (session.isBloodMoon()) {e.setDamage(e.getDamage() * 1.5);}
             session.recordDamager(victim, damager);
         }
     }
@@ -305,7 +310,11 @@ public class GameListener implements Listener
         GameSession session = session(p);
         if (session == null) {return;}
         if (session.isLobbyMember(p.getUniqueId())) {e.setCancelled(true); return;}
-        if (session.isPlaying(p.getUniqueId())) {session.trackDrop(e.getItemDrop());}
+        if (session.isPlaying(p.getUniqueId()))
+        {
+            session.trackDrop(e.getItemDrop());
+            if (session.getCurrentEvent() == GameEvent.SEARCH) {session.flagEventAction(p);}
+        }
     }
 
     @EventHandler(ignoreCancelled = true)

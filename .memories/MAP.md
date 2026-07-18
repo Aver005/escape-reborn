@@ -38,7 +38,7 @@ escape-reborn/
         │   └── WeightedItem.java      # record: предмет + вес лута
         ├── game/
         │   ├── GameSession.java       # ЯДРО (см. ARCHITECTURE)
-        │   ├── GameEvent.java         # enum 5 случайных событий (check/onPass/onFail)
+        │   ├── GameEvent.java         # enum 12 случайных событий (окно/canStart/onTick/resolve)
         │   ├── MatchPlayer.java       # per-match: kills/quests/trades/ores, lastDamager, lootedChests
         │   └── ChatChannel.java       # канал чата (формат из messages.yml, system/chat)
         ├── contract/

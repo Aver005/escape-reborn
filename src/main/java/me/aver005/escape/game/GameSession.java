@@ -85,7 +85,10 @@ public class GameSession
     private int countdownRemaining = 0;
     private int remaining = 0;
     private GameEvent currentEvent = null;
-    private int eventCheckIn = 0;
+    private int eventTicksLeft = 0;
+    private final Map<UUID, Location> eventPositions = new HashMap<>();
+    private final Set<UUID> eventFlagged = new HashSet<>();
+    private boolean bloodMoon = false;
 
     public GameSession(EscapePlugin plugin, Arena arena)
     {
@@ -517,23 +520,13 @@ public class GameSession
         int interval = Math.max(30, arena.getEventIntervalSeconds());
         if (currentEvent == null && remaining > 0 && remaining % interval == 0 && remaining != arena.getDurationSeconds())
         {
-            currentEvent = GameEvent.values()[RANDOM.nextInt(GameEvent.values().length)];
-            eventCheckIn = 8;
-            gameChat.systemKey("events.announce-header");
-            for (String key : currentEvent.announceKeys()) {gameChat.systemKey(key);}
+            startRandomEvent();
         }
         else if (currentEvent != null)
         {
-            eventCheckIn--;
-            if (eventCheckIn <= 0)
-            {
-                GameEvent event = currentEvent;
-                currentEvent = null;
-                forEachOnline(playing, p ->
-                {
-                    if (event.check(p)) {event.onPass(p);} else {event.onFail(p);}
-                });
-            }
+            currentEvent.onTick(this);
+            eventTicksLeft--;
+            if (eventTicksLeft <= 0) {endCurrentEvent();}
         }
 
         int salaryInterval = Math.max(60, arena.getSalaryIntervalSeconds());
@@ -570,6 +563,72 @@ public class GameSession
         {
             finalBattle();
         }
+    }
+
+    private void startRandomEvent()
+    {
+        List<GameEvent> candidates = new ArrayList<>();
+        for (GameEvent event : GameEvent.values())
+        {
+            if (event.canStart(this)) {candidates.add(event);}
+        }
+        if (candidates.isEmpty()) {return;}
+        GameEvent event = candidates.get(RANDOM.nextInt(candidates.size()));
+
+        gameChat.systemKey("events.announce-header");
+        for (String key : event.announceKeys()) {gameChat.systemKey(key);}
+
+        eventPositions.clear();
+        eventFlagged.clear();
+        event.onAnnounce(this);
+
+        if (event.windowSeconds() <= 0) {event.onEnd(this); return;}
+        currentEvent = event;
+        eventTicksLeft = event.windowSeconds();
+    }
+
+    private void endCurrentEvent()
+    {
+        GameEvent event = currentEvent;
+        currentEvent = null;
+        forEachOnline(playing, p -> event.resolvePlayer(this, p));
+        event.onEnd(this);
+        eventPositions.clear();
+        eventFlagged.clear();
+    }
+
+    // ===== хелперы для GameEvent =====
+
+    /** LOCKDOWN: зафиксировать позиции всех живых на момент объявления. */
+    public void captureEventPositions()
+    {
+        eventPositions.clear();
+        forEachOnline(playing, p -> eventPositions.put(p.getUniqueId(), p.getLocation().clone()));
+    }
+
+    public Map<UUID, Location> getEventPositions() {return eventPositions;}
+    public boolean isEventFlagged(Player p) {return eventFlagged.contains(p.getUniqueId());}
+    public void flagEventAction(Player p) {eventFlagged.add(p.getUniqueId());}
+    public void setBloodMoon(boolean v) {bloodMoon = v;}
+    public boolean isBloodMoon() {return bloodMoon;}
+
+    public void forEachPlaying(java.util.function.Consumer<Player> action)
+    {
+        forEachOnline(playing, action);
+    }
+
+    /** BRIBE: случайный предмет из пула лута арены. false — пул пуст. */
+    public boolean giveRandomLoot(Player p)
+    {
+        ItemStack item = pickLoot();
+        if (item == null) {return false;}
+        var leftovers = p.getInventory().addItem(item);
+        for (ItemStack rest : leftovers.values())
+        {
+            Item drop = p.getWorld().dropItem(p.getLocation().add(0, 0.5, 0), rest);
+            droppedItems.add(drop.getUniqueId());
+        }
+        return true;
     }
 
     private void finalBattle()
@@ -960,6 +1019,10 @@ public class GameSession
         spectatorChat.clear();
         matchData.clear();
         cooldowns.clear();
+        currentEvent = null;
+        eventPositions.clear();
+        eventFlagged.clear();
+        bloodMoon = false;
 
         dispose();
     }
