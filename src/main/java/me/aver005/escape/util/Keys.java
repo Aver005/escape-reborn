@@ -16,6 +16,8 @@ public final class Keys
     public static NamespacedKey PAPER_NONCE;       // анти-стак для бумаг-контрактов
     public static NamespacedKey TRADER_TYPE;       // тип торговца на сущности жителя
     public static NamespacedKey RESPAWN_OWNER;     // владелец предмета-блока возрождения
+    public static NamespacedKey THEME_ID;          // id темки на пакете-«передачке»
+    public static NamespacedKey THEME_OWNER;       // uuid взявшего темку (на пакете)
 
     private Keys() {}
 
@@ -31,5 +33,7 @@ public final class Keys
         PAPER_NONCE = new NamespacedKey(plugin, "paper_nonce");
         TRADER_TYPE = new NamespacedKey(plugin, "trader_type");
         RESPAWN_OWNER = new NamespacedKey(plugin, "respawn_owner");
+        THEME_ID = new NamespacedKey(plugin, "theme_id");
+        THEME_OWNER = new NamespacedKey(plugin, "theme_owner");
     }
 }

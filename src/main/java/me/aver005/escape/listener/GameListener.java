@@ -5,8 +5,11 @@ import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.menu.AssistantMenu;
+import me.aver005.escape.menu.NpcMenu;
 import me.aver005.escape.menu.ShopMenu;
+import me.aver005.escape.menu.ThemesMenu;
 import me.aver005.escape.player.PlayerSnapshot;
+import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Msg;
@@ -104,6 +107,8 @@ public class GameListener implements Listener
 
         session.progressContracts(p, ContractType.MINE, c -> type == Material.matchMaterial(c.getIdle()), 1);
         session.progressContracts(p, ContractType.BREAK, c -> type == Material.matchMaterial(c.getIdle()), 1);
+        session.themes().progress(p, ThemeType.MINE, t -> type == Material.matchMaterial(t.getIdle()), 1);
+        session.themes().progress(p, ThemeType.BREAK, t -> type == Material.matchMaterial(t.getIdle()), 1);
     }
 
     // ===== бой =====
@@ -215,6 +220,14 @@ public class GameListener implements Listener
         Block block = e.getClickedBlock();
         if (block == null) {return;}
 
+        // «Волшебный ключик»: ПКМ по игровому сундуку — принудительный рефилл
+        if (block.getType() == Material.CHEST && Items.isSpecial(e.getItem(), "magic_key"))
+        {
+            e.setCancelled(true);
+            session.themes().useKey(p, e.getItem(), block);
+            return;
+        }
+
         // ПКМ по блоку возрождения: свой — меню прокачки
         var respawnBlock = session.respawnBlocks().byLocation(block.getLocation());
         if (respawnBlock != null)
@@ -250,6 +263,7 @@ public class GameListener implements Listener
             if (leverName != null)
             {
                 session.progressContracts(p, ContractType.ACTIVATE, c -> leverName.equals(c.getIdle()), 1);
+                session.themes().progress(p, ThemeType.ACTIVATE, t -> leverName.equals(t.getIdle()), 1);
             }
         }
     }
@@ -292,7 +306,15 @@ public class GameListener implements Listener
         if (trader == null) {return;}
 
         e.setCancelled(true);
-        new ShopMenu(plugin, session, trader).open(p);
+
+        // сначала попытка сдачи (готовая темка / принесённая передачка)
+        if (session.themes().tryTurnIn(p, trader, villager)) {return;}
+
+        boolean shop = trader.isShop();
+        boolean overseer = trader.isOverseer();
+        if (shop && overseer) {new NpcMenu(plugin, session, trader, villager).open(p);}
+        else if (overseer) {new ThemesMenu(plugin, session, trader, villager).open(p);}
+        else {new ShopMenu(plugin, session, trader).open(p);}
     }
 
     // ===== сундуки: LOOT / FIND / рефилл =====

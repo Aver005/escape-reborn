@@ -24,6 +24,14 @@ public class MatchPlayer
     public UUID lastDamager = null;
     public long lastDamagerAt = 0L;
 
+    // ===== активная темка (задание смотрящего) =====
+    public String themeId = null;
+    public int themeProgress = 0;
+    /** Сущность-житель, выдавшая темку (для сдачи SELF). */
+    public UUID themeIssuer = null;
+    /** До какого момента нельзя брать новую темку (после броска). */
+    public long themeCooldownUntil = 0L;
+
     public MatchPlayer(UUID uuid, String name)
     {
         this.uuid = uuid;

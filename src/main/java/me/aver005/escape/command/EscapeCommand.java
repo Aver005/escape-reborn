@@ -13,6 +13,8 @@ import me.aver005.escape.game.GameSession;
 import me.aver005.escape.menu.ArenaSelectMenu;
 import me.aver005.escape.menu.LootEditorMenu;
 import me.aver005.escape.menu.TradeEditorMenu;
+import me.aver005.escape.theme.Theme;
+import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
@@ -40,6 +42,8 @@ public class EscapeCommand implements TabExecutor
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
         "additem", "edititems", "addcontract",
         "createcontract", "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice",
+        "createtheme", "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn",
+        "addtheme", "removetheme",
         "createvillager", "villagername", "addtrade");
     private static final List<String> ARENA_SETTINGS = List.of(
         "duration", "eventinterval", "salaryinterval", "salarygold", "glowtime", "glowgold",
@@ -425,6 +429,100 @@ public class EscapeCommand implements TabExecutor
                 if (sub.equals("contractamount")) {Msg.send(p, "admin.contract-amount-hint", Msg.ph("contract", id));}
                 return true;
             }
+            case "createtheme" ->
+            {
+                if (plugin.themes().exists(id)) {Msg.send(p, "errors.theme-exists"); return true;}
+                plugin.themes().add(new Theme(id));
+                plugin.themes().save();
+                Msg.send(p, "admin.theme-created", Msg.ph("theme", id));
+                Msg.send(p, "admin.theme-created-hint", Msg.ph("theme", id));
+                return true;
+            }
+            case "themetype" ->
+            {
+                Theme theme = requireTheme(p, id);
+                if (theme == null) {return true;}
+                if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
+                ThemeType type = ThemeType.parse(args[2]);
+                if (type == null) {Msg.send(p, "errors.wrong-theme-type"); return true;}
+                theme.setType(type);
+                plugin.themes().save();
+                Msg.send(p, "admin.theme-type-set", Msg.ph("theme", id), Msg.ph("type", type.name()));
+                return true;
+            }
+            case "themeidle" ->
+            {
+                Theme theme = requireTheme(p, id);
+                if (theme == null) {return true;}
+                if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
+                theme.setIdle(joinArgs(args, 2));
+                plugin.themes().save();
+                Msg.send(p, "admin.theme-idle-set", Msg.ph("theme", id));
+                return true;
+            }
+            case "themedesc" ->
+            {
+                Theme theme = requireTheme(p, id);
+                if (theme == null) {return true;}
+                if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
+                theme.setDescription(joinArgs(args, 2));
+                plugin.themes().save();
+                Msg.send(p, "admin.theme-desc-set", Msg.ph("theme", id));
+                return true;
+            }
+            case "themeamount", "themegold" ->
+            {
+                Theme theme = requireTheme(p, id);
+                if (theme == null) {return true;}
+                if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
+                Integer n = parseInt(p, args[2], sub.equals("themeamount") ? 1 : 0, 100000);
+                if (n == null) {return true;}
+                if (sub.equals("themeamount")) {theme.setAmount(n);} else {theme.setGold(n);}
+                plugin.themes().save();
+                Msg.send(p, "admin.theme-number-set",
+                    Msg.ph("theme", id), Msg.ph("key", sub.substring(5)), Msg.ph("n", n));
+                return true;
+            }
+            case "themereturn" ->
+            {
+                Theme theme = requireTheme(p, id);
+                if (theme == null) {return true;}
+                if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
+                String raw = args[2].toUpperCase(Locale.ROOT);
+                if (!raw.equals(Theme.TURN_IN_SELF) && !raw.equals(Theme.TURN_IN_ANY)
+                    && !plugin.traders().exists(raw))
+                {
+                    Msg.send(p, "errors.trader-not-exists");
+                    return true;
+                }
+                theme.setTurnIn(raw);
+                plugin.themes().save();
+                Msg.send(p, "admin.theme-return-set", Msg.ph("theme", id), Msg.ph("target", raw));
+                return true;
+            }
+            case "addtheme" ->
+            {
+                TraderType trader = requireTrader(p, id);
+                if (trader == null) {return true;}
+                if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
+                String themeId = args[2].toUpperCase(Locale.ROOT);
+                if (!plugin.themes().exists(themeId)) {Msg.send(p, "errors.theme-not-exists"); return true;}
+                if (!trader.getThemes().contains(themeId)) {trader.getThemes().add(themeId);}
+                plugin.traders().save();
+                Msg.send(p, "admin.theme-attached", Msg.ph("theme", themeId), Msg.ph("trader", id));
+                return true;
+            }
+            case "removetheme" ->
+            {
+                TraderType trader = requireTrader(p, id);
+                if (trader == null) {return true;}
+                if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
+                String themeId = args[2].toUpperCase(Locale.ROOT);
+                trader.getThemes().remove(themeId);
+                plugin.traders().save();
+                Msg.send(p, "admin.theme-detached", Msg.ph("theme", themeId), Msg.ph("trader", id));
+                return true;
+            }
             case "createvillager" ->
             {
                 if (plugin.traders().exists(id)) {Msg.send(p, "errors.trader-exists"); return true;}
@@ -502,6 +600,13 @@ public class EscapeCommand implements TabExecutor
         Arena arena = plugin.arenas().get(id);
         if (arena == null) {Msg.send(p, "errors.arena-not-exists");}
         return arena;
+    }
+
+    private Theme requireTheme(Player p, String id)
+    {
+        Theme theme = plugin.themes().get(id);
+        if (theme == null) {Msg.send(p, "errors.theme-not-exists");}
+        return theme;
     }
 
     private Contract requireContract(Player p, String id)
@@ -583,7 +688,9 @@ public class EscapeCommand implements TabExecutor
                 }
                 case "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice" ->
                     filter(new ArrayList<>(plugin.contracts().ids()), args[1], out);
-                case "villagername", "addtrade" ->
+                case "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn" ->
+                    filter(new ArrayList<>(plugin.themes().ids()), args[1], out);
+                case "villagername", "addtrade", "addtheme", "removetheme" ->
                     filter(new ArrayList<>(plugin.traders().ids()), args[1], out);
                 default -> {}
             }
@@ -600,6 +707,19 @@ public class EscapeCommand implements TabExecutor
                     for (ContractType type : ContractType.values()) {types.add(type.name());}
                     filter(types, args[2], out);
                 }
+                case "themetype" ->
+                {
+                    List<String> types = new ArrayList<>();
+                    for (ThemeType type : ThemeType.values()) {types.add(type.name());}
+                    filter(types, args[2], out);
+                }
+                case "themereturn" ->
+                {
+                    List<String> targets = new ArrayList<>(List.of(Theme.TURN_IN_SELF, Theme.TURN_IN_ANY));
+                    targets.addAll(plugin.traders().ids());
+                    filter(targets, args[2], out);
+                }
+                case "addtheme", "removetheme" -> filter(new ArrayList<>(plugin.themes().ids()), args[2], out);
                 case "set" -> filter(new ArrayList<>(ARENA_SETTINGS), args[2], out);
                 case "addcontract" -> filter(new ArrayList<>(plugin.contracts().ids()), args[2], out);
                 case "addvillager" -> filter(new ArrayList<>(plugin.traders().ids()), args[2], out);

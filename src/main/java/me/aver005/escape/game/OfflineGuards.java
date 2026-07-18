@@ -197,6 +197,7 @@ public class OfflineGuards
             if (killerData != null) {killerData.kills++;}
             plugin.stats().add(killer.getUniqueId(), killer.getName(), "kills", 1);
             session.progressContracts(killer, ContractType.KILLS, c -> true, 1);
+            session.themes().progress(killer, me.aver005.escape.theme.ThemeType.KILLS, t -> true, 1);
             session.respawnBlocks().onOwnerKill(killer);
             plugin.stats().add(guard.owner, guard.ownerName, "deaths", 1);
             session.announceDeath(guard.ownerName);

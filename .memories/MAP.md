@@ -44,12 +44,17 @@ escape-reborn/
         │   ├── RespawnTier.java       # 5 уровней блока возрождения (цены/награды/анимации)
         │   ├── RespawnBlock.java      # данные блока одного игрока (уровень/заряды/позиция)
         │   ├── RespawnBlocks.java     # менеджер: установка/перенос/прокачка/респаун/молнии/прозрение
-        │   └── OfflineGuards.java     # AFK-зомби при выходе живого игрока + окна возврата
+        │   ├── OfflineGuards.java     # AFK-страж при выходе живого игрока + окна возврата
+        │   └── Themes.java            # менеджер темок: взять/бросить/прогресс/сдача/ключик
         ├── contract/
         │   ├── Contract.java          # модель; isComplete() = готов к выдаче
         │   ├── ContractType.java      # KILLS/ACTIVATE/MINE/FIND/BREAK/LOOT
         │   ├── ContractRegistry.java  # contracts.yml
         │   └── ContractPapers.java    # бумага «Задание»: PDC id/progress/nonce + лор
+        ├── theme/
+        │   ├── Theme.java             # темка смотрящего: тип/цель/золото/turn-in (SELF|ANY|NPC)
+        │   ├── ThemeType.java         # 6 контрактных + DELIVERY + COURIER
+        │   └── ThemeRegistry.java     # themes.yml
         ├── trader/
         │   ├── TraderType.java        # тип торговца: имя (MiniMessage) + трейды
         │   ├── Trade.java             # record: предмет + цена
@@ -66,7 +71,9 @@ escape-reborn/
         │   ├── ShopMenu.java          # магазин торговца (покупка за золото)
         │   ├── TradeEditorMenu.java   # админ: добавить трейд (цена кнопками)
         │   ├── LootEditorMenu.java    # админ: пул лута (пересборка на onClose)
-        │   └── RespawnUpgradeMenu.java# прокачка блока возрождения (ПКМ по блоку)
+        │   ├── RespawnUpgradeMenu.java# прокачка блока возрождения (ПКМ по блоку)
+        │   ├── NpcMenu.java           # совмещённый NPC: выбор «Магазин / Темки»
+        │   └── ThemesMenu.java        # темки смотрящего: взять/бросить
         ├── listener/
         │   ├── GameListener.java      # блоки/бой/смерть/предметы/сундуки/join-quit
         │   ├── SetupListener.java     # установка маркеров → точки арены

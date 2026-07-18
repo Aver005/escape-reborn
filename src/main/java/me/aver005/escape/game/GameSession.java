@@ -93,6 +93,7 @@ public class GameSession
     private boolean finalBattleStarted = false;
     private final RespawnBlocks respawnBlocks;
     private final OfflineGuards offlineGuards;
+    private final Themes themes;
 
     public GameSession(EscapePlugin plugin, Arena arena)
     {
@@ -100,6 +101,7 @@ public class GameSession
         this.arena = arena;
         this.respawnBlocks = new RespawnBlocks(plugin, this);
         this.offlineGuards = new OfflineGuards(plugin, this);
+        this.themes = new Themes(plugin, this);
     }
 
     // ===== доступ =====
@@ -122,6 +124,7 @@ public class GameSession
     public GameEvent getCurrentEvent() {return currentEvent;}
     public RespawnBlocks respawnBlocks() {return respawnBlocks;}
     public OfflineGuards offlineGuards() {return offlineGuards;}
+    public Themes themes() {return themes;}
     public boolean isFinalBattle() {return finalBattleStarted;}
     public boolean isGlowActive() {return glowActive;}
 
@@ -764,6 +767,7 @@ public class GameSession
     /** FIND: прогресс = сколько предметов-целей у игрока сейчас (максимум запоминается). */
     public void refreshFindContracts(Player p)
     {
+        themes.refreshFind(p);
         for (ItemStack item : p.getInventory().getContents())
         {
             String cid = ContractPapers.contractIdOf(item);
@@ -812,6 +816,7 @@ public class GameSession
         if (data == null) {return;}
         if (!data.lootedChests.add(chestLoc)) {return;}
         progressContracts(p, ContractType.LOOT, c -> true, 1);
+        themes.progress(p, me.aver005.escape.theme.ThemeType.LOOT, t -> true, 1);
     }
 
     // ===== рефилл сундуков =====
@@ -851,6 +856,30 @@ public class GameSession
             }
         }, delay * 20L);
         refillTasks.put(loc, task);
+    }
+
+    /** Принудительный рефилл игрового сундука («Волшебный ключик»). false — сундук не игровой. */
+    public boolean forceRefillChest(Block block)
+    {
+        Location loc = block.getLocation();
+        if (phase != Phase.RUNNING || !activeChests.contains(loc)) {return false;}
+        if (!(block.getState() instanceof Chest chest)) {return false;}
+
+        BukkitTask pending = refillTasks.remove(loc);
+        if (pending != null) {pending.cancel();}
+        generateChestLoot(chest);
+
+        ArmorStand stand = standAt(loc);
+        if (stand != null)
+        {
+            stand.customName(Items.flat(Msg.get("chest.refilled-name")));
+            stand.setCustomNameVisible(true);
+            Bukkit.getScheduler().runTaskLater(plugin, () ->
+            {
+                if (stand.isValid()) {stand.setCustomNameVisible(false);}
+            }, 20L * 10);
+        }
+        return true;
     }
 
     private ArmorStand standAt(Location chestLoc)
@@ -949,6 +978,7 @@ public class GameSession
                 if (killerData != null) {killerData.kills++;}
                 plugin.stats().add(killer.getUniqueId(), killer.getName(), "kills", 1);
                 progressContracts(killer, ContractType.KILLS, c -> true, 1);
+                themes.progress(killer, me.aver005.escape.theme.ThemeType.KILLS, t -> true, 1);
                 respawnBlocks.onOwnerKill(killer);
             }
         }

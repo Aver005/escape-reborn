@@ -6,6 +6,7 @@ import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.ArenaManager;
 import me.aver005.escape.command.EscapeCommand;
 import me.aver005.escape.contract.ContractRegistry;
+import me.aver005.escape.theme.ThemeRegistry;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.listener.ChatListener;
 import me.aver005.escape.listener.GameListener;
@@ -24,6 +25,7 @@ public final class EscapePlugin extends JavaPlugin
 {
     private ArenaManager arenaManager;
     private ContractRegistry contractRegistry;
+    private ThemeRegistry themeRegistry;
     private TraderRegistry traderRegistry;
     private StatsRepository statsRepository;
 
@@ -36,6 +38,7 @@ public final class EscapePlugin extends JavaPlugin
 
         arenaManager = new ArenaManager(this);
         contractRegistry = new ContractRegistry(this);
+        themeRegistry = new ThemeRegistry(this);
         traderRegistry = new TraderRegistry(this);
         statsRepository = new StatsRepository(this);
 
@@ -44,6 +47,7 @@ public final class EscapePlugin extends JavaPlugin
 
         arenaManager.loadAll();
         contractRegistry.load();
+        themeRegistry.load();
         traderRegistry.load();
 
         var pm = getServer().getPluginManager();
@@ -73,6 +77,7 @@ public final class EscapePlugin extends JavaPlugin
     {
         arenaManager.saveAll();
         contractRegistry.save();
+        themeRegistry.save();
         traderRegistry.save();
     }
 
@@ -82,6 +87,7 @@ public final class EscapePlugin extends JavaPlugin
         Msg.reload();
         arenaManager.loadAll();
         contractRegistry.load();
+        themeRegistry.load();
         traderRegistry.load();
     }
 
@@ -103,6 +109,7 @@ public final class EscapePlugin extends JavaPlugin
 
     public ArenaManager arenas() {return arenaManager;}
     public ContractRegistry contracts() {return contractRegistry;}
+    public ThemeRegistry themes() {return themeRegistry;}
     public TraderRegistry traders() {return traderRegistry;}
     public StatsRepository stats() {return statsRepository;}
 }

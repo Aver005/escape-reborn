@@ -9,12 +9,16 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
 
-/** Тип торговца (глобальный): имя и список товаров. */
+/**
+ * Тип NPC (глобальный): имя, товары и/или темки.
+ * Есть товары — торговец, есть темки — смотрящий; можно совмещать (§10).
+ */
 public class TraderType
 {
     private final String id;
     private String nameRaw; // MiniMessage
     private final List<Trade> trades = new ArrayList<>();
+    private final List<String> themes = new ArrayList<>(); // id темок из ThemeRegistry
 
     public TraderType(String id)
     {
@@ -37,6 +41,7 @@ public class TraderType
             if (item == null || !(rawPrice instanceof Number price)) {continue;}
             t.trades.add(new Trade(item, price.intValue()));
         }
+        t.themes.addAll(sec.getStringList("themes"));
         return t;
     }
 
@@ -49,6 +54,7 @@ public class TraderType
             list.add(Map.of("item", trade.item().serialize(), "price", trade.price()));
         }
         sec.set("trades", list);
+        sec.set("themes", themes);
     }
 
     public String getId() {return id;}
@@ -56,4 +62,7 @@ public class TraderType
     public void setNameRaw(String nameRaw) {this.nameRaw = nameRaw;}
     public Component displayName() {return Msg.mm(nameRaw);}
     public List<Trade> getTrades() {return trades;}
+    public List<String> getThemes() {return themes;}
+    public boolean isShop() {return !trades.isEmpty();}
+    public boolean isOverseer() {return !themes.isEmpty();}
 }
