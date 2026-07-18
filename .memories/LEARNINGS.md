@@ -16,6 +16,10 @@ Last updated: 2026-07-18
 - **Имя MiniMessage-плейсхолдера не должно совпадать с тегом** (`gold`, `red`,
   `b`...): TagResolver затеняет встроенный тег по всей строке — «<gold><gold>
   золота» превращалось в «1414 золота». Для чисел используем `<n>`.
+- **В BlockPlaceEvent блок уже стоит в мире**: `block.getBlockData()` вернёт
+  НОВЫЙ блок, а не то, что было. Прежнее состояние — только
+  `e.getBlockReplacedState()`. Из-за этого откат «восстанавливал» блоки
+  возрождения на местах их установки (rememberEditedBlock запоминал медь).
 - **Gamerules реворкнуты в 26.x**: константы `GameRule.*` депрекейтнуты под
   удаление, новые живут в `org.bukkit.GameRules` с ванильными именами 26.1:
   `DO_MOB_SPAWNING`→`SPAWN_MOBS`, `DO_INSOMNIA`→`SPAWN_PHANTOMS`,

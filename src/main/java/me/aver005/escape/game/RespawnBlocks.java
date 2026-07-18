@@ -124,7 +124,8 @@ public class RespawnBlocks
             return false;
         }
 
-        session.rememberEditedBlock(block); // прежнее состояние (обычно воздух) — для отката
+        // блок уже заменён событием — прежнее состояние берём из replaced state
+        session.rememberEditedBlock(block.getLocation(), e.getBlockReplacedState().getBlockData());
         rb.placedAt = block.getLocation();
         ownerByLocation.put(rb.placedAt, rb.owner);
 

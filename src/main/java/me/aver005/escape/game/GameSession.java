@@ -1028,6 +1028,15 @@ public class GameSession
         editedBlocks.putIfAbsent(block.getLocation(), block.getBlockData().clone());
     }
 
+    /**
+     * То же, но с явным «прежним» состоянием — для BlockPlaceEvent, где блок
+     * в мире уже заменён и читать его поздно (нужен getBlockReplacedState).
+     */
+    public void rememberEditedBlock(Location loc, BlockData original)
+    {
+        editedBlocks.putIfAbsent(loc, original.clone());
+    }
+
     public void dropInventory(Player p, Location where)
     {
         for (ItemStack item : p.getInventory().getContents())
