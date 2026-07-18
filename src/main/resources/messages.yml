@@ -46,7 +46,7 @@ game:
   assistant-name: "<green>Личный проводник"
   assistant-lore:
     - "<white>Помогает ориентироваться по карте"
-    - "<white>Даёт подсказки <yellow>БЕСПЛАТНО"
+    - "<white>Выберите цель — стрелка укажет путь"
     - "<gray>Для использования <b>ПКМ</b>"
   salary: "<yellow>[Оповещение] <dark_green>Надзиратели отвернулись — вам подкинули <yellow><n> <gold>золота<dark_green>."
   glow-warning: "<yellow>[Оповещение] <dark_green>Все игроки подсвечены."
@@ -114,6 +114,7 @@ assistant:
   menu-title: "<dark_purple><b>Личный помощник"
   used-header: "<yellow>.:: <ability> <yellow>::."
   coords: "<yellow>. Координаты <white>=> <aqua><x> <yellow>| <aqua><y> <yellow>| <aqua><z>"
+  compass-points: "<dark_green>Стрелка проводника теперь указывает на цель."
   cooldown-1: "<red>.:: <b>Ошибка</b> <red>::."
   cooldown-2: "<red>. <yellow>Вы недавно уже использовали это."
   cooldown-3: "<red>. <yellow>До следующего раза: <b><seconds> сек.</b>"
@@ -455,6 +456,9 @@ npc:
   themes-button: "<green>Темки"
   themes-button-lore:
     - "<gray>Задания смотрящего: сделал — сдал — получил"
+  back-button: "<yellow>Назад"
+  back-button-lore:
+    - "<gray>Вернуться к выбору"
 
 theme:
   menu-title-prefix: "Темки: "
@@ -470,6 +474,9 @@ theme:
   lore-drop: "<red>Клик — бросить темку (кулдаун на новую)"
   taken: "<dark_green>Темка взята: <gray><description> <dark_green>Награда: <gold><gold> золота<dark_green>."
   already-active: "<red>У вас уже есть активная темка. Сначала сдайте или бросьте её."
+  already-completed: "<red>Эту темку вы уже сдавали — второй раз смотрящий не заплатит."
+  completed-name: "<gray>Темка «<id>» — сдана"
+  lore-completed: "<dark_gray>Уже выполнена в этом матче."
   cooldown: "<red>Смотрящий вам не доверяет: новая темка через <yellow><seconds> сек<red>."
   dropped: "<yellow>Темка брошена. Новую можно взять через <red><seconds> сек<yellow>."
   progress: "<dark_green>Темка: <yellow><progress><dark_green>/<yellow><amount>"

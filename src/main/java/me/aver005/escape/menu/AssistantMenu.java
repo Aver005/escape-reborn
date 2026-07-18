@@ -78,8 +78,17 @@ public class AssistantMenu extends Menu
     private void sendCoords(Player p, String headerKey, Location loc)
     {
         Msg.send(p, "assistant.used-header", Msg.phC("ability", Msg.get(headerKey)));
-        Msg.send(p, "assistant.coords",
-            Msg.ph("x", loc.getBlockX()), Msg.ph("y", loc.getBlockY()), Msg.ph("z", loc.getBlockZ()));
+        if (Items.pointAssistantCompass(p, loc))
+        {
+            Msg.send(p, "assistant.compass-points");
+        }
+        else
+        {
+            // компас утерян (выпал при смерти) — фолбэк на координаты
+            Msg.send(p, "assistant.coords",
+                Msg.ph("x", loc.getBlockX()), Msg.ph("y", loc.getBlockY()), Msg.ph("z", loc.getBlockZ()));
+        }
+        p.closeInventory();
     }
 
     private void useNearest(Player p, String ability, String nameKey, List<Location> pool, String emptyKey)

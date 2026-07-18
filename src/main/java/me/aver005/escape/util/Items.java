@@ -67,6 +67,24 @@ public final class Items
         return named(mat, Component.space());
     }
 
+    /**
+     * Навести компас-проводник игрока на цель (lodestone-трекинг без маяка).
+     * false — компаса в инвентаре нет (выпал при смерти и т.п.).
+     */
+    public static boolean pointAssistantCompass(org.bukkit.entity.Player p, org.bukkit.Location target)
+    {
+        for (ItemStack item : p.getInventory().getContents())
+        {
+            if (!isSpecial(item, "assistant")) {continue;}
+            if (!(item.getItemMeta() instanceof org.bukkit.inventory.meta.CompassMeta meta)) {continue;}
+            meta.setLodestoneTracked(false);
+            meta.setLodestone(target);
+            item.setItemMeta(meta);
+            return true;
+        }
+        return false;
+    }
+
     /** Сколько предметов материала в инвентаре игрока. */
     public static int countMaterial(org.bukkit.entity.Player p, Material mat)
     {

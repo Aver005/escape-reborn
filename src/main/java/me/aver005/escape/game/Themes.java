@@ -61,6 +61,7 @@ public class Themes
     {
         MatchPlayer data = session.matchData(p.getUniqueId());
         if (data == null || !theme.isComplete()) {return false;}
+        if (data.completedThemes.contains(theme.getId())) {Msg.send(p, "theme.already-completed"); return false;}
         if (data.themeId != null) {Msg.send(p, "theme.already-active"); return false;}
         long left = cooldownLeft(p);
         if (left > 0) {Msg.send(p, "theme.cooldown", Msg.ph("seconds", left)); return false;}
@@ -224,7 +225,11 @@ public class Themes
     {
         session.giveGold(p, theme.getGold());
         MatchPlayer data = session.matchData(p.getUniqueId());
-        if (data != null) {data.quests++;}
+        if (data != null)
+        {
+            data.quests++;
+            data.completedThemes.add(theme.getId());
+        }
         plugin.stats().add(p.getUniqueId(), p.getName(), "quests_completed", 1);
         Msg.send(p, "theme.complete", Msg.ph("gold", theme.getGold()));
         p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);

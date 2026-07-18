@@ -42,8 +42,8 @@ public class NpcMenu extends Menu
         if (!session.isPlaying(p.getUniqueId())) {return;}
         switch (e.getRawSlot())
         {
-            case SLOT_SHOP -> new ShopMenu(plugin, session, npc).open(p);
-            case SLOT_THEMES -> new ThemesMenu(plugin, session, npc, villager).open(p);
+            case SLOT_SHOP -> new ShopMenu(plugin, session, npc, villager).open(p);
+            case SLOT_THEMES -> new ThemesMenu(plugin, session, npc, villager, true).open(p);
             default -> {}
         }
     }

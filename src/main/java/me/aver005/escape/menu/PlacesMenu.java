@@ -47,8 +47,15 @@ public class PlacesMenu extends Menu
         String name = session.getArena().getLevers().get(loc);
         Msg.send(p, "assistant.used-header",
             Msg.phC("ability", Msg.get("assistant.place-item-name", Msg.ph("place", name))));
-        Msg.send(p, "assistant.coords",
-            Msg.ph("x", loc.getBlockX()), Msg.ph("y", loc.getBlockY()), Msg.ph("z", loc.getBlockZ()));
+        if (Items.pointAssistantCompass(p, loc))
+        {
+            Msg.send(p, "assistant.compass-points");
+        }
+        else
+        {
+            Msg.send(p, "assistant.coords",
+                Msg.ph("x", loc.getBlockX()), Msg.ph("y", loc.getBlockY()), Msg.ph("z", loc.getBlockZ()));
+        }
 
         int seconds = plugin.getConfig().getInt("assistant.places", 90);
         session.setCooldown(p.getUniqueId() + ":places", seconds * 1000L);

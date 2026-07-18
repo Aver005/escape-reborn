@@ -31,6 +31,8 @@ public class MatchPlayer
     public UUID themeIssuer = null;
     /** До какого момента нельзя брать новую темку (после броска). */
     public long themeCooldownUntil = 0L;
+    /** Сданные темки: повторно взять нельзя (одна темка = один раз за матч). */
+    public final Set<String> completedThemes = new HashSet<>();
 
     public MatchPlayer(UUID uuid, String name)
     {

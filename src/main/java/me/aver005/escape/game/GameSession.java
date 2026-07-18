@@ -417,7 +417,7 @@ public class GameSession
         fork.setItemMeta(meta);
         p.getInventory().addItem(fork);
         p.getInventory().addItem(new ItemStack(Material.GOLD_INGOT, arena.getStartGold()));
-        p.getInventory().addItem(Items.special(Material.PAPER,
+        p.getInventory().addItem(Items.special(Material.COMPASS,
             Msg.get("game.assistant-name"), Msg.getList("game.assistant-lore"), "assistant"));
         p.getInventory().addItem(respawnBlocks.initFor(p));
     }
@@ -533,11 +533,11 @@ public class GameSession
     }
 
     /**
-     * Случайный износ лута (wear-min/max-percent арены): каждый найденный
-     * предмет с прочностью ломан по-своему. Предметы с уже заданным уроном
-     * (выставлен руками через additem) не трогаются.
+     * Случайный износ (wear-min/max-percent арены): каждый предмет с прочностью
+     * ломан по-своему — и в луте, и в покупках у торговцев. Предметы с уже
+     * заданным уроном (выставлен руками через additem/addtrade) не трогаются.
      */
-    private ItemStack applyWear(ItemStack item)
+    public ItemStack applyWear(ItemStack item)
     {
         int maxPct = arena.getWearMaxPercent();
         if (maxPct <= 0) {return item;}

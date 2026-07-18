@@ -24,20 +24,29 @@ import org.bukkit.inventory.meta.ItemMeta;
 public class ThemesMenu extends Menu
 {
     private static final int SLOT_ACTIVE = 22;
+    private static final int SLOT_BACK = 27;
 
     private final EscapePlugin plugin;
     private final GameSession session;
     private final TraderType npc;
     private final Villager villager;
+    private final boolean showBack;
     private final Map<Integer, Theme> themeBySlot = new HashMap<>();
 
     public ThemesMenu(EscapePlugin plugin, GameSession session, TraderType npc, Villager villager)
+    {
+        this(plugin, session, npc, villager, false);
+    }
+
+    /** showBack — открыто из меню совмещённого NPC, показать «Назад». */
+    public ThemesMenu(EscapePlugin plugin, GameSession session, TraderType npc, Villager villager, boolean showBack)
     {
         super(36, Msg.get("theme.menu-title-prefix").append(npc.displayName()));
         this.plugin = plugin;
         this.session = session;
         this.npc = npc;
         this.villager = villager;
+        this.showBack = showBack;
         render(null);
     }
 
@@ -47,25 +56,39 @@ public class ThemesMenu extends Menu
         inventory.clear();
         fillBorder(Material.GREEN_STAINED_GLASS_PANE);
 
+        MatchPlayer data = viewer == null ? null : session.matchData(viewer.getUniqueId());
+
         int slot = 10;
         for (String themeId : npc.getThemes())
         {
             Theme theme = plugin.themes().get(themeId);
             if (theme == null || !theme.isComplete()) {continue;}
             if (slot > 16) {break;}
-            inventory.setItem(slot, themeItem(theme));
-            themeBySlot.put(slot, theme);
+            if (data != null && data.completedThemes.contains(themeId))
+            {
+                inventory.setItem(slot, completedItem(theme));
+            }
+            else
+            {
+                inventory.setItem(slot, themeItem(theme));
+                themeBySlot.put(slot, theme);
+            }
             slot++;
         }
 
-        if (viewer != null)
+        if (data != null && data.themeId != null)
         {
-            MatchPlayer data = session.matchData(viewer.getUniqueId());
-            Theme active = data == null || data.themeId == null ? null : plugin.themes().get(data.themeId);
+            Theme active = plugin.themes().get(data.themeId);
             if (active != null)
             {
                 inventory.setItem(SLOT_ACTIVE, activeItem(active, data));
             }
+        }
+
+        if (showBack)
+        {
+            inventory.setItem(SLOT_BACK, Items.named(Material.ARROW,
+                Msg.get("npc.back-button"), Msg.getList("npc.back-button-lore")));
         }
     }
 
@@ -85,6 +108,15 @@ public class ThemesMenu extends Menu
         lore.add(Component.empty());
         lore.add(Msg.get("theme.lore-take"));
         return Items.named(Material.BOOK, Msg.get("theme.item-name", Msg.ph("id", theme.getId())), lore);
+    }
+
+    private ItemStack completedItem(Theme theme)
+    {
+        List<Component> lore = new ArrayList<>();
+        lore.add(Msg.get("theme.lore-description", Msg.phMm("description", theme.getDescription())));
+        lore.add(Component.empty());
+        lore.add(Msg.get("theme.lore-completed"));
+        return Items.named(Material.GRAY_DYE, Msg.get("theme.completed-name", Msg.ph("id", theme.getId())), lore);
     }
 
     private ItemStack activeItem(Theme theme, MatchPlayer data)
@@ -119,6 +151,12 @@ public class ThemesMenu extends Menu
     {
         if (!(e.getWhoClicked() instanceof Player p)) {return;}
         if (!session.isPlaying(p.getUniqueId())) {return;}
+
+        if (showBack && e.getRawSlot() == SLOT_BACK)
+        {
+            new NpcMenu(plugin, session, npc, villager).open(p);
+            return;
+        }
 
         if (e.getRawSlot() == SLOT_ACTIVE)
         {

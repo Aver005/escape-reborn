@@ -24,14 +24,31 @@ public class ShopMenu extends Menu
 {
     private final EscapePlugin plugin;
     private final GameSession session;
+    private final TraderType trader;
+    private final org.bukkit.entity.Villager backVillager; // null — без кнопки «назад»
+    private final int backSlot;
     private final Map<Integer, Trade> tradeBySlot = new HashMap<>();
 
     public ShopMenu(EscapePlugin plugin, GameSession session, TraderType trader)
     {
+        this(plugin, session, trader, null);
+    }
+
+    /** backVillager != null — открыт из меню совмещённого NPC, показать «Назад». */
+    public ShopMenu(EscapePlugin plugin, GameSession session, TraderType trader, org.bukkit.entity.Villager backVillager)
+    {
         super(rowsFor(trader) * 9, Msg.get("shop.title-prefix").append(trader.displayName()));
         this.plugin = plugin;
         this.session = session;
+        this.trader = trader;
+        this.backVillager = backVillager;
+        this.backSlot = inventory.getSize() - 9;
         fillBorder(Material.PURPLE_STAINED_GLASS_PANE);
+        if (backVillager != null)
+        {
+            inventory.setItem(backSlot, Items.named(Material.ARROW,
+                Msg.get("npc.back-button"), Msg.getList("npc.back-button-lore")));
+        }
 
         int slot = 10;
         for (Trade trade : trader.getTrades())
@@ -69,6 +86,11 @@ public class ShopMenu extends Menu
     {
         if (!(e.getWhoClicked() instanceof Player p)) {return;}
         if (!session.isPlaying(p.getUniqueId())) {return;}
+        if (backVillager != null && e.getRawSlot() == backSlot)
+        {
+            new NpcMenu(plugin, session, this.trader, backVillager).open(p);
+            return;
+        }
         Trade trade = tradeBySlot.get(e.getRawSlot());
         if (trade == null) {return;}
 
@@ -77,7 +99,7 @@ public class ShopMenu extends Menu
         if (p.getInventory().firstEmpty() == -1) {Msg.send(p, "shop.no-space"); return;}
 
         Items.takeMaterial(p, Material.GOLD_INGOT, trade.price());
-        p.getInventory().addItem(trade.item().clone());
+        p.getInventory().addItem(session.applyWear(trade.item().clone()));
 
         MatchPlayer data = session.matchData(p.getUniqueId());
         if (data != null) {data.trades++;}
