@@ -54,7 +54,17 @@ public class GameListener implements Listener
     @EventHandler(ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent e)
     {
-        if (session(e.getPlayer()) != null) {e.setCancelled(true);}
+        Player p = e.getPlayer();
+        GameSession session = session(p);
+        if (session == null) {return;}
+
+        // блок возрождения — единственное, что игрок может ставить
+        if (session.isPlaying(p.getUniqueId()) && Items.isSpecial(e.getItemInHand(), "respawn_block"))
+        {
+            if (!session.respawnBlocks().tryPlace(p, e)) {e.setCancelled(true);}
+            return;
+        }
+        e.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -68,6 +78,9 @@ public class GameListener implements Listener
         Block block = e.getBlock();
         Material type = block.getType();
         String name = type.name();
+
+        // блок возрождения: свой — перенос, чужой — уничтожение с наградой
+        if (session.respawnBlocks().handleBreak(p, block, e)) {return;}
 
         if (type == Material.IRON_BARS)
         {
@@ -144,7 +157,7 @@ public class GameListener implements Listener
             e.setCancelled(true);
             session.dropInventory(p, p.getLocation());
             p.setHealth(20.0);
-            session.eliminate(p, false);
+            session.handleDeath(p);
         }
     }
 
@@ -183,6 +196,12 @@ public class GameListener implements Listener
                 new AssistantMenu(plugin, session).open(p);
                 return;
             }
+            if (Items.isSpecial(item, "insight"))
+            {
+                e.setCancelled(true);
+                session.respawnBlocks().useInsight(p, item);
+                return;
+            }
         }
 
         if (action == Action.PHYSICAL)
@@ -195,6 +214,23 @@ public class GameListener implements Listener
         if (action != Action.RIGHT_CLICK_BLOCK) {return;}
         Block block = e.getClickedBlock();
         if (block == null) {return;}
+
+        // ПКМ по блоку возрождения: свой — меню прокачки
+        var respawnBlock = session.respawnBlocks().byLocation(block.getLocation());
+        if (respawnBlock != null)
+        {
+            e.setCancelled(true);
+            if (respawnBlock.owner.equals(p.getUniqueId()))
+            {
+                new me.aver005.escape.menu.RespawnUpgradeMenu(plugin, session, respawnBlock).open(p);
+            }
+            else
+            {
+                Msg.send(p, "respawn-block.enemy-info", Msg.ph("player", respawnBlock.ownerName));
+            }
+            return;
+        }
+
         Material type = block.getType();
 
         // запрещённые станции (зачарование разрешено!)
@@ -301,6 +337,24 @@ public class GameListener implements Listener
         });
     }
 
+    /** Блок возрождения нельзя спрятать в сундук/контейнер. */
+    @EventHandler(ignoreCancelled = true)
+    public void onInventoryClick(org.bukkit.event.inventory.InventoryClickEvent e)
+    {
+        if (!(e.getWhoClicked() instanceof Player p)) {return;}
+        GameSession session = session(p);
+        if (session == null || !session.isPlaying(p.getUniqueId())) {return;}
+        var top = e.getView().getTopInventory();
+        if (top.getHolder() instanceof me.aver005.escape.menu.Menu) {return;}
+        if (top.getType() == org.bukkit.event.inventory.InventoryType.CRAFTING) {return;}
+
+        boolean intoTop = e.getRawSlot() >= 0 && e.getRawSlot() < top.getSize()
+            && Items.isSpecial(e.getCursor(), "respawn_block");
+        boolean shiftFromBottom = e.getRawSlot() >= top.getSize()
+            && e.isShiftClick() && Items.isSpecial(e.getCurrentItem(), "respawn_block");
+        if (intoTop || shiftFromBottom) {e.setCancelled(true);}
+    }
+
     // ===== разное =====
 
     @EventHandler(ignoreCancelled = true)
@@ -312,6 +366,12 @@ public class GameListener implements Listener
         if (session.isLobbyMember(p.getUniqueId())) {e.setCancelled(true); return;}
         if (session.isPlaying(p.getUniqueId()))
         {
+            // блок возрождения нельзя выбросить вручную
+            if (Items.isSpecial(e.getItemDrop().getItemStack(), "respawn_block"))
+            {
+                e.setCancelled(true);
+                return;
+            }
             session.trackDrop(e.getItemDrop());
             if (session.getCurrentEvent() == GameEvent.SEARCH) {session.flagEventAction(p);}
         }

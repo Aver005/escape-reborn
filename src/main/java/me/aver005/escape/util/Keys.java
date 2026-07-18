@@ -15,6 +15,7 @@ public final class Keys
     public static NamespacedKey LOOT_INDEX;        // индекс записи в редакторе лута
     public static NamespacedKey PAPER_NONCE;       // анти-стак для бумаг-контрактов
     public static NamespacedKey TRADER_TYPE;       // тип торговца на сущности жителя
+    public static NamespacedKey RESPAWN_OWNER;     // владелец предмета-блока возрождения
 
     private Keys() {}
 
@@ -29,5 +30,6 @@ public final class Keys
         LOOT_INDEX = new NamespacedKey(plugin, "loot_index");
         PAPER_NONCE = new NamespacedKey(plugin, "paper_nonce");
         TRADER_TYPE = new NamespacedKey(plugin, "trader_type");
+        RESPAWN_OWNER = new NamespacedKey(plugin, "respawn_owner");
     }
 }

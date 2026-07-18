@@ -28,3 +28,8 @@ assistant:
 
 # Рефилл сундуков
 chest-refill-seconds: 180
+
+# Блоки возрождения
+respawn-block:
+  lightning-interval-seconds: 300  # молния по всем установленным блокам
+  respawn-delay-seconds: 5         # пауза в спектаторах перед возрождением

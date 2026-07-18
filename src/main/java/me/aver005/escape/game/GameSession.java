@@ -89,11 +89,15 @@ public class GameSession
     private final Map<UUID, Location> eventPositions = new HashMap<>();
     private final Set<UUID> eventFlagged = new HashSet<>();
     private boolean bloodMoon = false;
+    private boolean glowActive = false;
+    private boolean finalBattleStarted = false;
+    private final RespawnBlocks respawnBlocks;
 
     public GameSession(EscapePlugin plugin, Arena arena)
     {
         this.plugin = plugin;
         this.arena = arena;
+        this.respawnBlocks = new RespawnBlocks(plugin, this);
     }
 
     // ===== доступ =====
@@ -114,6 +118,9 @@ public class GameSession
     public List<Location> getTraderLocations() {return traderLocations;}
     public Map<Location, UUID> getChestStands() {return chestStands;}
     public GameEvent getCurrentEvent() {return currentEvent;}
+    public RespawnBlocks respawnBlocks() {return respawnBlocks;}
+    public boolean isFinalBattle() {return finalBattleStarted;}
+    public boolean isGlowActive() {return glowActive;}
 
     public long cooldownLeft(String key)
     {
@@ -345,6 +352,9 @@ public class GameSession
         lobby.clear();
         warmupDamage.clear();
 
+        // «Молния прозрения»: 1 на матч + 1 за каждую пару игроков
+        respawnBlocks.distributeInsight(activeChests, playing.size());
+
         mainTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
     }
 
@@ -361,6 +371,7 @@ public class GameSession
         p.getInventory().addItem(new ItemStack(Material.GOLD_INGOT, arena.getStartGold()));
         p.getInventory().addItem(Items.special(Material.PAPER,
             Msg.get("game.assistant-name"), Msg.getList("game.assistant-lore"), "assistant"));
+        p.getInventory().addItem(respawnBlocks.initFor(p));
     }
 
     private void placeChests()
@@ -533,17 +544,24 @@ public class GameSession
         if (remaining > 0 && remaining % salaryInterval == 0)
         {
             gameChat.systemKey("game.salary", Msg.ph("n", arena.getSalaryGold()));
-            forEachOnline(playing, p ->
+            forEachPlaying(p ->
             {
                 p.getWorld().strikeLightningEffect(p.getLocation());
                 giveGold(p, arena.getSalaryGold());
             });
         }
 
+        int strikeInterval = Math.max(60, plugin.getConfig().getInt("respawn-block.lightning-interval-seconds", 300));
+        if (remaining > 0 && remaining % strikeInterval == 0 && remaining != arena.getDurationSeconds())
+        {
+            respawnBlocks.strikeAll();
+        }
+
         if (remaining == arena.getGlowSecondsBeforeEnd())
         {
+            glowActive = true;
             gameChat.systemKey("game.glow-warning");
-            forEachOnline(playing, p ->
+            forEachPlaying(p ->
             {
                 p.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0, false, false));
                 giveGold(p, arena.getGlowBonusGold());
@@ -591,7 +609,7 @@ public class GameSession
     {
         GameEvent event = currentEvent;
         currentEvent = null;
-        forEachOnline(playing, p -> event.resolvePlayer(this, p));
+        forEachPlaying(p -> event.resolvePlayer(this, p));
         event.onEnd(this);
         eventPositions.clear();
         eventFlagged.clear();
@@ -612,9 +630,15 @@ public class GameSession
     public void setBloodMoon(boolean v) {bloodMoon = v;}
     public boolean isBloodMoon() {return bloodMoon;}
 
+    /** Живые игроки, кроме ожидающих возрождения (те 5 сек «мертвы»). */
     public void forEachPlaying(java.util.function.Consumer<Player> action)
     {
-        forEachOnline(playing, action);
+        for (UUID id : new ArrayList<>(playing))
+        {
+            if (respawnBlocks.isAwaitingRespawn(id)) {continue;}
+            Player p = Bukkit.getPlayer(id);
+            if (p != null && p.isOnline()) {action.accept(p);}
+        }
     }
 
     /** BRIBE: случайный предмет из пула лута арены. false — пул пуст. */
@@ -635,6 +659,12 @@ public class GameSession
     {
         cancelTask(mainTask);
         mainTask = null;
+        finalBattleStarted = true;
+        if (respawnBlocks.hasPlacedBlocks())
+        {
+            gameChat.systemKey("respawn-block.annul-broadcast");
+            respawnBlocks.annulAll();
+        }
         gameChat.systemKey("game.final-battle");
         List<Location> pool = arena.getFinalSpawns().isEmpty() ? arena.getSpawns() : arena.getFinalSpawns();
         List<Location> shuffled = new ArrayList<>(pool);
@@ -810,6 +840,8 @@ public class GameSession
         for (ItemStack item : p.getInventory().getContents())
         {
             if (item == null || item.getType().isAir()) {continue;}
+            // блок возрождения не выпадает — он гибнет вместе с владельцем
+            if (Items.isSpecial(item, "respawn_block")) {continue;}
             Item drop = p.getWorld().dropItem(where.clone().add(0, 1.2, 0), item);
             droppedItems.add(drop.getUniqueId());
         }
@@ -821,15 +853,49 @@ public class GameSession
         droppedItems.add(item.getUniqueId());
     }
 
-    /** Фейковая смерть: игрок становится наблюдателем. quit = вышел с сервера. */
+    /** Смерть от урона: сначала попытка возрождения на блоке, иначе выбывание. */
+    public void handleDeath(Player p)
+    {
+        UUID id = p.getUniqueId();
+        if (!playing.contains(id)) {return;}
+
+        creditKillAndAnnounce(p);
+        plugin.stats().add(id, p.getName(), "deaths", 1);
+
+        MatchPlayer data = matchData.get(id);
+        if (data != null) {data.lastDamager = null;}
+
+        if (respawnBlocks.tryScheduleRespawn(p)) {return;}
+        finishElimination(p, false);
+    }
+
+    /** Окончательное выбывание без возрождения (leave / quit / кик). */
     public void eliminate(Player p, boolean quit)
     {
         UUID id = p.getUniqueId();
-        if (!playing.remove(id)) {return;}
+        if (!playing.contains(id)) {return;}
+        if (respawnBlocks.cancelPendingRespawn(id))
+        {
+            // игрок вышел, ожидая возрождения: смерть уже объявлена
+            finishElimination(p, quit);
+            return;
+        }
+        creditKillAndAnnounce(p);
+        plugin.stats().add(id, p.getName(), "deaths", 1);
+        finishElimination(p, quit);
+    }
 
-        MatchPlayer data = matchData.get(id);
+    /** Выбывание игрока, чья смерть уже объявлена (сорвавшееся отложенное возрождение). */
+    public void eliminateAfterFailedRespawn(Player p)
+    {
+        if (!playing.contains(p.getUniqueId())) {return;}
+        finishElimination(p, false);
+    }
 
-        // кредит убийства
+    /** Кредит убийце (счёт, контракты, прогресс изумрудного блока) + сообщение о смерти. */
+    private void creditKillAndAnnounce(Player p)
+    {
+        MatchPlayer data = matchData.get(p.getUniqueId());
         if (data != null && data.lastDamager != null
             && System.currentTimeMillis() - data.lastDamagerAt <= KILL_CREDIT_MILLIS
             && playing.contains(data.lastDamager))
@@ -841,18 +907,24 @@ public class GameSession
                 if (killerData != null) {killerData.kills++;}
                 plugin.stats().add(killer.getUniqueId(), killer.getName(), "kills", 1);
                 progressContracts(killer, ContractType.KILLS, c -> true, 1);
+                respawnBlocks.onOwnerKill(killer);
             }
         }
-
-        plugin.stats().add(id, p.getName(), "deaths", 1);
-        plugin.stats().add(id, p.getName(), "loses", 1);
 
         String deadMsgRaw = randomDeadMessage();
         gameChat.system(Msg.get("game.death-broadcast",
             Msg.phC("message", Msg.mm(deadMsgRaw, Msg.ph("player", p.getName())))));
         spectatorChat.system(Msg.get("game.death-broadcast",
             Msg.phC("message", Msg.mm(deadMsgRaw, Msg.ph("player", p.getName())))));
+    }
+
+    private void finishElimination(Player p, boolean quit)
+    {
+        UUID id = p.getUniqueId();
+        playing.remove(id);
         gameChat.remove(id);
+        plugin.stats().add(id, p.getName(), "loses", 1);
+        respawnBlocks.onOwnerEliminated(id);
 
         if (!quit)
         {
@@ -1023,6 +1095,9 @@ public class GameSession
         eventPositions.clear();
         eventFlagged.clear();
         bloodMoon = false;
+        glowActive = false;
+        finalBattleStarted = false;
+        respawnBlocks.clear();
 
         dispose();
     }

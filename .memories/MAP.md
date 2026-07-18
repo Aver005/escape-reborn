@@ -40,7 +40,10 @@ escape-reborn/
         │   ├── GameSession.java       # ЯДРО (см. ARCHITECTURE)
         │   ├── GameEvent.java         # enum 12 случайных событий (окно/canStart/onTick/resolve)
         │   ├── MatchPlayer.java       # per-match: kills/quests/trades/ores, lastDamager, lootedChests
-        │   └── ChatChannel.java       # канал чата (формат из messages.yml, system/chat)
+        │   ├── ChatChannel.java       # канал чата (формат из messages.yml, system/chat)
+        │   ├── RespawnTier.java       # 5 уровней блока возрождения (цены/награды/анимации)
+        │   ├── RespawnBlock.java      # данные блока одного игрока (уровень/заряды/позиция)
+        │   └── RespawnBlocks.java     # менеджер: установка/перенос/прокачка/респаун/молнии/прозрение
         ├── contract/
         │   ├── Contract.java          # модель; isComplete() = готов к выдаче
         │   ├── ContractType.java      # KILLS/ACTIVATE/MINE/FIND/BREAK/LOOT
@@ -61,7 +64,8 @@ escape-reborn/
         │   ├── PlacesMenu.java        # «Отмеченные локации» (рычаги)
         │   ├── ShopMenu.java          # магазин торговца (покупка за золото)
         │   ├── TradeEditorMenu.java   # админ: добавить трейд (цена кнопками)
-        │   └── LootEditorMenu.java    # админ: пул лута (пересборка на onClose)
+        │   ├── LootEditorMenu.java    # админ: пул лута (пересборка на onClose)
+        │   └── RespawnUpgradeMenu.java# прокачка блока возрождения (ПКМ по блоку)
         ├── listener/
         │   ├── GameListener.java      # блоки/бой/смерть/предметы/сундуки/join-quit
         │   ├── SetupListener.java     # установка маркеров → точки арены
