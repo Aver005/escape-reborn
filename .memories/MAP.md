@@ -1,0 +1,79 @@
+# MAP — карта репозитория
+
+Last updated: 2026-07-18
+
+```
+escape-reborn/
+├── CLAUDE.md                  # ГЛАВНЫЙ бридж: порядок работы, команды, правила, definition of done
+├── AGENTS.md                  # тонкий указатель на CLAUDE.md (для не-Claude агентов)
+├── .memories/                 # эта база знаний
+├── docs/                      # проектная документация (русский)
+│   ├── README.md              #   оглавление + история версий оригинала
+│   ├── 01-game-design.md      #   концепция и игровой цикл (по оригиналу 2021)
+│   ├── 02-mechanics.md        #   все механики детально
+│   ├── 03-admin-and-arena-setup.md  # команды/настройка оригинала
+│   ├── 04-version-diff.md     #   2020 vs 2021 vs 2025
+│   ├── 05-quirks-bugs-unfinished.md # фишки/16 багов/недоделки оригинала
+│   ├── 06-reborn-questions.md #   вопросы владельцу (закрыты ответами)
+│   ├── 07-decisions.md        #   УТВЕРЖДЁННЫЕ решения = требования MVP
+│   └── 08-reborn-guide.md     #   сборка/структура/админ-квикстарт новой версии
+├── .old/                      # оригиналы (референс, НЕ трогаем)
+│   ├── escape-2020/           #   Spigot 1.12.2
+│   ├── escape-2021-1.16.5/    #   Spigot 1.16.4 — база для reborn
+│   └── escape-2025-1.21.5/    #   байт-копия 2021 (порт не был начат)
+├── build.gradle.kts           # Java 25 toolchain, paper-api, задача deploy
+├── settings.gradle.kts        # foojay-resolver (автоскачивание JDK)
+├── gradlew(.bat), gradle/     # wrapper 9.6.1
+└── src/main/
+    ├── resources/
+    │   ├── plugin.yml         # main, команда escape [es, esc], права
+    │   ├── config.yml         # дефолты арен, кулдауны помощника, рефилл
+    │   └── messages.yml       # ВСЕ тексты (MiniMessage)
+    └── java/me/aver005/escape/
+        ├── EscapePlugin.java          # onEnable/onDisable, wiring, joinArena
+        ├── arena/
+        │   ├── Arena.java             # модель + load/save arenas/<ID>/{arena,locations,loot}.yml
+        │   ├── ArenaManager.java      # реестр арен + Map игрок→сессия + delete/stopAll
+        │   └── WeightedItem.java      # record: предмет + вес лута
+        ├── game/
+        │   ├── GameSession.java       # ЯДРО (см. ARCHITECTURE)
+        │   ├── GameEvent.java         # enum 5 случайных событий (check/onPass/onFail)
+        │   ├── MatchPlayer.java       # per-match: kills/quests/trades/ores, lastDamager, lootedChests
+        │   └── ChatChannel.java       # канал чата (формат из messages.yml, system/chat)
+        ├── contract/
+        │   ├── Contract.java          # модель; isComplete() = готов к выдаче
+        │   ├── ContractType.java      # KILLS/ACTIVATE/MINE/FIND/BREAK/LOOT
+        │   ├── ContractRegistry.java  # contracts.yml
+        │   └── ContractPapers.java    # бумага «Задание»: PDC id/progress/nonce + лор
+        ├── trader/
+        │   ├── TraderType.java        # тип торговца: имя (MiniMessage) + трейды
+        │   ├── Trade.java             # record: предмет + цена
+        │   └── TraderRegistry.java    # traders.yml + byDisplayName fallback
+        ├── player/
+        │   └── PlayerSnapshot.java    # save/clear/restore/exists (snapshots/<uuid>.yml)
+        ├── stats/
+        │   └── StatsRepository.java   # SQLite: колонки-счётчики, recordGameKills, findByName
+        ├── menu/
+        │   ├── Menu.java              # база: InventoryHolder + allowsInteraction + onClose
+        │   ├── ArenaSelectMenu.java   # главное меню (лаймовая шерсть)
+        │   ├── AssistantMenu.java     # «Личный помощник»: 4 способности + кулдауны
+        │   ├── PlacesMenu.java        # «Отмеченные локации» (рычаги)
+        │   ├── ShopMenu.java          # магазин торговца (покупка за золото)
+        │   ├── TradeEditorMenu.java   # админ: добавить трейд (цена кнопками)
+        │   └── LootEditorMenu.java    # админ: пул лута (пересборка на onClose)
+        ├── listener/
+        │   ├── GameListener.java      # блоки/бой/смерть/предметы/сундуки/join-quit
+        │   ├── SetupListener.java     # установка маркеров → точки арены
+        │   ├── ChatListener.java      # каналы чата + блокировка команд в матче
+        │   ├── ProtectionListener.java# огонь/листва/висячие в мирах арен
+        │   └── MenuListener.java      # роутинг кликов в Menu
+        ├── command/
+        │   └── EscapeCommand.java     # все подкоманды + tab-completion
+        └── util/
+            ├── Msg.java               # messages.yml: get/send/list, ph/phMm/phC
+            ├── Items.java             # named/special/filler, countMaterial/takeMaterial
+            └── Keys.java              # все NamespacedKey (PDC)
+```
+
+Вне репозитория: тестовый сервер `E:\Servers\escape` (paper.jar 26.1.2,
+start.bat, plugins/EscapeReborn-1.0.0.jar; деплой — `./gradlew deploy`).

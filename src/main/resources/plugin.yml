@@ -1,0 +1,15 @@
+name: Escape
+main: me.aver005.escape.EscapePlugin
+version: '${version}'
+api-version: '1.21'
+author: Aver005
+description: Prison-escape last man standing minigame (reborn)
+commands:
+  escape:
+    description: Escape minigame
+    usage: /escape help
+    aliases: [es, esc]
+permissions:
+  escape.admin:
+    description: Escape admin commands
+    default: op

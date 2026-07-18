@@ -1,0 +1,30 @@
+# Глобальные настройки Escape.
+# Почти всё игровое настраивается per-arena в arenas/<id>/arena.yml —
+# здесь только значения по умолчанию для новых арен и общие параметры.
+
+defaults:
+  min-players: 2
+  max-players: 12
+  chest-count: 75
+  trader-count: 32
+  table-count: 5
+  duration-seconds: 1200        # 20 минут
+  event-interval-seconds: 210
+  salary-interval-seconds: 600
+  salary-gold: 16
+  glow-seconds-before-end: 600
+  glow-bonus-gold: 18
+  start-delay-seconds: 60       # отсчёт при наборе минимума
+  start-delay-full-seconds: 10  # отсчёт при полной арене
+  fork-uses: 1                  # одноразовая вилка
+  start-gold: 24
+
+# Кулдауны «Личного помощника», секунды
+assistant:
+  nearest-chest: 150
+  random-player: 240
+  nearest-trader: 180
+  places: 90
+
+# Рефилл сундуков
+chest-refill-seconds: 180
