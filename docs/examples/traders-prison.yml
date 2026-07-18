@@ -1,0 +1,67 @@
+# ============================================================================
+# Пример тюремных NPC для Escape (traders.yml).
+# Копировать в plugins/Escape/traders.yml (лучше при остановленных матчах),
+# затем /escape reload.
+#
+# Тип NPC = имя + товары и/или темки:
+#   - есть trades -> торговец (ПКМ открывает магазин);
+#   - есть themes -> смотрящий (ПКМ открывает темки);
+#   - есть и то и другое -> совмещённый NPC (ПКМ открывает выбор роли).
+#
+# Формат товара (рукописный, поддерживается наравне с сериализованным):
+#   - {type: BREAD, amount: 3, price: 2}   # price — золотые слитки (валюта)
+#
+# themes — список ID темок из themes.yml (пример: themes-prison.yml рядом).
+#
+# После правки файла привяжите точки спавна на арене:
+#   /escape addvillager ТЮРЬМА БАРЫГА   -> верстак-маркер, ставить в точках
+# Точек можно (и нужно) больше, чем параметр арены traders — при старте
+# матча точки перемешиваются и заселяется случайное подмножество.
+# ============================================================================
+
+traders:
+  # Совмещённый NPC: торгует ходовым и подкидывает темки
+  БАРЫГА:
+    name: "<gold>Барыга"
+    trades:
+      - {type: BREAD, amount: 3, price: 2}
+      - {type: COOKED_BEEF, amount: 2, price: 4}
+      - {type: GOLDEN_CARROT, amount: 1, price: 7}
+      - {type: ARROW, amount: 8, price: 3}
+      - {type: STONE_SWORD, price: 8}
+      - {type: SHIELD, price: 12}
+      - {type: GOLDEN_APPLE, price: 40}
+    themes:
+      - РАЗБОРКА
+      - МАЛЯВА
+
+  # Чистый торговец: снаряга (в противовес бомж-луту из сундуков — всё целое)
+  КЛАДОВЩИК:
+    name: "<aqua>Кладовщик"
+    trades:
+      - {type: IRON_PICKAXE, price: 16}
+      - {type: IRON_SHOVEL, price: 10}
+      - {type: STONE_AXE, price: 6}
+      - {type: CHAINMAIL_HELMET, price: 14}
+      - {type: CHAINMAIL_CHESTPLATE, price: 24}
+      - {type: CHAINMAIL_LEGGINGS, price: 20}
+      - {type: CHAINMAIL_BOOTS, price: 12}
+      - {type: SHEARS, price: 4}
+
+  # Повар: дешёвая еда оптом
+  ПОВАР:
+    name: "<green>Повар"
+    trades:
+      - {type: BREAD, amount: 6, price: 3}
+      - {type: BAKED_POTATO, amount: 6, price: 3}
+      - {type: COOKED_CHICKEN, amount: 3, price: 4}
+      - {type: PUMPKIN_PIE, amount: 2, price: 5}
+      - {type: MILK_BUCKET, price: 6}
+
+  # Чистый смотрящий: только темки, ничем не торгует
+  СМОТРЯЩИЙ:
+    name: "<red>Смотрящий"
+    themes:
+      - ШАХТЁРСКАЯ
+      - ПРОДПАЁК
+      - ОБХОД

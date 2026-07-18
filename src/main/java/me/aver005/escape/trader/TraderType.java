@@ -6,6 +6,7 @@ import java.util.Map;
 
 import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
 
@@ -36,10 +37,18 @@ public class TraderType
             Object rawItem = entry.get("item");
             Object rawPrice = entry.get("price");
             ItemStack item = null;
-            if (rawItem instanceof ItemStack is) {item = is;}
+            if (entry.get("type") instanceof String typeName)
+            {
+                // рукописный формат: {type: BREAD, amount: 3, price: 2}
+                Material mat = Material.matchMaterial(typeName);
+                if (mat == null || mat.isAir()) {continue;}
+                int amount = entry.get("amount") instanceof Number n ? Math.max(1, n.intValue()) : 1;
+                item = new ItemStack(mat, amount);
+            }
+            else if (rawItem instanceof ItemStack is) {item = is;}
             else if (rawItem instanceof Map<?, ?> map) {item = ItemStack.deserialize((Map<String, Object>) map);}
             if (item == null || !(rawPrice instanceof Number price)) {continue;}
-            t.trades.add(new Trade(item, price.intValue()));
+            t.trades.add(new Trade(item, Math.max(1, price.intValue())));
         }
         t.themes.addAll(sec.getStringList("themes"));
         return t;

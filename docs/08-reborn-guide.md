@@ -66,6 +66,15 @@ stats.db            — статистика (SQLite)
 /escape villagername БАРЫГА <gold>Барыга
 /escape addtrade БАРЫГА           — GUI: предмет в правый слот, цену кнопками, СОХРАНИТЬ
 /escape addvillager ТЮРЬМА БАРЫГА — верстак-маркер точки торговца
+```
+
+`traders.yml` можно писать и руками: товар —
+`- {type: BREAD, amount: 3, price: 2}` (наравне с сериализованным форматом),
+темки — список `themes: [ИД, ...]`. Готовые примеры: тюремные NPC —
+[examples/traders-prison.yml](examples/traders-prison.yml), темки к ним —
+[examples/themes-prison.yml](examples/themes-prison.yml).
+
+```
 
 /escape createtheme МАЛЯВА        — темка (задание смотрящего)
 /escape themetype МАЛЯВА COURIER  — KILLS/ACTIVATE/MINE/FIND/BREAK/LOOT/DELIVERY/COURIER
