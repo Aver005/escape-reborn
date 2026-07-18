@@ -4,6 +4,7 @@ Last updated: 2026-07-18
 
 ```
 escape-reborn/
+├── README.md                  # витрина проекта: что за игра, фичи, история, быстрый старт
 ├── CLAUDE.md                  # ГЛАВНЫЙ бридж: порядок работы, команды, правила, definition of done
 ├── AGENTS.md                  # тонкий указатель на CLAUDE.md (для не-Claude агентов)
 ├── .memories/                 # эта база знаний
