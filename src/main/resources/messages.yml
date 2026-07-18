@@ -354,9 +354,9 @@ respawn-block:
   insight-no-targets: "<yellow>Сейчас нет ни одного установленного блока возрождения."
 
 offline-guard:
-  left-broadcast: "<yellow>[Оповещение] <gray>Игрок <aqua><player> <gray>покинул матч — его страж простоит <yellow><seconds> сек<gray>. Убейте зомби!"
+  left-broadcast: "<yellow>[Оповещение] <gray>Игрок <aqua><player> <gray>покинул матч — его страж простоит <yellow><seconds> сек<gray>. Убейте стража!"
   eliminated: "<yellow>[Оповещение] <red><player> <yellow>не вернулся в матч — выбывает."
-  rejoined-zombie: "<dark_green>Вы вернулись в матч. Ваш страж-зомби распался, инвентарь цел."
+  rejoined-zombie: "<dark_green>Вы вернулись в матч. Ваш страж распался, инвентарь цел."
   rejoined-block: "<dark_green>Вы вернулись: страж пал, вещи потеряны, но блок возрождения вас спас."
   returned-no-block: "<red>Вы вернулись слишком поздно: стража нет, блока возрождения нет. Вы выбыли."
 

@@ -146,11 +146,14 @@ public class OfflineGuards
     {
         Location loc = p.getLocation();
         guard.zombieAt = loc.clone();
-        Zombie zombie = loc.getWorld().spawn(loc, Zombie.class, z ->
+        RespawnBlock rb = session.respawnBlocks().get(p.getUniqueId());
+        Class<? extends Zombie> guardType = rb != null ? rb.tier.guardType() : RespawnTier.COPPER.guardType();
+        Zombie zombie = loc.getWorld().spawn(loc, guardType, z ->
         {
             z.setAI(false);
             z.setShouldBurnInDay(false);
             z.setAdult();
+            if (z instanceof org.bukkit.entity.PigZombie pigZombie) {pigZombie.setAngry(false);}
             z.setPersistent(true);
             z.setRemoveWhenFarAway(false);
             z.setCanPickupItems(false);
