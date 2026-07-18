@@ -2,6 +2,7 @@ package me.aver005.escape.arena;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -100,7 +101,7 @@ public class ArenaManager
         {
             try (var stream = Files.walk(folder.toPath()))
             {
-                stream.sorted(Comparator.reverseOrder()).map(java.nio.file.Path::toFile).forEach(File::delete);
+                stream.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
             }
             catch (Exception e)
             {

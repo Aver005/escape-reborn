@@ -1,6 +1,10 @@
 package me.aver005.escape.util;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,15 +37,15 @@ public final class Msg
         if (!file.exists()) {plugin.saveResource("messages.yml", false);}
         config = YamlConfiguration.loadConfiguration(file);
         // дефолты из jar: новые ключи после обновления плагина работают без ручного слияния
-        try (java.io.InputStream in = plugin.getResource("messages.yml"))
+        try (InputStream in = plugin.getResource("messages.yml"))
         {
             if (in != null)
             {
                 config.setDefaults(YamlConfiguration.loadConfiguration(
-                    new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)));
+                    new InputStreamReader(in, StandardCharsets.UTF_8)));
             }
         }
-        catch (java.io.IOException ignored) {}
+        catch (IOException ignored) {}
     }
 
     public static String raw(String key)

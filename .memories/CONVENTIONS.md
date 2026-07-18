@@ -9,6 +9,11 @@ Last updated: 2026-07-18
   короткие guard-ветки в одну строку: `if (x == null) {return;}`.
 - Javadoc/комментарии — по-русски, только там, где код сам не объясняет.
 - Пакеты по подсистемам (`arena/`, `game/`, `contract/`...), без god-utils.
+- **Никаких инлайновых FQN в коде** (`net.kyori.adventure.bossbar.BossBar x`) —
+  всегда import. Группы импортов: java → me.aver005 → net.kyori → org.bukkit.
+  При коллизии имён (например, adventure `BossBar` vs `org.bukkit.boss.BossBar`,
+  наш `menu/Menu` vs чужие) — импортируй используемый в файле чаще, второй
+  пиши полностью; в одном файле оба одноимённых класса стараться не смешивать.
 
 ## Инварианты (не ломать)
 

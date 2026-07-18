@@ -5,13 +5,16 @@ import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.menu.AssistantMenu;
+import me.aver005.escape.menu.Menu;
 import me.aver005.escape.menu.NpcMenu;
+import me.aver005.escape.menu.RespawnUpgradeMenu;
 import me.aver005.escape.menu.ShopMenu;
 import me.aver005.escape.menu.ThemesMenu;
 import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.Items;
+import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -19,9 +22,11 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Villager;
+import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -30,10 +35,13 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -42,6 +50,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 
 /** Вся игровая логика: бой, смерть, лут, контракты, предметы. */
 public class GameListener implements Listener
@@ -121,7 +130,7 @@ public class GameListener implements Listener
         GameSession session = session(damager);
         if (session == null) {return;}
 
-        if (e.getEntity() instanceof org.bukkit.entity.ItemFrame) {e.setCancelled(true); return;}
+        if (e.getEntity() instanceof ItemFrame) {e.setCancelled(true); return;}
         if (!(e.getEntity() instanceof Player victim)) {return;}
 
         // разминка в лобби: урона нет, счёт идёт
@@ -235,7 +244,7 @@ public class GameListener implements Listener
             e.setCancelled(true);
             if (respawnBlock.owner.equals(p.getUniqueId()))
             {
-                new me.aver005.escape.menu.RespawnUpgradeMenu(plugin, session, respawnBlock).open(p);
+                new RespawnUpgradeMenu(plugin, session, respawnBlock).open(p);
             }
             else
             {
@@ -297,7 +306,7 @@ public class GameListener implements Listener
         if (!(e.getRightClicked() instanceof Villager villager)) {return;}
 
         String typeId = villager.getPersistentDataContainer()
-            .get(me.aver005.escape.util.Keys.TRADER_TYPE, org.bukkit.persistence.PersistentDataType.STRING);
+            .get(Keys.TRADER_TYPE, PersistentDataType.STRING);
         TraderType trader = typeId != null ? plugin.traders().get(typeId) : null;
         if (trader == null && villager.customName() != null)
         {
@@ -363,14 +372,14 @@ public class GameListener implements Listener
 
     /** Блок возрождения нельзя спрятать в сундук/контейнер. */
     @EventHandler(ignoreCancelled = true)
-    public void onInventoryClick(org.bukkit.event.inventory.InventoryClickEvent e)
+    public void onInventoryClick(InventoryClickEvent e)
     {
         if (!(e.getWhoClicked() instanceof Player p)) {return;}
         GameSession session = session(p);
         if (session == null || !session.isPlaying(p.getUniqueId())) {return;}
         var top = e.getView().getTopInventory();
-        if (top.getHolder() instanceof me.aver005.escape.menu.Menu) {return;}
-        if (top.getType() == org.bukkit.event.inventory.InventoryType.CRAFTING) {return;}
+        if (top.getHolder() instanceof Menu) {return;}
+        if (top.getType() == InventoryType.CRAFTING) {return;}
 
         boolean intoTop = e.getRawSlot() >= 0 && e.getRawSlot() < top.getSize()
             && Items.isSpecial(e.getCursor(), "respawn_block");
@@ -444,9 +453,9 @@ public class GameListener implements Listener
 
     /** Смерть зомби-стража: убийца-игрок = смерть владельца. */
     @EventHandler
-    public void onZombieDeath(org.bukkit.event.entity.EntityDeathEvent e)
+    public void onZombieDeath(EntityDeathEvent e)
     {
-        if (!(e.getEntity() instanceof org.bukkit.entity.Zombie zombie)) {return;}
+        if (!(e.getEntity() instanceof Zombie zombie)) {return;}
         for (var arena : plugin.arenas().all().values())
         {
             GameSession session = arena.getSession();

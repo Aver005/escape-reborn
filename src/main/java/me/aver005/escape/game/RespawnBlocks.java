@@ -12,18 +12,22 @@ import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.entity.Player;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitTask;
 
 /**
  * Блоки возрождения (docs/07-decisions.md §7): выдача, установка, перенос,
@@ -41,7 +45,7 @@ public class RespawnBlocks
     private final Map<UUID, RespawnBlock> byOwner = new HashMap<>();
     private final Map<Location, UUID> ownerByLocation = new HashMap<>();
     /** Ожидающие возрождения: игрок (в спектаторах) -> отложенная задача. */
-    private final Map<UUID, org.bukkit.scheduler.BukkitTask> pendingRespawns = new HashMap<>();
+    private final Map<UUID, BukkitTask> pendingRespawns = new HashMap<>();
 
     public RespawnBlocks(EscapePlugin plugin, GameSession session)
     {
@@ -75,7 +79,7 @@ public class RespawnBlocks
     /** Предмет-блок: уровень/заряды в лоре, владелец в PDC. */
     public ItemStack createItem(RespawnBlock rb)
     {
-        List<net.kyori.adventure.text.Component> lore = new ArrayList<>();
+        List<Component> lore = new ArrayList<>();
         lore.add(Msg.get("respawn-block.item-lore-tier", Msg.phC("tier", Msg.get(rb.tier.nameKey()))));
         lore.add(Msg.get("respawn-block.item-lore-charges", Msg.ph("charges", rb.charges)));
         for (var line : Msg.getList("respawn-block.item-lore-hint")) {lore.add(line);}
@@ -133,7 +137,7 @@ public class RespawnBlocks
      * Ломание установленного блока. true — событие обработано (это был блок возрождения).
      * Свой блок — переносится (предмет возвращается), чужой — уничтожается с наградой.
      */
-    public boolean handleBreak(Player breaker, Block block, org.bukkit.event.block.BlockBreakEvent e)
+    public boolean handleBreak(Player breaker, Block block, BlockBreakEvent e)
     {
         RespawnBlock rb = byLocation(block.getLocation());
         if (rb == null) {return false;}
@@ -234,7 +238,7 @@ public class RespawnBlocks
 
         int delay = Math.max(1, plugin.getConfig().getInt("respawn-block.respawn-delay-seconds", 5));
         Msg.send(p, "respawn-block.respawn-wait", Msg.ph("seconds", delay));
-        p.showTitle(net.kyori.adventure.title.Title.title(
+        p.showTitle(Title.title(
             Msg.get("respawn-block.respawn-wait-title"),
             Msg.get("respawn-block.respawn-wait-subtitle", Msg.ph("seconds", delay))));
 

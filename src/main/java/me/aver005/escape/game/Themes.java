@@ -11,6 +11,7 @@ import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -146,7 +147,7 @@ public class Themes
             : theme.isTurnInSelf() ? "theme.ready-self" : "theme.ready-target";
         TraderType target = theme.turnInTarget() == null ? null : plugin.traders().get(theme.turnInTarget());
         Msg.send(p, targetKey, Msg.phC("npc", target != null ? target.displayName()
-            : net.kyori.adventure.text.Component.empty()));
+            : Component.empty()));
         p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.4f);
     }
 
@@ -251,7 +252,7 @@ public class Themes
         ItemStack item = Items.special(Material.LEATHER,
             Msg.get("theme.package-name"),
             Msg.getList("theme.package-lore", Msg.phC("npc",
-                target != null ? target.displayName() : net.kyori.adventure.text.Component.empty())),
+                target != null ? target.displayName() : Component.empty())),
             "theme_package");
         ItemMeta meta = item.getItemMeta();
         meta.getPersistentDataContainer().set(Keys.THEME_ID, PersistentDataType.STRING, theme.getId());

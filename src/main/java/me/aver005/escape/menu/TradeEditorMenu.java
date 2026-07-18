@@ -5,9 +5,11 @@ import me.aver005.escape.trader.Trade;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Msg;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.ItemStack;
 
 /** Админ-редактор: добавить товар торговцу (слот 16 — предмет, слот 12 — цена). */
@@ -28,7 +30,7 @@ public class TradeEditorMenu extends Menu
 
     public TradeEditorMenu(EscapePlugin plugin, TraderType trader)
     {
-        super(27, Msg.get("trade-editor.title-prefix").append(net.kyori.adventure.text.Component.text(trader.getId())));
+        super(27, Msg.get("trade-editor.title-prefix").append(Component.text(trader.getId())));
         this.plugin = plugin;
         this.trader = trader;
         inventory.setItem(SLOT_REMOVE_10, Items.named(Material.ORANGE_STAINED_GLASS_PANE, Msg.get("trade-editor.remove-10")));
@@ -103,7 +105,7 @@ public class TradeEditorMenu extends Menu
     }
 
     @Override
-    public void onClose(org.bukkit.event.inventory.InventoryCloseEvent e)
+    public void onClose(InventoryCloseEvent e)
     {
         // вернуть предмет из слота, если не сохранили
         ItemStack item = inventory.getItem(SLOT_ITEM);

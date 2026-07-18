@@ -15,6 +15,7 @@ import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -25,7 +26,7 @@ public class ShopMenu extends Menu
     private final EscapePlugin plugin;
     private final GameSession session;
     private final TraderType trader;
-    private final org.bukkit.entity.Villager backVillager; // null — без кнопки «назад»
+    private final Villager backVillager; // null — без кнопки «назад»
     private final int backSlot;
     private final Map<Integer, Trade> tradeBySlot = new HashMap<>();
 
@@ -35,7 +36,7 @@ public class ShopMenu extends Menu
     }
 
     /** backVillager != null — открыт из меню совмещённого NPC, показать «Назад». */
-    public ShopMenu(EscapePlugin plugin, GameSession session, TraderType trader, org.bukkit.entity.Villager backVillager)
+    public ShopMenu(EscapePlugin plugin, GameSession session, TraderType trader, Villager backVillager)
     {
         super(rowsFor(trader) * 9, Msg.get("shop.title-prefix").append(trader.displayName()));
         this.plugin = plugin;

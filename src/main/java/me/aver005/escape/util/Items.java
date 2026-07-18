@@ -5,8 +5,11 @@ import java.util.List;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.CompassMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -71,12 +74,12 @@ public final class Items
      * Навести компас-проводник игрока на цель (lodestone-трекинг без маяка).
      * false — компаса в инвентаре нет (выпал при смерти и т.п.).
      */
-    public static boolean pointAssistantCompass(org.bukkit.entity.Player p, org.bukkit.Location target)
+    public static boolean pointAssistantCompass(Player p, Location target)
     {
         for (ItemStack item : p.getInventory().getContents())
         {
             if (!isSpecial(item, "assistant")) {continue;}
-            if (!(item.getItemMeta() instanceof org.bukkit.inventory.meta.CompassMeta meta)) {continue;}
+            if (!(item.getItemMeta() instanceof CompassMeta meta)) {continue;}
             meta.setLodestoneTracked(false);
             meta.setLodestone(target);
             item.setItemMeta(meta);
@@ -86,7 +89,7 @@ public final class Items
     }
 
     /** Сколько предметов материала в инвентаре игрока. */
-    public static int countMaterial(org.bukkit.entity.Player p, Material mat)
+    public static int countMaterial(Player p, Material mat)
     {
         int amount = 0;
         for (ItemStack item : p.getInventory().getContents())
@@ -97,7 +100,7 @@ public final class Items
     }
 
     /** Изъять amount предметов материала из инвентаря. */
-    public static void takeMaterial(org.bukkit.entity.Player p, Material mat, int amount)
+    public static void takeMaterial(Player p, Material mat, int amount)
     {
         for (ItemStack item : p.getInventory().getContents())
         {

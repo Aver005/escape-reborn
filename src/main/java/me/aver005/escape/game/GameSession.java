@@ -20,8 +20,11 @@ import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractPapers;
 import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.player.PlayerSnapshot;
+import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.util.Items;
+import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
@@ -40,6 +43,7 @@ import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
@@ -87,6 +91,7 @@ public class GameSession
     private int countdownRemaining = 0;
     private boolean forcedStart = false; // старт админом: min-players не проверяется
     private int remaining = 0;
+    private BossBar timerBar; // таймер матча (XP — валюта зачарования)
     private GameEvent currentEvent = null;
     private int eventTicksLeft = 0;
     private final Map<UUID, Location> eventPositions = new HashMap<>();
@@ -194,6 +199,7 @@ public class GameSession
         {
             dropInventory(p, p.getLocation());
             eliminate(p, false);
+            hideTimerBar(p);
             plugin.arenas().unbind(id);
             PlayerSnapshot.restore(plugin, p);
             return true;
@@ -201,6 +207,7 @@ public class GameSession
         if (spectators.remove(id))
         {
             spectatorChat.remove(id);
+            hideTimerBar(p);
             plugin.arenas().unbind(id);
             PlayerSnapshot.restore(plugin, p);
             return true;
@@ -390,7 +397,9 @@ public class GameSession
             p.setGameMode(GameMode.SURVIVAL);
             p.setHealth(20.0);
             p.setFoodLevel(20);
-            p.setLevel(0);
+            // XP — валюта зачарования: стартовый запас, пополняется убийствами
+            p.setLevel(plugin.getConfig().getInt("match.start-xp-levels", 50));
+            p.setExp(0f);
             p.teleport(spawn.clone().add(0.5, 0, 0.5));
             p.addPotionEffects(startEffects);
 
@@ -402,6 +411,12 @@ public class GameSession
 
         // «Молния прозрения»: 1 на матч + 1 за каждую пару игроков
         respawnBlocks.distributeInsight(activeChests, playing.size());
+
+        timerBar = BossBar.bossBar(
+            Component.empty(), 1f,
+            BossBar.Color.GREEN,
+            BossBar.Overlay.PROGRESS);
+        updateTimerBar();
 
         mainTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
     }
@@ -574,8 +589,8 @@ public class GameSession
                 v.setCanPickupItems(false);
                 v.customName(type.displayName());
                 v.setCustomNameVisible(true);
-                v.getPersistentDataContainer().set(me.aver005.escape.util.Keys.TRADER_TYPE,
-                    org.bukkit.persistence.PersistentDataType.STRING, type.getId());
+                v.getPersistentDataContainer().set(Keys.TRADER_TYPE,
+                    PersistentDataType.STRING, type.getId());
             });
             spawnedEntities.add(villager.getUniqueId());
             traderLocations.add(villager.getLocation());
@@ -628,7 +643,7 @@ public class GameSession
         if (remaining <= 0) {return;} // финальная битва без таймера
         remaining--;
 
-        forEachOnline(playing, p -> p.setLevel(remaining));
+        updateTimerBar();
 
         int interval = Math.max(30, arena.getEventIntervalSeconds());
         if (currentEvent == null && remaining > 0 && remaining % interval == 0 && remaining != arena.getDurationSeconds())
@@ -683,6 +698,48 @@ public class GameSession
         {
             finalBattle();
         }
+    }
+
+    // ===== боссбар-таймер =====
+
+    private void updateTimerBar()
+    {
+        if (timerBar == null) {return;}
+        int duration = Math.max(1, arena.getDurationSeconds());
+        timerBar.progress(Math.max(0f, Math.min(1f, remaining / (float) duration)));
+        timerBar.name(Msg.get("game.timer-bar", Msg.ph("time", formatTime(remaining))));
+        timerBar.color(remaining <= 60 ? BossBar.Color.RED
+            : remaining <= arena.getGlowSecondsBeforeEnd() ? BossBar.Color.YELLOW
+            : BossBar.Color.GREEN);
+        showTimerBarToAll();
+    }
+
+    /** Показ идемпотентен — один и тот же инстанс бара не дублируется. */
+    private void showTimerBarToAll()
+    {
+        if (timerBar == null) {return;}
+        forEachOnline(playing, p -> p.showBossBar(timerBar));
+        forEachOnline(spectators, p -> p.showBossBar(timerBar));
+    }
+
+    public void hideTimerBar(Player p)
+    {
+        if (timerBar != null) {p.hideBossBar(timerBar);}
+    }
+
+    private void removeTimerBar()
+    {
+        if (timerBar == null) {return;}
+        BossBar bar = timerBar;
+        timerBar = null;
+        forEachOnline(playing, p -> p.hideBossBar(bar));
+        forEachOnline(spectators, p -> p.hideBossBar(bar));
+        forEachOnline(lobby, p -> p.hideBossBar(bar));
+    }
+
+    private String formatTime(int seconds)
+    {
+        return String.format("%d:%02d", seconds / 60, seconds % 60);
     }
 
     private void startRandomEvent()
@@ -769,6 +826,13 @@ public class GameSession
             respawnBlocks.annulAll();
         }
         gameChat.systemKey("game.final-battle");
+        if (timerBar != null)
+        {
+            timerBar.name(Msg.get("game.timer-bar-final"));
+            timerBar.color(BossBar.Color.RED);
+            timerBar.progress(1f);
+            showTimerBarToAll();
+        }
         List<Location> pool = arena.getFinalSpawns().isEmpty() ? arena.getSpawns() : arena.getFinalSpawns();
         List<Location> shuffled = new ArrayList<>(pool);
         Collections.shuffle(shuffled, RANDOM);
@@ -874,7 +938,7 @@ public class GameSession
         if (data == null) {return;}
         if (!data.lootedChests.add(chestLoc)) {return;}
         progressContracts(p, ContractType.LOOT, c -> true, 1);
-        themes.progress(p, me.aver005.escape.theme.ThemeType.LOOT, t -> true, 1);
+        themes.progress(p, ThemeType.LOOT, t -> true, 1);
     }
 
     // ===== рефилл сундуков =====
@@ -1035,8 +1099,9 @@ public class GameSession
                 MatchPlayer killerData = matchData.get(killer.getUniqueId());
                 if (killerData != null) {killerData.kills++;}
                 plugin.stats().add(killer.getUniqueId(), killer.getName(), "kills", 1);
+                killer.giveExpLevels(plugin.getConfig().getInt("match.kill-xp-levels", 10));
                 progressContracts(killer, ContractType.KILLS, c -> true, 1);
-                themes.progress(killer, me.aver005.escape.theme.ThemeType.KILLS, t -> true, 1);
+                themes.progress(killer, ThemeType.KILLS, t -> true, 1);
                 respawnBlocks.onOwnerKill(killer);
             }
         }
@@ -1136,8 +1201,13 @@ public class GameSession
                 {
                     broadcastAll(Msg.get("game.stop-countdown", Msg.ph("seconds", sec)));
                 }
-                forEachOnline(playing, pl -> pl.setLevel(sec));
-                forEachOnline(spectators, pl -> pl.setLevel(sec));
+                if (timerBar != null)
+                {
+                    timerBar.name(Msg.get("game.timer-bar-stop", Msg.ph("seconds", sec)));
+                    timerBar.color(BossBar.Color.YELLOW);
+                    timerBar.progress(delay <= 0 ? 0f : Math.max(0f, Math.min(1f, sec / (float) delay)));
+                    showTimerBarToAll();
+                }
                 if (sec <= 0)
                 {
                     cancelTask(stopTask);
@@ -1170,6 +1240,7 @@ public class GameSession
 
     private void cleanup()
     {
+        removeTimerBar();
         for (BukkitTask task : refillTasks.values()) {task.cancel();}
         refillTasks.clear();
 

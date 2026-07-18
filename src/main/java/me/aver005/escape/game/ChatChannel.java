@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -33,7 +34,7 @@ public class ChatChannel
         }
     }
 
-    public void systemKey(String key, net.kyori.adventure.text.minimessage.tag.resolver.TagResolver... resolvers)
+    public void systemKey(String key, TagResolver... resolvers)
     {
         system(Msg.get(key, resolvers));
     }

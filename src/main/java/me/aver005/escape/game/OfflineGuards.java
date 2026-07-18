@@ -8,14 +8,17 @@ import java.util.UUID;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.contract.ContractType;
+import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Msg;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.PigZombie;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.inventory.EntityEquipment;
@@ -153,11 +156,11 @@ public class OfflineGuards
             z.setAI(false);
             z.setShouldBurnInDay(false);
             z.setAdult();
-            if (z instanceof org.bukkit.entity.PigZombie pigZombie) {pigZombie.setAngry(false);}
+            if (z instanceof PigZombie pigZombie) {pigZombie.setAngry(false);}
             z.setPersistent(true);
             z.setRemoveWhenFarAway(false);
             z.setCanPickupItems(false);
-            z.customName(net.kyori.adventure.text.Component.text(p.getName()));
+            z.customName(Component.text(p.getName()));
             z.setCustomNameVisible(true);
 
             PlayerInventory inv = p.getInventory();
@@ -196,8 +199,9 @@ public class OfflineGuards
             MatchPlayer killerData = session.matchData(killer.getUniqueId());
             if (killerData != null) {killerData.kills++;}
             plugin.stats().add(killer.getUniqueId(), killer.getName(), "kills", 1);
+            killer.giveExpLevels(plugin.getConfig().getInt("match.kill-xp-levels", 10));
             session.progressContracts(killer, ContractType.KILLS, c -> true, 1);
-            session.themes().progress(killer, me.aver005.escape.theme.ThemeType.KILLS, t -> true, 1);
+            session.themes().progress(killer, ThemeType.KILLS, t -> true, 1);
             session.respawnBlocks().onOwnerKill(killer);
             plugin.stats().add(guard.owner, guard.ownerName, "deaths", 1);
             session.announceDeath(guard.ownerName);
