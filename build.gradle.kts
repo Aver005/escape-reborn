@@ -41,4 +41,6 @@ tasks.register<Copy>("deploy") {
     dependsOn(tasks.jar)
     from(tasks.jar.map { it.archiveFile })
     into("E:/Servers/escape/plugins")
+    // сервер может работать: соседние плагины держат файлы залоченными — не сканируем их
+    doNotTrackState("deploy target contains files locked by a running server")
 }

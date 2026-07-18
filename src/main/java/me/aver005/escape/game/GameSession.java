@@ -85,6 +85,7 @@ public class GameSession
     private BukkitTask stopTask;
 
     private int countdownRemaining = 0;
+    private boolean forcedStart = false; // старт админом: min-players не проверяется
     private int remaining = 0;
     private GameEvent currentEvent = null;
     private int eventTicksLeft = 0;
@@ -278,8 +279,9 @@ public class GameSession
         countdownRemaining = seconds;
         countdownTask = Bukkit.getScheduler().runTaskTimer(plugin, () ->
         {
-            if (lobby.size() < arena.getMinPlayers())
+            if (lobby.size() < (forcedStart ? 1 : arena.getMinPlayers()))
             {
+                forcedStart = false;
                 lobbyChat.systemKey("lobby.countdown-cancelled");
                 phase = Phase.WAITING;
                 forEachOnline(lobby, pl -> pl.setLevel(60));
@@ -1243,6 +1245,7 @@ public class GameSession
         bloodMoon = false;
         glowActive = false;
         finalBattleStarted = false;
+        forcedStart = false;
         respawnBlocks.clear();
         offlineGuards.clear();
 
@@ -1254,13 +1257,84 @@ public class GameSession
         arena.setSession(null);
     }
 
-    /** Принудительный старт админом (нужно >= 2 в лобби). */
+    // ===== отладка (escape.admin.debug) =====
+
+    /** Принудительный запуск конкретного события (обходит canStart и таймер). */
+    public boolean debugStartEvent(GameEvent event)
+    {
+        if (phase != Phase.RUNNING) {return false;}
+        if (currentEvent != null) {endCurrentEvent();}
+        eventPositions.clear();
+        eventFlagged.clear();
+        event.onAnnounce(this);
+        if (event.windowSeconds() <= 0) {event.onEnd(this); return true;}
+        currentEvent = event;
+        eventTicksLeft = event.windowSeconds();
+        return true;
+    }
+
+    /** Досрочное включение фазы свечения. */
+    public boolean debugStartGlow()
+    {
+        if (phase != Phase.RUNNING || glowActive) {return false;}
+        glowActive = true;
+        gameChat.systemKey("game.glow-warning");
+        forEachPlaying(p ->
+        {
+            p.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0, false, false));
+            giveGold(p, arena.getGlowBonusGold());
+        });
+        return true;
+    }
+
+    public boolean debugFinalBattle()
+    {
+        if (phase != Phase.RUNNING || finalBattleStarted) {return false;}
+        finalBattle();
+        return true;
+    }
+
+    public boolean debugFinish()
+    {
+        if (phase != Phase.RUNNING) {return false;}
+        finish();
+        return true;
+    }
+
+    /** Завершить первую бумагу-контракт в инвентаре (полная выдача награды). */
+    public boolean debugCompleteContract(Player p)
+    {
+        for (ItemStack item : p.getInventory().getContents())
+        {
+            String cid = ContractPapers.contractIdOf(item);
+            if (cid == null) {continue;}
+            Contract contract = plugin.contracts().get(cid);
+            if (contract == null) {continue;}
+            completeContract(p, item, contract);
+            return true;
+        }
+        return false;
+    }
+
+    /** Принудительный рефилл всех активных сундуков. */
+    public int debugRefillAll()
+    {
+        int count = 0;
+        for (Location loc : List.copyOf(activeChests))
+        {
+            if (forceRefillChest(loc.getBlock())) {count++;}
+        }
+        return count;
+    }
+
+    /** Принудительный старт админом (достаточно 1 игрока — соло-режим для отладки). */
     public boolean forceStart()
     {
         if (phase == Phase.RUNNING || phase == Phase.ENDING) {return false;}
-        if (lobby.size() < 2) {return false;}
+        if (lobby.isEmpty()) {return false;}
         cancelTask(countdownTask);
         countdownTask = null;
+        forcedStart = true;
         startCountdown(Math.min(5, arena.getStartDelayFullSeconds()));
         return true;
     }

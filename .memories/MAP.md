@@ -34,6 +34,7 @@ escape-reborn/
         ├── EscapePlugin.java          # onEnable/onDisable, wiring, joinArena
         ├── arena/
         │   ├── Arena.java             # модель + load/save arenas/<ID>/{arena,locations,loot}.yml
+        │   ├── ArenaCheck.java        # валидатор арены: CRITICAL/WARNING/GOOD + подсказки
         │   ├── ArenaManager.java      # реестр арен + Map игрок→сессия + delete/stopAll
         │   └── WeightedItem.java      # record: предмет + вес лута
         ├── game/

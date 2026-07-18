@@ -6,7 +6,9 @@ import java.util.Locale;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
+import me.aver005.escape.arena.ArenaCheck;
 import me.aver005.escape.arena.WeightedItem;
+import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.game.GameSession;
@@ -37,7 +39,7 @@ public class EscapeCommand implements TabExecutor
 {
     private static final List<String> PLAYER_SUBS = List.of("join", "leave", "stats", "info", "help");
     private static final List<String> ADMIN_SUBS = List.of(
-        "save", "reload", "list", "stop", "start", "create", "remove", "enable", "disable",
+        "save", "reload", "list", "stop", "start", "create", "remove", "enable", "disable", "check", "debug",
         "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup",
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
         "additem", "edititems", "addcontract",
@@ -153,6 +155,11 @@ public class EscapeCommand implements TabExecutor
                 }
                 return true;
             }
+            case "debug" ->
+            {
+                handleDebug(p, args);
+                return true;
+            }
             default -> {}
         }
 
@@ -188,9 +195,26 @@ public class EscapeCommand implements TabExecutor
             {
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
+                if (sub.equals("enable"))
+                {
+                    List<ArenaCheck.Finding> findings = ArenaCheck.run(plugin, arena);
+                    ArenaCheck.report(p, arena, findings);
+                    if (ArenaCheck.hasCritical(findings))
+                    {
+                        Msg.send(p, "check.enable-blocked", Msg.ph("arena", id));
+                        return true;
+                    }
+                }
                 arena.setEnabled(sub.equals("enable"));
                 plugin.arenas().save(arena);
                 Msg.send(p, sub.equals("enable") ? "admin.arena-enabled" : "admin.arena-disabled", Msg.ph("arena", id));
+                return true;
+            }
+            case "check" ->
+            {
+                Arena arena = requireArenaGet(p, id);
+                if (arena == null) {return true;}
+                ArenaCheck.report(p, arena, ArenaCheck.run(plugin, arena));
                 return true;
             }
             case "worldsetup" ->
@@ -588,6 +612,110 @@ public class EscapeCommand implements TabExecutor
         return true;
     }
 
+    /** /escape debug <действие> — симуляция игровых событий для соло-отладки. */
+    private void handleDebug(Player p, String[] args)
+    {
+        if (!p.hasPermission("escape.admin.debug")) {Msg.send(p, "debug.no-permission"); return;}
+        GameSession session = plugin.arenas().sessionOf(p);
+        if (session == null) {Msg.send(p, "debug.not-in-match"); return;}
+        if (args.length < 2) {Msg.send(p, "debug.usage"); return;}
+        String action = args[1].toLowerCase(Locale.ROOT);
+
+        if (session.getPhase() != GameSession.Phase.RUNNING)
+        {
+            Msg.send(p, "debug.need-running");
+            return;
+        }
+
+        switch (action)
+        {
+            case "death" ->
+            {
+                if (!session.isPlaying(p.getUniqueId())) {Msg.send(p, "debug.not-playing"); return;}
+                session.dropInventory(p, p.getLocation());
+                p.setHealth(20.0);
+                session.handleDeath(p);
+                Msg.send(p, "debug.death-done");
+            }
+            case "kill" ->
+            {
+                if (args.length < 3) {Msg.send(p, "debug.kill-usage"); return;}
+                Player target = plugin.getServer().getPlayerExact(args[2]);
+                if (target == null || !session.isPlaying(target.getUniqueId()))
+                {
+                    Msg.send(p, "debug.player-not-found", Msg.ph("player", args[2]));
+                    return;
+                }
+                session.dropInventory(target, target.getLocation());
+                target.setHealth(20.0);
+                session.handleDeath(target);
+                Msg.send(p, "debug.kill-done", Msg.ph("player", target.getName()));
+            }
+            case "refill" ->
+            {
+                int n = session.debugRefillAll();
+                Msg.send(p, "debug.refill-done", Msg.ph("n", n));
+            }
+            case "contract" ->
+            {
+                if (session.debugCompleteContract(p)) {Msg.send(p, "debug.contract-done");}
+                else {Msg.send(p, "debug.contract-none");}
+            }
+            case "theme" ->
+            {
+                if (session.themes().debugComplete(p)) {Msg.send(p, "debug.theme-done");}
+                else {Msg.send(p, "debug.theme-none");}
+            }
+            case "event" ->
+            {
+                if (args.length < 3) {Msg.send(p, "debug.event-usage"); return;}
+                GameEvent event;
+                try {event = GameEvent.valueOf(args[2].toUpperCase(Locale.ROOT));}
+                catch (IllegalArgumentException e)
+                {
+                    Msg.send(p, "debug.event-unknown", Msg.ph("event", args[2]));
+                    return;
+                }
+                session.debugStartEvent(event);
+                Msg.send(p, "debug.event-done", Msg.ph("event", event.name()));
+            }
+            case "glow" ->
+            {
+                if (session.debugStartGlow()) {Msg.send(p, "debug.glow-done");}
+                else {Msg.send(p, "debug.glow-already");}
+            }
+            case "final" ->
+            {
+                if (session.debugFinalBattle()) {Msg.send(p, "debug.final-done");}
+                else {Msg.send(p, "debug.final-already");}
+            }
+            case "finish" ->
+            {
+                session.debugFinish();
+                Msg.send(p, "debug.finish-done");
+            }
+            case "gold" ->
+            {
+                if (args.length < 3) {Msg.send(p, "debug.gold-usage"); return;}
+                Integer n = parseInt(p, args[2], 1, 1024);
+                if (n == null) {return;}
+                session.giveGold(p, n);
+                Msg.send(p, "debug.gold-done", Msg.ph("n", n));
+            }
+            case "key" ->
+            {
+                p.getInventory().addItem(session.themes().createMagicKey());
+                Msg.send(p, "debug.key-given");
+            }
+            case "insight" ->
+            {
+                p.getInventory().addItem(session.respawnBlocks().createInsightItem());
+                Msg.send(p, "debug.insight-given");
+            }
+            default -> Msg.send(p, "debug.usage");
+        }
+    }
+
     private <T> void applyRule(Player p, World world, GameRule<T> rule, T value)
     {
         world.setGameRule(rule, value);
@@ -680,7 +808,7 @@ public class EscapeCommand implements TabExecutor
         {
             switch (sub)
             {
-                case "join", "remove", "enable", "disable", "setlobby", "setname", "setdesc",
+                case "join", "remove", "enable", "disable", "check", "setlobby", "setname", "setdesc",
                      "setminplayers", "setmaxplayers", "set", "start", "worldsetup",
                      "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
                      "additem", "edititems", "addcontract" ->
@@ -691,6 +819,9 @@ public class EscapeCommand implements TabExecutor
                     ids.add("all");
                     filter(ids, args[1], out);
                 }
+                case "debug" -> filter(new ArrayList<>(List.of(
+                    "death", "kill", "refill", "contract", "theme", "event",
+                    "glow", "final", "finish", "gold", "key", "insight")), args[1], out);
                 case "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice" ->
                     filter(new ArrayList<>(plugin.contracts().ids()), args[1], out);
                 case "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn" ->
@@ -725,6 +856,21 @@ public class EscapeCommand implements TabExecutor
                     filter(targets, args[2], out);
                 }
                 case "addtheme", "removetheme" -> filter(new ArrayList<>(plugin.themes().ids()), args[2], out);
+                case "debug" ->
+                {
+                    if (args[1].equalsIgnoreCase("event"))
+                    {
+                        List<String> events = new ArrayList<>();
+                        for (GameEvent event : GameEvent.values()) {events.add(event.name());}
+                        filter(events, args[2], out);
+                    }
+                    else if (args[1].equalsIgnoreCase("kill"))
+                    {
+                        List<String> names = new ArrayList<>();
+                        for (Player online : plugin.getServer().getOnlinePlayers()) {names.add(online.getName());}
+                        filter(names, args[2], out);
+                    }
+                }
                 case "set" -> filter(new ArrayList<>(ARENA_SETTINGS), args[2], out);
                 case "addcontract" -> filter(new ArrayList<>(plugin.contracts().ids()), args[2], out);
                 case "addvillager" -> filter(new ArrayList<>(plugin.traders().ids()), args[2], out);

@@ -32,6 +32,16 @@ public final class Msg
         File file = new File(plugin.getDataFolder(), "messages.yml");
         if (!file.exists()) {plugin.saveResource("messages.yml", false);}
         config = YamlConfiguration.loadConfiguration(file);
+        // дефолты из jar: новые ключи после обновления плагина работают без ручного слияния
+        try (java.io.InputStream in = plugin.getResource("messages.yml"))
+        {
+            if (in != null)
+            {
+                config.setDefaults(YamlConfiguration.loadConfiguration(
+                    new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)));
+            }
+        }
+        catch (java.io.IOException ignored) {}
     }
 
     public static String raw(String key)

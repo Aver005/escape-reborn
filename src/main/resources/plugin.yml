@@ -13,3 +13,6 @@ permissions:
   escape.admin:
     description: Escape admin commands
     default: op
+  escape.admin.debug:
+    description: Escape debug simulation commands
+    default: op

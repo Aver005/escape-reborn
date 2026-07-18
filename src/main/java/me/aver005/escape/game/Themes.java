@@ -283,6 +283,17 @@ public class Themes
         Msg.send(p, "theme.key-used");
     }
 
+    /** Отладка: заполнить прогресс активной темки до цели. */
+    public boolean debugComplete(Player p)
+    {
+        MatchPlayer data = session.matchData(p.getUniqueId());
+        Theme theme = activeOf(p);
+        if (data == null || theme == null) {return false;}
+        data.themeProgress = theme.getAmount();
+        announceReady(p, theme);
+        return true;
+    }
+
     private void giveOrDrop(Player p, ItemStack item)
     {
         var leftovers = p.getInventory().addItem(item);
