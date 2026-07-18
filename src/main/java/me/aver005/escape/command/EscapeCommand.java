@@ -18,7 +18,10 @@ import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;
+import org.bukkit.GameRule;
+import org.bukkit.GameRules;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -33,7 +36,7 @@ public class EscapeCommand implements TabExecutor
     private static final List<String> PLAYER_SUBS = List.of("join", "leave", "stats", "info", "help");
     private static final List<String> ADMIN_SUBS = List.of(
         "save", "reload", "list", "stop", "start", "create", "remove", "enable", "disable",
-        "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set",
+        "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup",
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
         "additem", "edititems", "addcontract",
         "createcontract", "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice",
@@ -183,6 +186,29 @@ public class EscapeCommand implements TabExecutor
                 arena.setEnabled(sub.equals("enable"));
                 plugin.arenas().save(arena);
                 Msg.send(p, sub.equals("enable") ? "admin.arena-enabled" : "admin.arena-disabled", Msg.ph("arena", id));
+                return true;
+            }
+            case "worldsetup" ->
+            {
+                Arena arena = requireArenaGet(p, id);
+                if (arena == null) {return true;}
+                World world = arena.getWorld();
+                if (world == null) {Msg.send(p, "errors.world-not-loaded"); return true;}
+                Msg.send(p, "admin.worldsetup-header", Msg.ph("arena", id), Msg.ph("world", world.getName()));
+                applyRule(p, world, GameRules.SPAWN_MOBS, false);             // естественный спавн мобов
+                applyRule(p, world, GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER, 0); // огонь не тикает
+                applyRule(p, world, GameRules.MOB_GRIEFING, false);           // криперы/эндермены не портят арену
+                applyRule(p, world, GameRules.ADVANCE_WEATHER, false);
+                applyRule(p, world, GameRules.SPAWN_PHANTOMS, false);
+                applyRule(p, world, GameRules.SPAWN_WANDERING_TRADERS, false); // странствующий торговец ≠ наш торговец
+                applyRule(p, world, GameRules.SPAWN_PATROLS, false);
+                applyRule(p, world, GameRules.RAIDS, false);
+                applyRule(p, world, GameRules.SHOW_ADVANCEMENT_MESSAGES, false);
+                applyRule(p, world, GameRules.SPECTATORS_GENERATE_CHUNKS, false);
+                applyRule(p, world, GameRules.IMMEDIATE_RESPAWN, true);       // страховка: смерти у нас фейковые
+                world.setStorm(false);
+                world.setThundering(false);
+                Msg.send(p, "admin.worldsetup-done", Msg.ph("world", world.getName()));
                 return true;
             }
             case "stop" ->
@@ -459,6 +485,12 @@ public class EscapeCommand implements TabExecutor
         return true;
     }
 
+    private <T> void applyRule(Player p, World world, GameRule<T> rule, T value)
+    {
+        world.setGameRule(rule, value);
+        Msg.send(p, "admin.worldsetup-rule", Msg.ph("rule", rule.getKey().getKey()), Msg.ph("value", String.valueOf(value)));
+    }
+
     private boolean requireArena(Player p, String id)
     {
         if (!plugin.arenas().exists(id)) {Msg.send(p, "errors.arena-not-exists"); return false;}
@@ -539,7 +571,7 @@ public class EscapeCommand implements TabExecutor
             switch (sub)
             {
                 case "join", "remove", "enable", "disable", "setlobby", "setname", "setdesc",
-                     "setminplayers", "setmaxplayers", "set", "start",
+                     "setminplayers", "setmaxplayers", "set", "start", "worldsetup",
                      "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
                      "additem", "edititems", "addcontract" ->
                     filter(new ArrayList<>(plugin.arenas().ids()), args[1], out);

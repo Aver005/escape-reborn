@@ -81,10 +81,32 @@ stats.db            — статистика (SQLite)
 /escape set ТЮРЬМА duration 1200  — числовые параметры (duration/eventinterval/salaryinterval/
                                     salarygold/glowtime/glowgold/chests/traders/tables/
                                     forkuses/startgold/startdelay/startdelayfull)
+/escape worldsetup ТЮРЬМА         — применить gamerules к миру арены (см. ниже)
 /escape enable ТЮРЬМА             — открыть арену игрокам
 ```
 
 Игроки: `/escape` (меню), `/escape join [ID]`, `/escape leave`, `/escape stats [ник]`, `/escape info`.
+
+### `/escape worldsetup <ID>` — gamerules мира арены
+
+Одной командой приводит мир арены в «матчевое» состояние (новый API
+`org.bukkit.GameRules`, Paper 26.x):
+
+- `spawn_mobs=false` — никакого естественного спавна мобов (наши торговцы и
+  стражи спавнятся плагином, их это не касается);
+- `fire_spread_radius_around_player=0` — огонь не тикает (плюс страховка
+  `ProtectionListener`);
+- `mob_griefing=false`, `raids=false`, `spawn_patrols=false`,
+  `spawn_phantoms=false`, `spawn_wandering_traders=false` — мобы не портят
+  арену и не путаются под ногами (странствующий торговец ≠ наш торговец!);
+- `advance_weather=false` + очистка текущей погоды — без дождя;
+- `show_advancement_messages=false`, `spectators_generate_chunks=false`;
+- `immediate_respawn=true` — страховка: смерти в матче фейковые, но если
+  ванильная как-то проскочит, экрана смерти не будет.
+
+Сознательно НЕ трогается: `advance_time` (день/ночь нужны Кровавой луне),
+`natural_health_regeneration`, `random_tick_speed`. Команда идемпотентна —
+можно перезапускать после пересоздания мира.
 
 ## Отличия поведения от оригинала (сознательные)
 

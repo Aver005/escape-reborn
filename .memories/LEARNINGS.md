@@ -13,6 +13,14 @@ Last updated: 2026-07-18
 - **Артефакты paper-api переименованы**: теперь `26.1.2.build.74-stable`
   (не `-R0.1-SNAPSHOT`). Репозиторий тот же: repo.papermc.io.
 - `api-version: '1.21'` в plugin.yml валиден на 26.x (это минимум, не таргет).
+- **Gamerules реворкнуты в 26.x**: константы `GameRule.*` депрекейтнуты под
+  удаление, новые живут в `org.bukkit.GameRules` с ванильными именами 26.1:
+  `DO_MOB_SPAWNING`→`SPAWN_MOBS`, `DO_INSOMNIA`→`SPAWN_PHANTOMS`,
+  `DO_WEATHER_CYCLE`→`ADVANCE_WEATHER`, `DO_DAYLIGHT_CYCLE`→`ADVANCE_TIME`,
+  `ANNOUNCE_ADVANCEMENTS`→`SHOW_ADVANCEMENT_MESSAGES`,
+  `DISABLE_RAIDS`→`RAIDS` (**инверсия!**), `DO_FIRE_TICK`→
+  `FIRE_SPREAD_RADIUS_AROUND_PLAYER` (**теперь Integer**, 0 = огонь не тикает).
+  `GameRule#getName()` тоже депрекейтнут — ключ через `getKey().getKey()`.
 - SQLite-драйвер (`org.sqlite`) по-прежнему встроен в Paper — shade не нужен.
 
 ## Кодовая база
