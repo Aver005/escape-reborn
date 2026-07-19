@@ -1,0 +1,143 @@
+name: Build & publish latest
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.memories/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Два пуша подряд не должны драться за тег latest
+concurrency:
+  group: release-latest
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Сборка jar и релиз latest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+
+      - name: JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Собрать jar
+        run: |
+          chmod +x gradlew
+          ./gradlew build
+
+      - name: Подготовить описание релиза
+        id: notes
+        env:
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          JAR=$(ls -1 build/libs/EscapeReborn-*.jar | head -n1)
+          JAR_NAME=$(basename "$JAR")
+          JAR_SIZE=$(du -h "$JAR" | cut -f1)
+
+          # Версии тянем из build.gradle.kts, чтобы описание не врало после апгрейда
+          PAPER_VER=$(sed -n 's/.*paper-api:\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' build.gradle.kts | head -n1)
+          JAVA_VER=$(sed -n 's/.*JavaLanguageVersion\.of(\([0-9][0-9]*\)).*/\1/p' build.gradle.kts | head -n1)
+          : "${PAPER_VER:=26.1.2}"
+          : "${JAVA_VER:=25}"
+
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          SUBJECT=$(git log -1 --pretty=%s)
+          AUTHOR=$(git log -1 --pretty=%an)
+          DATE=$(git log -1 --date=format:'%d.%m.%Y %H:%M' --pretty=%ad)
+          BUILT=$(date -u '+%d.%m.%Y %H:%M UTC')
+
+          # Тело коммита есть не всегда — вставляем только когда оно непустое
+          COMMIT_BODY=$(git log -1 --pretty=%b)
+          BODY_BLOCK=""
+          if [ -n "$(printf '%s' "$COMMIT_BODY" | tr -d '[:space:]')" ]; then
+            BODY_BLOCK=$(printf '\n%s' "$COMMIT_BODY")
+          fi
+
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$SHA_SHORT" >> "$GITHUB_OUTPUT"
+
+          cat > release-notes.md <<MD
+          <div align="center">
+
+          ## 🔓 Escape Reborn — свежая сборка
+
+          Собрано автоматически из ветки \`main\`.
+          Тег \`latest\` всегда указывает на последний код — старый релиз перезаписывается.
+
+          </div>
+
+          ---
+
+          ### 📦 В этой сборке
+
+          |  |  |
+          |---|---|
+          | **Файл** | \`$JAR_NAME\` · $JAR_SIZE |
+          | **Платформа** | Paper $PAPER_VER · Java $JAVA_VER |
+          | **Собрано** | $BUILT · [сборка #$RUN_NUMBER]($RUN_URL) |
+
+          ### 📝 Последний коммит
+
+          > **$SUBJECT**
+
+          \`$SHA_SHORT\` · $AUTHOR · $DATE
+          $BODY_BLOCK
+
+          [Посмотреть коммит целиком →]($REPO_URL/commit/$SHA)
+
+          ### 🚀 Установка
+
+          1. Скачай \`$JAR_NAME\` из **Assets** ниже.
+          2. Положи в \`plugins/\` на сервер **Paper $PAPER_VER** (нужна **Java $JAVA_VER**).
+          3. Перезапусти сервер: в логе должно быть \`[Escape] Escape enabled\` и ни одного стектрейса.
+          4. Настройка арены с нуля — [docs/08-reborn-guide.md]($REPO_URL/blob/$SHA/docs/08-reborn-guide.md).
+
+          > ⚠️ Это срез разработки, а не стабильная версия: содержимое \`latest\` меняется с каждым пушем в \`main\`.
+
+          ---
+
+          <div align="center">
+
+          *Сломай решётку. Забери золото. Стань последним.*
+
+          </div>
+          MD
+
+      - name: Переставить тег latest на текущий коммит
+        run: |
+          git tag -f latest
+          git push -f origin refs/tags/latest
+
+      - name: Опубликовать релиз latest
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: latest
+          target_commitish: ${{ github.sha }}
+          name: Escape Reborn · latest (${{ steps.notes.outputs.sha_short }})
+          body_path: release-notes.md
+          files: ${{ steps.notes.outputs.jar }}
+          overwrite_files: true
+          append_body: false
+          make_latest: 'true'
