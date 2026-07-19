@@ -9,6 +9,8 @@ import java.util.UUID;
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.theme.ThemeType;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;
@@ -106,6 +108,9 @@ public class OfflineGuards
         }, returnSeconds * 20L);
 
         guards.put(guard.owner, guard);
+        DebugLog.log(Cat.GUARD, "begin player=%s at=%s items=%d zombie=%ds return=%ds guards=%d",
+            guard.ownerName, DebugLog.at(guard.zombieAt), guard.items.size(),
+            zombieSeconds, returnSeconds, guards.size());
         session.gameChat().systemKey("offline-guard.left-broadcast",
             Msg.ph("player", guard.ownerName), Msg.ph("seconds", zombieSeconds));
     }
@@ -123,6 +128,7 @@ public class OfflineGuards
         if (!guard.itemsDropped)
         {
             // зомби ещё стоит: убрать тихо, игрок продолжает со своим инвентарём
+            DebugLog.log(Cat.GUARD, "return-zombie player=%s at=%s", p.getName(), DebugLog.at(guard.zombieAt));
             removeZombie(guard, false);
             Msg.send(p, "offline-guard.rejoined-zombie");
             return true;
@@ -133,11 +139,15 @@ public class OfflineGuards
         RespawnBlock rb = session.respawnBlocks().get(p.getUniqueId());
         if (rb != null && rb.isPlaced() && rb.charges > 0 && !session.isFinalBattle())
         {
+            DebugLog.log(Cat.GUARD, "return-block player=%s tier=%s charges=%d",
+                p.getName(), rb.tier, rb.charges);
             session.respawnBlocks().materializeOnBlock(p);
             Msg.send(p, "offline-guard.rejoined-block");
             return true;
         }
 
+        DebugLog.log(Cat.GUARD, "return-too-late player=%s has-block=%b final=%b",
+            p.getName(), rb != null && rb.isPlaced(), session.isFinalBattle());
         Msg.send(p, "offline-guard.returned-no-block");
         session.eliminateAfterFailedRespawn(p);
         return true;
@@ -179,6 +189,8 @@ public class OfflineGuards
             eq.setItemInOffHandDropChance(0f);
         });
         guard.zombieId = zombie.getUniqueId();
+        DebugLog.log(Cat.GUARD, "zombie-spawn player=%s type=%s at=%s",
+            p.getName(), guardType.getSimpleName(), DebugLog.at(loc));
     }
 
     private ItemStack cloned(ItemStack item)
@@ -192,6 +204,8 @@ public class OfflineGuards
         Guard guard = findByZombie(zombieId);
         if (guard == null) {return;}
         guard.zombieId = null; // сущность уже мертва
+        DebugLog.log(Cat.GUARD, "zombie-death player=%s killer=%s",
+            guard.ownerName, killer == null ? "-" : killer.getName());
 
         boolean deathAnnounced = false;
         if (killer != null && session.isPlaying(killer.getUniqueId()))
@@ -235,6 +249,8 @@ public class OfflineGuards
 
         RespawnBlock rb = session.respawnBlocks().get(guard.owner);
         boolean canReturn = rb != null && rb.isPlaced() && rb.charges > 0 && !session.isFinalBattle();
+        DebugLog.log(Cat.GUARD, "zombie-phase-end player=%s can-return=%b death-announced=%b",
+            guard.ownerName, canReturn, deathAnnounced);
         if (!canReturn)
         {
             finishGuard(guard, !deathAnnounced);
@@ -247,20 +263,30 @@ public class OfflineGuards
         if (guard.itemsDropped) {return;}
         guard.itemsDropped = true;
         Location at = guard.zombieAt;
-        if (at == null || at.getWorld() == null) {return;}
+        if (at == null || at.getWorld() == null)
+        {
+            DebugLog.log(Cat.GUARD, "items-lost player=%s reason=no-location", guard.ownerName);
+            return;
+        }
+        int dropped = 0;
         for (ItemStack item : guard.items)
         {
             if (item == null || item.getType().isAir()) {continue;}
             if (Items.isSpecial(item, "respawn_block")) {continue;} // блок-предмет гибнет с владельцем
             Item drop = at.getWorld().dropItemNaturally(at.clone().add(0, 0.5, 0), item);
             session.trackDrop(drop);
+            dropped++;
         }
+        DebugLog.log(Cat.GUARD, "items-dropped player=%s stacks=%d at=%s",
+            guard.ownerName, dropped, DebugLog.at(at));
         guard.items.clear();
     }
 
     /** Возврат невозможен или дедлайн истёк: заочное выбывание. */
     private void finishGuard(Guard guard, boolean announce)
     {
+        DebugLog.log(Cat.GUARD, "finish player=%s announce=%b zombie-alive=%b items-dropped=%b",
+            guard.ownerName, announce, guard.zombieId != null, guard.itemsDropped);
         cancelTimers(guard);
         removeZombie(guard, guard.zombieId != null);
         dropItems(guard);
@@ -273,6 +299,7 @@ public class OfflineGuards
     /** Финальная битва: стражи ликвидируются, их владельцы выбывают. */
     public void onFinalBattle()
     {
+        DebugLog.log(Cat.GUARD, "final-battle-purge guards=%d", guards.size());
         for (Guard guard : List.copyOf(guards.values()))
         {
             finishGuard(guard, true);

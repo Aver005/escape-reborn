@@ -10,6 +10,8 @@ import me.aver005.escape.game.GameSession;
 import me.aver005.escape.game.MatchPlayer;
 import me.aver005.escape.trader.Trade;
 import me.aver005.escape.trader.TraderType;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;
@@ -103,11 +105,25 @@ public class ShopMenu extends Menu
         if (trade == null) {return;}
 
         int gold = Items.countMaterial(p, Material.GOLD_INGOT);
-        if (gold < trade.price()) {Msg.send(p, "shop.not-enough-gold"); return;}
-        if (p.getInventory().firstEmpty() == -1) {Msg.send(p, "shop.no-space"); return;}
+        if (gold < trade.price())
+        {
+            DebugLog.log(Cat.SHOP, "buy-deny player=%s trader=%s item=%s reason=no-gold have=%d price=%d",
+                p.getName(), trader.getId(), DebugLog.item(trade.item()), gold, trade.price());
+            Msg.send(p, "shop.not-enough-gold");
+            return;
+        }
+        if (p.getInventory().firstEmpty() == -1)
+        {
+            DebugLog.log(Cat.SHOP, "buy-deny player=%s trader=%s reason=no-space", p.getName(), trader.getId());
+            Msg.send(p, "shop.no-space");
+            return;
+        }
 
         Items.takeMaterial(p, Material.GOLD_INGOT, trade.price());
-        p.getInventory().addItem(session.applyWear(trade.item().clone()));
+        ItemStack bought = session.applyWear(trade.item().clone());
+        p.getInventory().addItem(bought);
+        DebugLog.log(Cat.SHOP, "buy player=%s trader=%s item=%s price=%d gold-left=%d",
+            p.getName(), trader.getId(), DebugLog.item(bought), trade.price(), gold - trade.price());
 
         MatchPlayer data = session.matchData(p.getUniqueId());
         if (data != null) {data.trades++;}

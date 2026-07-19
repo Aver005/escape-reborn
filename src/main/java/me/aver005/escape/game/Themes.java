@@ -8,6 +8,8 @@ import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.theme.Theme;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
@@ -61,15 +63,39 @@ public class Themes
     public boolean take(Player p, Theme theme, Villager issuer)
     {
         MatchPlayer data = session.matchData(p.getUniqueId());
-        if (data == null || !theme.isComplete()) {return false;}
-        if (data.completedThemes.contains(theme.getId())) {Msg.send(p, "theme.already-completed"); return false;}
-        if (data.themeId != null) {Msg.send(p, "theme.already-active"); return false;}
+        if (data == null || !theme.isComplete())
+        {
+            DebugLog.log(Cat.THEME, "take-deny player=%s theme=%s reason=%s",
+                p.getName(), theme.getId(), data == null ? "no-match-data" : "theme-incomplete");
+            return false;
+        }
+        if (data.completedThemes.contains(theme.getId()))
+        {
+            DebugLog.log(Cat.THEME, "take-deny player=%s theme=%s reason=already-completed", p.getName(), theme.getId());
+            Msg.send(p, "theme.already-completed");
+            return false;
+        }
+        if (data.themeId != null)
+        {
+            DebugLog.log(Cat.THEME, "take-deny player=%s theme=%s reason=active-theme=%s",
+                p.getName(), theme.getId(), data.themeId);
+            Msg.send(p, "theme.already-active");
+            return false;
+        }
         long left = cooldownLeft(p);
-        if (left > 0) {Msg.send(p, "theme.cooldown", Msg.ph("seconds", left)); return false;}
+        if (left > 0)
+        {
+            DebugLog.log(Cat.THEME, "take-deny player=%s theme=%s reason=cooldown left=%ds",
+                p.getName(), theme.getId(), left);
+            Msg.send(p, "theme.cooldown", Msg.ph("seconds", left));
+            return false;
+        }
 
         data.themeId = theme.getId();
         data.themeProgress = 0;
         data.themeIssuer = issuer != null ? issuer.getUniqueId() : null;
+        DebugLog.log(Cat.THEME, "take player=%s theme=%s type=%s amount=%d gold=%d turn-in=%s",
+            p.getName(), theme.getId(), theme.getType(), theme.getAmount(), theme.getGold(), theme.getTurnIn());
 
         if (theme.getType() == ThemeType.COURIER)
         {
@@ -90,6 +116,7 @@ public class Themes
 
         int cooldown = Math.max(0, plugin.getConfig().getInt("themes.drop-cooldown-seconds", 60));
         data.themeCooldownUntil = System.currentTimeMillis() + cooldown * 1000L;
+        DebugLog.log(Cat.THEME, "abandon player=%s theme=%s cooldown=%ds", p.getName(), themeId, cooldown);
 
         // пакет брошенной передачки изымается
         for (ItemStack item : p.getInventory().getContents())
@@ -119,6 +146,8 @@ public class Themes
         if (data.themeProgress >= theme.getAmount()) {return;}
 
         data.themeProgress = Math.min(theme.getAmount(), data.themeProgress + delta);
+        DebugLog.log(Cat.THEME, "progress player=%s theme=%s type=%s %d/%d",
+            p.getName(), theme.getId(), type, data.themeProgress, theme.getAmount());
         Msg.send(p, "theme.progress",
             Msg.ph("progress", data.themeProgress), Msg.ph("amount", theme.getAmount()));
         if (data.themeProgress >= theme.getAmount()) {announceReady(p, theme);}
@@ -136,6 +165,8 @@ public class Themes
         int count = Math.min(theme.getAmount(), Items.countMaterial(p, target));
         if (count <= data.themeProgress) {return;}
         data.themeProgress = count;
+        DebugLog.log(Cat.THEME, "progress-find player=%s theme=%s target=%s %d/%d",
+            p.getName(), theme.getId(), target, data.themeProgress, theme.getAmount());
         Msg.send(p, "theme.progress",
             Msg.ph("progress", data.themeProgress), Msg.ph("amount", theme.getAmount()));
         if (data.themeProgress >= theme.getAmount()) {announceReady(p, theme);}
@@ -161,7 +192,12 @@ public class Themes
         MatchPlayer data = session.matchData(p.getUniqueId());
         Theme theme = activeOf(p);
         if (data == null || theme == null) {return false;}
-        if (!turnInMatches(theme, npc, entity, data)) {return false;}
+        if (!turnInMatches(theme, npc, entity, data))
+        {
+            DebugLog.log(Cat.THEME, "turn-in-deny player=%s theme=%s npc=%s reason=wrong-npc turn-in=%s",
+                p.getName(), theme.getId(), npc.getId(), theme.getTurnIn());
+            return false;
+        }
 
         switch (theme.getType())
         {
@@ -169,20 +205,39 @@ public class Themes
             case DELIVERY ->
             {
                 Material target = Material.matchMaterial(theme.getIdle());
-                if (target == null || Items.countMaterial(p, target) < theme.getAmount()) {return false;}
+                if (target == null || Items.countMaterial(p, target) < theme.getAmount())
+                {
+                    DebugLog.log(Cat.THEME, "turn-in-deny player=%s theme=%s reason=no-items target=%s need=%d",
+                        p.getName(), theme.getId(), theme.getIdle(), theme.getAmount());
+                    return false;
+                }
                 Items.takeMaterial(p, target, theme.getAmount());
+                DebugLog.log(Cat.THEME, "delivery-take player=%s theme=%s item=%s amount=%d",
+                    p.getName(), theme.getId(), target, theme.getAmount());
             }
             case FIND ->
             {
                 Material target = Material.matchMaterial(theme.getIdle());
-                if (target == null || Items.countMaterial(p, target) < theme.getAmount()) {return false;}
+                if (target == null || Items.countMaterial(p, target) < theme.getAmount())
+                {
+                    DebugLog.log(Cat.THEME, "turn-in-deny player=%s theme=%s reason=no-items target=%s need=%d",
+                        p.getName(), theme.getId(), theme.getIdle(), theme.getAmount());
+                    return false;
+                }
             }
             default ->
             {
-                if (data.themeProgress < theme.getAmount()) {return false;}
+                if (data.themeProgress < theme.getAmount())
+                {
+                    DebugLog.log(Cat.THEME, "turn-in-deny player=%s theme=%s reason=progress %d/%d",
+                        p.getName(), theme.getId(), data.themeProgress, theme.getAmount());
+                    return false;
+                }
             }
         }
 
+        DebugLog.log(Cat.THEME, "turn-in player=%s theme=%s type=%s npc=%s",
+            p.getName(), theme.getId(), theme.getType(), npc.getId());
         clearActive(data);
         reward(p, theme);
         return true;
@@ -215,6 +270,8 @@ public class Themes
                 if (owner != null && themeId.equals(owner.themeId)) {clearActive(owner);}
             }
 
+            DebugLog.log(Cat.THEME, "package-delivered carrier=%s theme=%s npc=%s owner=%s",
+                p.getName(), themeId, npc.getId(), ownerRaw == null ? "-" : ownerRaw);
             item.setAmount(item.getAmount() - 1);
             reward(p, theme);
             return true;
@@ -235,9 +292,13 @@ public class Themes
         Msg.send(p, "theme.complete", Msg.ph("n", theme.getGold()));
         p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
 
+        DebugLog.log(Cat.THEME, "reward player=%s theme=%s gold=%d quests=%d",
+            p.getName(), theme.getId(), theme.getGold(), data == null ? -1 : data.quests);
+
         double chance = plugin.getConfig().getDouble("themes.key-chance", 0.10);
         if (RANDOM.nextDouble() < chance)
         {
+            DebugLog.log(Cat.THEME, "key-drop player=%s chance=%.2f", p.getName(), chance);
             giveOrDrop(p, createMagicKey());
             Msg.send(p, "theme.key-received");
             p.playSound(p.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.6f);
@@ -279,9 +340,12 @@ public class Themes
     {
         if (!session.forceRefillChest(chest))
         {
+            DebugLog.log(Cat.THEME, "key-deny player=%s at=%s reason=not-game-chest",
+                p.getName(), DebugLog.at(chest.getLocation()));
             Msg.send(p, "theme.key-wrong-chest");
             return;
         }
+        DebugLog.log(Cat.THEME, "key-used player=%s at=%s", p.getName(), DebugLog.at(chest.getLocation()));
         key.setAmount(key.getAmount() - 1);
         Location center = chest.getLocation().add(0.5, 1.0, 0.5);
         center.getWorld().spawnParticle(Particle.ENCHANT, center, 40, 0.4, 0.4, 0.4, 0.5);

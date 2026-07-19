@@ -2,6 +2,8 @@ package me.aver005.escape.listener;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.game.GameSession;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Msg;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
@@ -55,6 +57,8 @@ public class MechanicsListener implements Listener
         GameSession session = plugin.arenas().sessionOf(shooter);
         if (session == null || session != plugin.arenas().sessionOf(victim)) {return;}
 
+        DebugLog.log(Cat.MECH, "projectile shooter=%s victim=%s type=%s damage=%.1f victim-hp=%.1f",
+            shooter.getName(), victim.getName(), projectile.getType(), damage, victim.getHealth());
         victim.damage(damage, DamageSource.builder(DamageType.THROWN)
             .withCausingEntity(shooter)
             .withDirectEntity(projectile)
@@ -92,6 +96,9 @@ public class MechanicsListener implements Listener
         {
             if (target.isOnline() && session.isPlaying(target.getUniqueId())) {target.setVelocity(pull);}
         });
+
+        DebugLog.log(Cat.MECH, "hook fisher=%s target=%s strength=%.2f distance=%.1f",
+            fisher.getName(), target.getName(), strength, fisher.getLocation().distance(target.getLocation()));
 
         // сорвался с высоты после крюка — убийство засчитывается рыбаку
         session.recordDamager(target, fisher);

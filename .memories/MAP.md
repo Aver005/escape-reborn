@@ -1,6 +1,7 @@
 # MAP — карта репозитория
 
-Last updated: 2026-07-19 — добавлен MechanicsListener (снежки/яйца/удочка-крюк).
+Last updated: 2026-07-19 — добавлены MechanicsListener (снежки/яйца/удочка-крюк)
+и DebugLog (продвинутое логирование).
 
 ```
 escape-reborn/
@@ -88,6 +89,7 @@ escape-reborn/
         └── util/
             ├── Msg.java               # messages.yml: get/send/list, ph/phMm/phC
             ├── Items.java             # named/special/filler, countMaterial/takeMaterial
+            ├── DebugLog.java          # /escape debuglog: консоль + кольцевой буфер + save в файл
             └── Keys.java              # все NamespacedKey (PDC)
 ```
 

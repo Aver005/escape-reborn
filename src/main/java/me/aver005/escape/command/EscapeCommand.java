@@ -1,5 +1,6 @@
 package me.aver005.escape.command;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -19,6 +20,8 @@ import me.aver005.escape.menu.TradeEditorMenu;
 import me.aver005.escape.theme.Theme;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
@@ -41,6 +44,7 @@ public class EscapeCommand implements TabExecutor
     private static final List<String> PLAYER_SUBS = List.of("join", "leave", "stats", "info", "help");
     private static final List<String> ADMIN_SUBS = List.of(
         "save", "reload", "list", "stop", "start", "create", "remove", "enable", "disable", "check", "debug",
+        "debuglog",
         "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup", "markers",
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
         "additem", "edititems", "addcontract",
@@ -64,6 +68,11 @@ public class EscapeCommand implements TabExecutor
 
         if (args.length == 0) {new ArenaSelectMenu(plugin).open(p); return true;}
         String sub = args[0].toLowerCase(Locale.ROOT);
+
+        if (DebugLog.on())
+        {
+            DebugLog.log(Cat.ADMIN, "command %s: /%s %s", p.getName(), label, String.join(" ", args));
+        }
 
         switch (sub)
         {
@@ -159,6 +168,11 @@ public class EscapeCommand implements TabExecutor
             case "debug" ->
             {
                 handleDebug(p, args);
+                return true;
+            }
+            case "debuglog" ->
+            {
+                handleDebugLog(p, args);
                 return true;
             }
             default -> {}
@@ -623,6 +637,48 @@ public class EscapeCommand implements TabExecutor
         return true;
     }
 
+    /**
+     * /escape debuglog [on|off|save|clear] — продвинутое логирование.
+     * Состояние переживает рестарт: пишется в config.yml (debug-log.enabled).
+     */
+    private void handleDebugLog(Player p, String[] args)
+    {
+        String action = args.length >= 2 ? args[1].toLowerCase(Locale.ROOT) : "status";
+        switch (action)
+        {
+            case "status" -> sendDebugLogStatus(p);
+            case "on", "off" ->
+            {
+                boolean on = action.equals("on");
+                if (on == DebugLog.on()) {Msg.send(p, on ? "debuglog.already-on" : "debuglog.already-off"); return;}
+                DebugLog.setEnabled(on);
+                Msg.send(p, on ? "debuglog.enabled" : "debuglog.disabled");
+                sendDebugLogStatus(p);
+            }
+            case "save" ->
+            {
+                int lines = DebugLog.buffered();
+                if (lines == 0) {Msg.send(p, "debuglog.save-empty"); return;}
+                File file = DebugLog.save();
+                if (file == null) {Msg.send(p, "debuglog.save-failed"); return;}
+                Msg.send(p, "debuglog.saved", Msg.ph("file", file.getName()), Msg.ph("n", lines));
+                Msg.send(p, "debuglog.saved-path", Msg.ph("path", file.getParent()));
+            }
+            case "clear" -> Msg.send(p, "debuglog.cleared", Msg.ph("n", DebugLog.clear()));
+            default -> Msg.send(p, "debuglog.usage");
+        }
+    }
+
+    private void sendDebugLogStatus(Player p)
+    {
+        Msg.send(p, "debuglog.status",
+            Msg.phC("state", Msg.get(DebugLog.on() ? "debuglog.state-on" : "debuglog.state-off")),
+            Msg.phC("console", Msg.get(DebugLog.toConsole() ? "debuglog.state-on" : "debuglog.state-off")),
+            Msg.ph("lines", DebugLog.buffered()),
+            Msg.ph("limit", DebugLog.limit()),
+            Msg.ph("lost", DebugLog.droppedLines()));
+    }
+
     /** /escape debug <действие> — симуляция игровых событий для соло-отладки. */
     private void handleDebug(Player p, String[] args)
     {
@@ -833,6 +889,8 @@ public class EscapeCommand implements TabExecutor
                 case "debug" -> filter(new ArrayList<>(List.of(
                     "death", "kill", "refill", "contract", "theme", "event",
                     "glow", "final", "finish", "gold", "key", "insight")), args[1], out);
+                case "debuglog" -> filter(new ArrayList<>(List.of(
+                    "on", "off", "save", "clear", "status")), args[1], out);
                 case "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice" ->
                     filter(new ArrayList<>(plugin.contracts().ids()), args[1], out);
                 case "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn" ->

@@ -22,6 +22,8 @@ import me.aver005.escape.contract.ContractPapers;
 import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.theme.ThemeType;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
@@ -166,6 +168,8 @@ public class GameSession
         plugin.arenas().bind(p.getUniqueId(), this);
         lobbyChat.add(p.getUniqueId());
         lobbyChat.systemKey("lobby.join", Msg.ph("player", p.getName()), Msg.phMm("arena", arena.getDisplayNameRaw()));
+        DebugLog.log(Cat.SESSION, "join arena=%s player=%s lobby=%d/%d phase=%s",
+            arena.getId(), p.getName(), lobby.size(), arena.getMaxPlayers(), phase);
 
         p.teleport(arena.getLobby());
         p.getInventory().setItem(8, Items.special(Material.MAGMA_CREAM,
@@ -193,11 +197,13 @@ public class GameSession
             plugin.arenas().unbind(id);
             PlayerSnapshot.restore(plugin, p);
             lobbyChat.systemKey("lobby.leave", Msg.ph("player", p.getName()));
+            DebugLog.log(Cat.SESSION, "leave-lobby arena=%s player=%s lobby=%d", arena.getId(), p.getName(), lobby.size());
             if (phase == Phase.WAITING && lobby.isEmpty()) {dispose();}
             return true;
         }
         if (playing.contains(id))
         {
+            DebugLog.log(Cat.SESSION, "leave-match arena=%s player=%s alive=%d", arena.getId(), p.getName(), playing.size());
             dropInventory(p, p.getLocation());
             eliminate(p, false);
             hideTimerBar(p);
@@ -211,6 +217,7 @@ public class GameSession
             hideTimerBar(p);
             plugin.arenas().unbind(id);
             PlayerSnapshot.restore(plugin, p);
+            DebugLog.log(Cat.SESSION, "leave-spectator arena=%s player=%s", arena.getId(), p.getName());
             return true;
         }
         return false;
@@ -220,12 +227,16 @@ public class GameSession
     public void handleQuit(Player p)
     {
         UUID id = p.getUniqueId();
+        DebugLog.log(Cat.SESSION, "quit arena=%s player=%s phase=%s role=%s", arena.getId(), p.getName(), phase,
+            lobby.contains(id) ? "lobby" : playing.contains(id) ? "playing" : "spectator");
         if (lobby.contains(id)) {leave(p); return;}
         if (playing.contains(id))
         {
             // ожидание возрождения / финал / завершение — выбытие сразу, без стража
             if (respawnBlocks.isAwaitingRespawn(id) || phase != Phase.RUNNING || finalBattleStarted)
             {
+                DebugLog.log(Cat.SESSION, "quit-no-guard player=%s awaiting-respawn=%b final=%b",
+                    p.getName(), respawnBlocks.isAwaitingRespawn(id), finalBattleStarted);
                 dropInventory(p, p.getLocation());
                 eliminate(p, true);
                 // снапшот не восстанавливаем сейчас — восстановится при заходе (файл остаётся)
@@ -249,6 +260,8 @@ public class GameSession
     public boolean handleRejoin(Player p)
     {
         if (!playing.contains(p.getUniqueId())) {return false;}
+        DebugLog.log(Cat.SESSION, "rejoin arena=%s player=%s guarded=%b",
+            arena.getId(), p.getName(), offlineGuards.isGuarded(p.getUniqueId()));
         return offlineGuards.handleRejoin(p);
     }
 
@@ -256,6 +269,8 @@ public class GameSession
     public void eliminateOffline(UUID id, String name, boolean announce)
     {
         if (!playing.remove(id)) {return;}
+        DebugLog.log(Cat.PLAYER, "eliminate-offline arena=%s player=%s announce=%b alive=%d",
+            arena.getId(), name, announce, playing.size());
         gameChat.remove(id);
         plugin.stats().add(id, name, "loses", 1);
         respawnBlocks.onOwnerEliminated(id);
@@ -285,10 +300,14 @@ public class GameSession
     {
         phase = Phase.COUNTDOWN;
         countdownRemaining = seconds;
+        DebugLog.log(Cat.SESSION, "countdown-start arena=%s seconds=%d lobby=%d forced=%b",
+            arena.getId(), seconds, lobby.size(), forcedStart);
         countdownTask = Bukkit.getScheduler().runTaskTimer(plugin, () ->
         {
             if (lobby.size() < (forcedStart ? 1 : arena.getMinPlayers()))
             {
+                DebugLog.log(Cat.SESSION, "countdown-cancel arena=%s lobby=%d min=%d",
+                    arena.getId(), lobby.size(), arena.getMinPlayers());
                 forcedStart = false;
                 lobbyChat.systemKey("lobby.countdown-cancelled");
                 phase = Phase.WAITING;
@@ -363,7 +382,15 @@ public class GameSession
         phase = Phase.RUNNING;
         remaining = arena.getDurationSeconds();
         World world = arena.getWorld();
-        if (world == null) {forceStop(); return;}
+        if (world == null)
+        {
+            DebugLog.log(Cat.SESSION, "start-abort arena=%s reason=world-not-loaded world=%s",
+                arena.getId(), arena.getWorldName());
+            forceStop();
+            return;
+        }
+        DebugLog.log(Cat.SESSION, "start arena=%s world=%s players=%d duration=%ds dynamic-chests=%b",
+            arena.getId(), world.getName(), lobby.size(), remaining, arena.isDynamicChests());
 
         // подсказки настройки убираем ДО генерации и телепорта: игрок не должен
         // появиться внутри стекла, а лут сундуков-маркеров в игре не участвует
@@ -397,6 +424,7 @@ public class GameSession
             Location spawn = spawnPool.get(spawnIndex % spawnPool.size());
             spawnIndex++;
             spawn.getChunk().load();
+            DebugLog.log(Cat.PLAYER, "spawn arena=%s player=%s at=%s", arena.getId(), p.getName(), DebugLog.at(spawn));
 
             p.getInventory().clear();
             p.setGameMode(GameMode.SURVIVAL);
@@ -416,6 +444,9 @@ public class GameSession
 
         // «Молния прозрения»: 1 на матч + 1 за каждую пару игроков
         respawnBlocks.distributeInsight(activeChests, playing.size());
+        DebugLog.log(Cat.SESSION, "start-done arena=%s playing=%d chests=%d traders=%d loot-pool=%d contracts=%d",
+            arena.getId(), playing.size(), activeChests.size(), traderLocations.size(),
+            arena.getLoot().size(), arena.getContractIds().size());
 
         timerBar = BossBar.bossBar(
             Component.empty(), 1f,
@@ -461,6 +492,8 @@ public class GameSession
             activeChests.add(block.getLocation());
             spawnChestStand(block.getLocation());
         }
+        DebugLog.log(Cat.WORLD, "chests-placed arena=%s placed=%d wanted=%d spots=%d",
+            arena.getId(), activeChests.size(), arena.getChestCount(), pool.size());
     }
 
     private void spawnChestStand(Location chestLoc)
@@ -502,6 +535,8 @@ public class GameSession
         generateChestLoot(chest);
         activeChests.add(loc);
         spawnChestStand(loc);
+        DebugLog.log(Cat.CHEST, "dynamic-register arena=%s at=%s saved-slots=%d active=%d",
+            arena.getId(), DebugLog.at(loc), originals.length, activeChests.size());
         return true;
     }
 
@@ -599,7 +634,10 @@ public class GameSession
             });
             spawnedEntities.add(villager.getUniqueId());
             traderLocations.add(villager.getLocation());
+            DebugLog.log(Cat.WORLD, "trader-spawn arena=%s type=%s at=%s", arena.getId(), typeId, DebugLog.at(loc));
         }
+        DebugLog.log(Cat.WORLD, "traders-placed arena=%s placed=%d wanted=%d spots=%d",
+            arena.getId(), traderLocations.size(), arena.getTraderCount(), pool.size());
     }
 
     private void placeOres()
@@ -611,6 +649,7 @@ public class GameSession
             editedBlocks.putIfAbsent(loc, block.getBlockData().clone());
             block.setType(randomOre());
         }
+        DebugLog.log(Cat.WORLD, "ores-placed arena=%s count=%d", arena.getId(), arena.getOreSpots().size());
     }
 
     private Material randomOre()
@@ -638,6 +677,8 @@ public class GameSession
             editedBlocks.putIfAbsent(loc, block.getBlockData().clone());
             block.setType(Material.ENCHANTING_TABLE);
         }
+        DebugLog.log(Cat.WORLD, "tables-placed arena=%s placed=%d wanted=%d spots=%d",
+            arena.getId(), count, arena.getTableCount(), pool.size());
     }
 
     // ===== игровой цикл =====
@@ -665,6 +706,8 @@ public class GameSession
         int salaryInterval = Math.max(60, arena.getSalaryIntervalSeconds());
         if (remaining > 0 && remaining % salaryInterval == 0)
         {
+            DebugLog.log(Cat.SESSION, "salary arena=%s gold=%d alive=%d remaining=%ds",
+                arena.getId(), arena.getSalaryGold(), playing.size(), remaining);
             gameChat.systemKey("game.salary", Msg.ph("n", arena.getSalaryGold()));
             forEachPlaying(p ->
             {
@@ -682,6 +725,8 @@ public class GameSession
         if (remaining == arena.getGlowSecondsBeforeEnd())
         {
             glowActive = true;
+            DebugLog.log(Cat.SESSION, "glow-start arena=%s bonus=%d alive=%d",
+                arena.getId(), arena.getGlowBonusGold(), playing.size());
             gameChat.systemKey("game.glow-warning");
             forEachPlaying(p ->
             {
@@ -754,8 +799,10 @@ public class GameSession
         {
             if (event.canStart(this)) {candidates.add(event);}
         }
-        if (candidates.isEmpty()) {return;}
+        if (candidates.isEmpty()) {DebugLog.log(Cat.EVENT, "no-candidates arena=%s", arena.getId()); return;}
         GameEvent event = candidates.get(RANDOM.nextInt(candidates.size()));
+        DebugLog.log(Cat.EVENT, "start arena=%s event=%s window=%ds candidates=%d alive=%d",
+            arena.getId(), event.name(), event.windowSeconds(), candidates.size(), playing.size());
 
         gameChat.systemKey("events.announce-header");
         for (String key : event.announceKeys()) {gameChat.systemKey(key);}
@@ -773,6 +820,8 @@ public class GameSession
     {
         GameEvent event = currentEvent;
         currentEvent = null;
+        DebugLog.log(Cat.EVENT, "end arena=%s event=%s flagged=%d alive=%d",
+            arena.getId(), event.name(), eventFlagged.size(), playing.size());
         forEachPlaying(p -> event.resolvePlayer(this, p));
         event.onEnd(this);
         eventPositions.clear();
@@ -790,8 +839,21 @@ public class GameSession
 
     public Map<UUID, Location> getEventPositions() {return eventPositions;}
     public boolean isEventFlagged(Player p) {return eventFlagged.contains(p.getUniqueId());}
-    public void flagEventAction(Player p) {eventFlagged.add(p.getUniqueId());}
-    public void setBloodMoon(boolean v) {bloodMoon = v;}
+
+    public void flagEventAction(Player p)
+    {
+        if (eventFlagged.add(p.getUniqueId()))
+        {
+            DebugLog.log(Cat.EVENT, "flag arena=%s player=%s event=%s",
+                arena.getId(), p.getName(), currentEvent == null ? "-" : currentEvent.name());
+        }
+    }
+
+    public void setBloodMoon(boolean v)
+    {
+        DebugLog.log(Cat.EVENT, "blood-moon arena=%s value=%b", arena.getId(), v);
+        bloodMoon = v;
+    }
     public boolean isBloodMoon() {return bloodMoon;}
 
     /** Живые игроки, кроме ожидающих возрождения (те 5 сек «мертвы»). */
@@ -824,6 +886,8 @@ public class GameSession
         cancelTask(mainTask);
         mainTask = null;
         finalBattleStarted = true;
+        DebugLog.log(Cat.SESSION, "final-battle arena=%s alive=%d respawn-blocks=%b",
+            arena.getId(), playing.size(), respawnBlocks.hasPlacedBlocks());
         offlineGuards.onFinalBattle();
         if (respawnBlocks.hasPlacedBlocks())
         {
@@ -862,6 +926,12 @@ public class GameSession
             Item item = p.getWorld().dropItem(p.getLocation().add(0, 0.5, 0), rest);
             droppedItems.add(item.getUniqueId());
         }
+        if (DebugLog.on())
+        {
+            DebugLog.log(Cat.PLAYER, "gold arena=%s player=%s amount=%d dropped=%d total=%d",
+                arena.getId(), p.getName(), amount, leftovers.size(),
+                Items.countMaterial(p, Material.GOLD_INGOT));
+        }
     }
 
     // ===== контракты =====
@@ -878,6 +948,8 @@ public class GameSession
 
             int progress = Math.min(contract.getAmount(), ContractPapers.progressOf(item) + delta);
             ContractPapers.write(item, contract, progress);
+            DebugLog.log(Cat.CONTRACT, "progress arena=%s player=%s contract=%s type=%s %d/%d",
+                arena.getId(), p.getName(), contract.getId(), type, progress, contract.getAmount());
             Msg.send(p, "contract.progress",
                 Msg.ph("name", contract.getId()),
                 Msg.ph("progress", progress),
@@ -926,6 +998,8 @@ public class GameSession
 
     private void completeContract(Player p, ItemStack paper, Contract contract)
     {
+        DebugLog.log(Cat.CONTRACT, "complete arena=%s player=%s contract=%s type=%s reward=%d",
+            arena.getId(), p.getName(), contract.getId(), contract.getType(), contract.getPrice());
         paper.setAmount(paper.getAmount() - 1);
         Msg.send(p, "contract.complete-header");
         Msg.send(p, "contract.complete-body");
@@ -942,6 +1016,8 @@ public class GameSession
         MatchPlayer data = matchData.get(p.getUniqueId());
         if (data == null) {return;}
         if (!data.lootedChests.add(chestLoc)) {return;}
+        DebugLog.log(Cat.CHEST, "loot-first-open arena=%s player=%s at=%s total-looted=%d",
+            arena.getId(), p.getName(), DebugLog.at(chestLoc), data.lootedChests.size());
         progressContracts(p, ContractType.LOOT, c -> true, 1);
         themes.progress(p, ThemeType.LOOT, t -> true, 1);
     }
@@ -963,6 +1039,7 @@ public class GameSession
         }
 
         int delay = plugin.getConfig().getInt("chest-refill-seconds", 180);
+        DebugLog.log(Cat.CHEST, "refill-scheduled arena=%s at=%s in=%ds", arena.getId(), DebugLog.at(loc), delay);
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () ->
         {
             refillTasks.remove(loc);
@@ -970,6 +1047,7 @@ public class GameSession
             if (loc.getBlock().getState() instanceof Chest target)
             {
                 generateChestLoot(target);
+                DebugLog.log(Cat.CHEST, "refill-done arena=%s at=%s", arena.getId(), DebugLog.at(loc));
                 ArmorStand as = standAt(loc);
                 if (as != null)
                 {
@@ -995,6 +1073,8 @@ public class GameSession
         BukkitTask pending = refillTasks.remove(loc);
         if (pending != null) {pending.cancel();}
         generateChestLoot(chest);
+        DebugLog.log(Cat.CHEST, "refill-forced arena=%s at=%s had-pending=%b",
+            arena.getId(), DebugLog.at(loc), pending != null);
 
         ArmorStand stand = standAt(loc);
         if (stand != null)
@@ -1025,12 +1105,18 @@ public class GameSession
         if (data == null) {return;}
         data.lastDamager = damager.getUniqueId();
         data.lastDamagerAt = System.currentTimeMillis();
+        DebugLog.log(Cat.COMBAT, "damager arena=%s victim=%s damager=%s victim-hp=%.1f blood-moon=%b",
+            arena.getId(), victim.getName(), damager.getName(), victim.getHealth(), bloodMoon);
     }
 
     /** Запомнить блок для восстановления после матча (решётки и т.п.). */
     public void rememberEditedBlock(Block block)
     {
-        editedBlocks.putIfAbsent(block.getLocation(), block.getBlockData().clone());
+        if (editedBlocks.putIfAbsent(block.getLocation(), block.getBlockData().clone()) == null)
+        {
+            DebugLog.log(Cat.WORLD, "block-remember arena=%s at=%s was=%s total=%d",
+                arena.getId(), DebugLog.at(block.getLocation()), block.getType(), editedBlocks.size());
+        }
     }
 
     /**
@@ -1039,11 +1125,16 @@ public class GameSession
      */
     public void rememberEditedBlock(Location loc, BlockData original)
     {
-        editedBlocks.putIfAbsent(loc, original.clone());
+        if (editedBlocks.putIfAbsent(loc, original.clone()) == null)
+        {
+            DebugLog.log(Cat.WORLD, "block-remember arena=%s at=%s was=%s total=%d",
+                arena.getId(), DebugLog.at(loc), original.getMaterial(), editedBlocks.size());
+        }
     }
 
     public void dropInventory(Player p, Location where)
     {
+        int dropped = 0;
         for (ItemStack item : p.getInventory().getContents())
         {
             if (item == null || item.getType().isAir()) {continue;}
@@ -1051,8 +1142,11 @@ public class GameSession
             if (Items.isSpecial(item, "respawn_block")) {continue;}
             Item drop = p.getWorld().dropItem(where.clone().add(0, 1.2, 0), item);
             droppedItems.add(drop.getUniqueId());
+            dropped++;
         }
         p.getInventory().clear();
+        DebugLog.log(Cat.PLAYER, "drop-inventory arena=%s player=%s stacks=%d at=%s",
+            arena.getId(), p.getName(), dropped, DebugLog.at(where));
     }
 
     public void trackDrop(Item item)
@@ -1066,6 +1160,8 @@ public class GameSession
         UUID id = p.getUniqueId();
         if (!playing.contains(id)) {return;}
 
+        DebugLog.log(Cat.PLAYER, "death arena=%s player=%s at=%s alive=%d", arena.getId(), p.getName(),
+            DebugLog.at(p.getLocation()), playing.size());
         creditKillAndAnnounce(p);
         plugin.stats().add(id, p.getName(), "deaths", 1);
 
@@ -1112,6 +1208,8 @@ public class GameSession
             {
                 MatchPlayer killerData = matchData.get(killer.getUniqueId());
                 if (killerData != null) {killerData.kills++;}
+                DebugLog.log(Cat.COMBAT, "kill-credit arena=%s killer=%s victim=%s kills=%d",
+                    arena.getId(), killer.getName(), p.getName(), killerData == null ? -1 : killerData.kills);
                 plugin.stats().add(killer.getUniqueId(), killer.getName(), "kills", 1);
                 killer.giveExpLevels(plugin.getConfig().getInt("match.kill-xp-levels", 10));
                 progressContracts(killer, ContractType.KILLS, c -> true, 1);
@@ -1137,6 +1235,8 @@ public class GameSession
     {
         UUID id = p.getUniqueId();
         playing.remove(id);
+        DebugLog.log(Cat.PLAYER, "eliminate arena=%s player=%s quit=%b alive=%d",
+            arena.getId(), p.getName(), quit, playing.size());
         gameChat.remove(id);
         plugin.stats().add(id, p.getName(), "loses", 1);
         respawnBlocks.onOwnerEliminated(id);
@@ -1181,6 +1281,8 @@ public class GameSession
             if (data.kills > 0 && (mvp == null || data.kills > mvp.kills)) {mvp = data;}
         }
         if (mvp != null) {plugin.stats().add(mvp.uuid, mvp.name, "mvp_games", 1);}
+        DebugLog.log(Cat.SESSION, "finish arena=%s alive=%d participants=%d mvp=%s",
+            arena.getId(), playing.size(), matchData.size(), mvp == null ? "-" : mvp.name);
 
         int stopDelay = 3;
         if (playing.size() == 1)
@@ -1191,6 +1293,8 @@ public class GameSession
             {
                 // победитель может быть и оффлайн (пережил всех под стражем) — статистика всё равно его
                 plugin.stats().add(winnerId, data.name, "wins", 1);
+                DebugLog.log(Cat.SESSION, "winner arena=%s player=%s kills=%d quests=%d trades=%d ores=%d",
+                    arena.getId(), data.name, data.kills, data.quests, data.trades, data.ores);
                 broadcastAll(Msg.get("game.win-header"));
                 broadcastAll(Component.empty());
                 broadcastAll(Msg.get("game.win-player", Msg.ph("player", data.name)));
@@ -1243,6 +1347,8 @@ public class GameSession
     /** Немедленная остановка (админ, onDisable, удаление арены). */
     public void forceStop()
     {
+        DebugLog.log(Cat.SESSION, "force-stop arena=%s phase=%s lobby=%d playing=%d",
+            arena.getId(), phase, lobby.size(), playing.size());
         cancelTask(countdownTask); countdownTask = null;
         cancelTask(mainTask); mainTask = null;
         cancelTask(stopTask); stopTask = null;
@@ -1254,6 +1360,9 @@ public class GameSession
 
     private void cleanup()
     {
+        DebugLog.log(Cat.SESSION, "cleanup-start arena=%s blocks=%d chests=%d dynamic=%d entities=%d drops=%d refills=%d",
+            arena.getId(), editedBlocks.size(), activeChests.size(), dynamicChestOriginals.size(),
+            spawnedEntities.size(), droppedItems.size(), refillTasks.size());
         removeTimerBar();
         for (BukkitTask task : refillTasks.values()) {task.cancel();}
         refillTasks.clear();
@@ -1278,12 +1387,17 @@ public class GameSession
         dynamicChestOriginals.clear();
 
         // вернуть все изменённые блоки (решётки, сундуки, руды, столы)
+        int restored = 0;
+        int skipped = 0;
         for (Map.Entry<Location, BlockData> entry : editedBlocks.entrySet())
         {
             Location loc = entry.getKey();
-            if (loc.getWorld() == null) {continue;}
+            if (loc.getWorld() == null) {skipped++; continue;}
             loc.getBlock().setBlockData(entry.getValue(), false);
+            restored++;
         }
+        DebugLog.log(Cat.WORLD, "blocks-restored arena=%s restored=%d skipped-no-world=%d",
+            arena.getId(), restored, skipped);
         editedBlocks.clear();
         activeChests.clear();
         chestStands.clear();
@@ -1292,19 +1406,26 @@ public class GameSession
         // мир вернулся в исходное — возвращаем и подсказки настройки
         SetupMarkers.placeAll(arena);
 
+        // removed < tracked — часть сущностей исчезла раньше (смерть, деспавн), это норма
+        int entitiesRemoved = 0;
+        int entitiesTracked = spawnedEntities.size();
         for (UUID id : spawnedEntities)
         {
             Entity entity = Bukkit.getEntity(id);
-            if (entity != null) {entity.remove();}
+            if (entity != null) {entity.remove(); entitiesRemoved++;}
         }
         spawnedEntities.clear();
 
+        int dropsRemoved = 0;
+        int dropsTracked = droppedItems.size();
         for (UUID id : droppedItems)
         {
             Entity entity = Bukkit.getEntity(id);
-            if (entity != null) {entity.remove();}
+            if (entity != null) {entity.remove(); dropsRemoved++;}
         }
         droppedItems.clear();
+        DebugLog.log(Cat.WORLD, "entities-removed arena=%s spawned=%d/%d drops=%d/%d",
+            arena.getId(), entitiesRemoved, entitiesTracked, dropsRemoved, dropsTracked);
 
         Set<UUID> everyone = new LinkedHashSet<>();
         everyone.addAll(lobby);
@@ -1317,8 +1438,10 @@ public class GameSession
             if (p != null)
             {
                 PlayerSnapshot.restore(plugin, p);
+                DebugLog.log(Cat.PLAYER, "snapshot-restore arena=%s player=%s", arena.getId(), p.getName());
             }
         }
+        DebugLog.log(Cat.SESSION, "cleanup-done arena=%s players-restored=%d", arena.getId(), everyone.size());
         lobby.clear();
         playing.clear();
         spectators.clear();
@@ -1423,6 +1546,7 @@ public class GameSession
         cancelTask(countdownTask);
         countdownTask = null;
         forcedStart = true;
+        DebugLog.log(Cat.ADMIN, "force-start arena=%s lobby=%d", arena.getId(), lobby.size());
         startCountdown(Math.min(5, arena.getStartDelayFullSeconds()));
         return true;
     }
@@ -1430,6 +1554,7 @@ public class GameSession
     /** Остановка админом с отсчётом. */
     public void adminStop()
     {
+        DebugLog.log(Cat.ADMIN, "admin-stop arena=%s phase=%s", arena.getId(), phase);
         if (phase == Phase.RUNNING)
         {
             finishForced();

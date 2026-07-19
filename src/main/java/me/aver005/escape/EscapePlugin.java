@@ -16,6 +16,8 @@ import me.aver005.escape.listener.ProtectionListener;
 import me.aver005.escape.listener.SetupListener;
 import me.aver005.escape.stats.StatsRepository;
 import me.aver005.escape.trader.TraderRegistry;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
 import org.bukkit.entity.Player;
@@ -36,6 +38,7 @@ public final class EscapePlugin extends JavaPlugin
         saveDefaultConfig();
         Keys.init(this);
         Msg.init(this);
+        DebugLog.init(this);
 
         arenaManager = new ArenaManager(this);
         contractRegistry = new ContractRegistry(this);
@@ -65,11 +68,16 @@ public final class EscapePlugin extends JavaPlugin
         escape.setTabCompleter(command);
 
         getLogger().info("Escape enabled, arenas loaded: " + arenaManager.all().size());
+        if (DebugLog.on()) {getLogger().info("Escape debug log is ON (/escape debuglog off to stop)");}
+        DebugLog.log(Cat.ADMIN, "plugin enable arenas=%d contracts=%d themes=%d traders=%d",
+            arenaManager.all().size(), contractRegistry.ids().size(),
+            themeRegistry.ids().size(), traderRegistry.ids().size());
     }
 
     @Override
     public void onDisable()
     {
+        DebugLog.log(Cat.ADMIN, "plugin disable");
         if (arenaManager != null) {arenaManager.stopAll();}
         saveEverything();
         if (statsRepository != null) {statsRepository.close();}
@@ -87,6 +95,7 @@ public final class EscapePlugin extends JavaPlugin
     {
         reloadConfig();
         Msg.reload();
+        DebugLog.reload();
         arenaManager.loadAll();
         contractRegistry.load();
         themeRegistry.load();

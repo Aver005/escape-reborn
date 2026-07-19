@@ -9,6 +9,8 @@ import java.util.Set;
 import java.util.UUID;
 
 import me.aver005.escape.EscapePlugin;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
@@ -106,13 +108,29 @@ public class RespawnBlocks
         UUID itemOwner = itemOwner(e.getItemInHand());
         if (itemOwner == null || !itemOwner.equals(p.getUniqueId()))
         {
+            DebugLog.log(Cat.RESPAWN, "place-deny player=%s reason=not-owner", p.getName());
             Msg.send(p, "respawn-block.not-yours");
             return false;
         }
         RespawnBlock rb = byOwner.get(p.getUniqueId());
-        if (rb == null || rb.charges <= 0) {return false;}
-        if (session.isFinalBattle()) {Msg.send(p, "respawn-block.final-battle"); return false;}
-        if (rb.isPlaced()) {return false;} // блок уже стоит, второго предмета быть не должно
+        if (rb == null || rb.charges <= 0)
+        {
+            DebugLog.log(Cat.RESPAWN, "place-deny player=%s reason=%s",
+                p.getName(), rb == null ? "no-block-data" : "no-charges");
+            return false;
+        }
+        if (session.isFinalBattle())
+        {
+            DebugLog.log(Cat.RESPAWN, "place-deny player=%s reason=final-battle", p.getName());
+            Msg.send(p, "respawn-block.final-battle");
+            return false;
+        }
+        if (rb.isPlaced())
+        {
+            DebugLog.log(Cat.RESPAWN, "place-deny player=%s reason=already-placed at=%s",
+                p.getName(), DebugLog.at(rb.placedAt));
+            return false;
+        }
 
         Block block = e.getBlock();
         Block above1 = block.getRelative(0, 1, 0);
@@ -120,6 +138,8 @@ public class RespawnBlocks
         Block below = block.getRelative(0, -1, 0);
         if (!above1.isPassable() || !above2.isPassable() || !below.getType().isSolid())
         {
+            DebugLog.log(Cat.RESPAWN, "place-deny player=%s reason=bad-spot at=%s above1=%s above2=%s below=%s",
+                p.getName(), DebugLog.at(block.getLocation()), above1.getType(), above2.getType(), below.getType());
             Msg.send(p, "respawn-block.bad-spot");
             return false;
         }
@@ -130,6 +150,8 @@ public class RespawnBlocks
         ownerByLocation.put(rb.placedAt, rb.owner);
 
         strike(rb.placedAt); // молния при установке — позиция раскрывается
+        DebugLog.log(Cat.RESPAWN, "place player=%s tier=%s charges=%d at=%s placed-total=%d",
+            p.getName(), rb.tier, rb.charges, DebugLog.at(rb.placedAt), ownerByLocation.size());
         Msg.send(p, "respawn-block.placed", Msg.ph("charges", rb.charges));
         return true;
     }
@@ -146,6 +168,8 @@ public class RespawnBlocks
 
         if (rb.owner.equals(breaker.getUniqueId()))
         {
+            DebugLog.log(Cat.RESPAWN, "pickup player=%s tier=%s charges=%d at=%s",
+                breaker.getName(), rb.tier, rb.charges, DebugLog.at(rb.placedAt));
             ownerByLocation.remove(rb.placedAt);
             rb.placedAt = null;
             breaker.getInventory().addItem(createItem(rb));
@@ -153,6 +177,8 @@ public class RespawnBlocks
             return true;
         }
 
+        DebugLog.log(Cat.RESPAWN, "break-enemy breaker=%s owner=%s tier=%s at=%s",
+            breaker.getName(), rb.ownerName, rb.tier, DebugLog.at(rb.placedAt));
         destroy(rb, DestroyReason.BROKEN, breaker);
         return true;
     }
@@ -161,6 +187,9 @@ public class RespawnBlocks
 
     public void destroy(RespawnBlock rb, DestroyReason reason, Player breaker)
     {
+        DebugLog.log(Cat.RESPAWN, "destroy owner=%s tier=%s reason=%s breaker=%s at=%s charges-left=%d",
+            rb.ownerName, rb.tier, reason, breaker == null ? "-" : breaker.getName(),
+            DebugLog.at(rb.placedAt), rb.charges);
         Location loc = rb.placedAt;
         if (loc != null)
         {
@@ -201,6 +230,8 @@ public class RespawnBlocks
         // владелец ждал возрождения на этом блоке — возрождение срывается
         if (cancelPendingRespawn(rb.owner))
         {
+            DebugLog.log(Cat.RESPAWN, "respawn-broken owner=%s reason=%s online=%b",
+                rb.ownerName, reason, owner != null);
             if (owner != null && session.isPlaying(rb.owner))
             {
                 Msg.send(owner, "respawn-block.respawn-cancelled");
@@ -231,13 +262,21 @@ public class RespawnBlocks
     {
         UUID id = p.getUniqueId();
         RespawnBlock rb = byOwner.get(id);
-        if (rb == null || !rb.isPlaced() || rb.charges <= 0 || session.isFinalBattle()) {return false;}
+        if (rb == null || !rb.isPlaced() || rb.charges <= 0 || session.isFinalBattle())
+        {
+            DebugLog.log(Cat.RESPAWN, "respawn-deny player=%s reason=%s", p.getName(),
+                rb == null ? "no-block" : !rb.isPlaced() ? "not-placed"
+                : rb.charges <= 0 ? "no-charges" : "final-battle");
+            return false;
+        }
         if (pendingRespawns.containsKey(id)) {return true;}
 
         rb.charges--;
         p.setGameMode(org.bukkit.GameMode.SPECTATOR);
 
         int delay = Math.max(1, plugin.getConfig().getInt("respawn-block.respawn-delay-seconds", 5));
+        DebugLog.log(Cat.RESPAWN, "respawn-scheduled player=%s tier=%s charges-left=%d delay=%ds at=%s",
+            p.getName(), rb.tier, rb.charges, delay, DebugLog.at(rb.placedAt));
         Msg.send(p, "respawn-block.respawn-wait", Msg.ph("seconds", delay));
         p.showTitle(Title.title(
             Msg.get("respawn-block.respawn-wait-title"),
@@ -258,6 +297,7 @@ public class RespawnBlocks
         if (rb == null || !rb.isPlaced())
         {
             // блок пропал за время ожидания (страховка: обычно destroy() выбивает раньше)
+            DebugLog.log(Cat.RESPAWN, "respawn-failed player=%s reason=block-gone", p.getName());
             session.eliminateAfterFailedRespawn(p);
             return;
         }
@@ -272,6 +312,8 @@ public class RespawnBlocks
         RespawnBlock rb = byOwner.get(p.getUniqueId());
         if (rb == null || !rb.isPlaced() || rb.charges <= 0) {return;}
         rb.charges--;
+        DebugLog.log(Cat.RESPAWN, "materialize player=%s tier=%s charges-left=%d at=%s",
+            p.getName(), rb.tier, rb.charges, DebugLog.at(rb.placedAt));
         applyRespawn(p, rb);
         if (rb.charges <= 0) {destroy(rb, DestroyReason.EXHAUSTED, null);}
     }
@@ -290,6 +332,8 @@ public class RespawnBlocks
         {
             p.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0, false, false));
         }
+        DebugLog.log(Cat.RESPAWN, "respawned player=%s tier=%s charges-left=%d at=%s glow=%b",
+            p.getName(), rb.tier, rb.charges, DebugLog.at(target), session.isGlowActive());
         Msg.send(p, "respawn-block.respawned", Msg.ph("charges", rb.charges));
     }
 
@@ -314,17 +358,26 @@ public class RespawnBlocks
     {
         if (!rb.isPlaced() || !rb.owner.equals(p.getUniqueId())) {return false;}
         RespawnTier next = rb.tier.next();
-        if (next == null) {Msg.send(p, "respawn-block.max-tier"); return false;}
+        if (next == null)
+        {
+            DebugLog.log(Cat.RESPAWN, "upgrade-deny player=%s reason=max-tier tier=%s", p.getName(), rb.tier);
+            Msg.send(p, "respawn-block.max-tier");
+            return false;
+        }
 
         if (next == RespawnTier.EMERALD)
         {
             if (session.aliveCount() < RespawnTier.EMERALD_MIN_ALIVE)
             {
+                DebugLog.log(Cat.RESPAWN, "upgrade-deny player=%s reason=few-players alive=%d need=%d",
+                    p.getName(), session.aliveCount(), RespawnTier.EMERALD_MIN_ALIVE);
                 Msg.send(p, "respawn-block.emerald-few-players", Msg.ph("n", RespawnTier.EMERALD_MIN_ALIVE));
                 return false;
             }
             if (rb.killsSinceDiamond < RespawnTier.EMERALD_KILLS_REQUIRED)
             {
+                DebugLog.log(Cat.RESPAWN, "upgrade-deny player=%s reason=need-kills kills=%d need=%d",
+                    p.getName(), rb.killsSinceDiamond, RespawnTier.EMERALD_KILLS_REQUIRED);
                 Msg.send(p, "respawn-block.emerald-need-kills",
                     Msg.ph("kills", rb.killsSinceDiamond), Msg.ph("need", RespawnTier.EMERALD_KILLS_REQUIRED));
                 return false;
@@ -333,17 +386,23 @@ public class RespawnBlocks
         else
         {
             int cost = next.upgradeCostGold();
-            if (Items.countMaterial(p, Material.GOLD_INGOT) < cost)
+            int gold = Items.countMaterial(p, Material.GOLD_INGOT);
+            if (gold < cost)
             {
+                DebugLog.log(Cat.RESPAWN, "upgrade-deny player=%s reason=no-gold have=%d cost=%d",
+                    p.getName(), gold, cost);
                 Msg.send(p, "respawn-block.not-enough-gold", Msg.ph("cost", cost));
                 return false;
             }
             Items.takeMaterial(p, Material.GOLD_INGOT, cost);
         }
 
+        RespawnTier from = rb.tier;
         rb.tier = next;
         rb.charges += RespawnTier.UPGRADE_CHARGES;
         if (next == RespawnTier.DIAMOND) {rb.killsSinceDiamond = 0;}
+        DebugLog.log(Cat.RESPAWN, "upgrade player=%s %s->%s charges=%d at=%s",
+            p.getName(), from, next, rb.charges, DebugLog.at(rb.placedAt));
 
         Block block = rb.placedAt.getBlock();
         block.setType(next.material());
@@ -362,6 +421,8 @@ public class RespawnBlocks
         RespawnBlock rb = byOwner.get(killer.getUniqueId());
         if (rb == null || rb.tier != RespawnTier.DIAMOND) {return;}
         rb.killsSinceDiamond++;
+        DebugLog.log(Cat.RESPAWN, "emerald-progress player=%s kills=%d need=%d",
+            killer.getName(), rb.killsSinceDiamond, RespawnTier.EMERALD_KILLS_REQUIRED);
         if (rb.killsSinceDiamond <= RespawnTier.EMERALD_KILLS_REQUIRED)
         {
             Msg.send(killer, "respawn-block.emerald-progress",
@@ -379,6 +440,7 @@ public class RespawnBlocks
     /** Молния по всем установленным блокам (интервал 5 минут / «Молния прозрения»). */
     public void strikeAll()
     {
+        DebugLog.log(Cat.RESPAWN, "strike-all blocks=%d", ownerByLocation.size());
         for (Location loc : List.copyOf(ownerByLocation.keySet())) {strike(loc);}
     }
 
@@ -406,6 +468,8 @@ public class RespawnBlocks
             chest.getInventory().setItem(slot, createInsightItem());
             placed++;
         }
+        DebugLog.log(Cat.RESPAWN, "insight-distributed quota=%d placed=%d chests=%d players=%d",
+            quota, placed, pool.size(), playerCount);
     }
 
     /** Использование «Молнии прозрения»: молния по всем установленным блокам. */
@@ -413,9 +477,11 @@ public class RespawnBlocks
     {
         if (ownerByLocation.isEmpty())
         {
+            DebugLog.log(Cat.RESPAWN, "insight-use player=%s targets=0", p.getName());
             Msg.send(p, "respawn-block.insight-no-targets");
             return;
         }
+        DebugLog.log(Cat.RESPAWN, "insight-use player=%s targets=%d", p.getName(), ownerByLocation.size());
         item.setAmount(item.getAmount() - 1);
         strikeAll();
         session.gameChat().systemKey("respawn-block.insight-used");
@@ -431,6 +497,7 @@ public class RespawnBlocks
     /** Финальная битва: аннулировать все блоки. */
     public void annulAll()
     {
+        DebugLog.log(Cat.RESPAWN, "annul-all blocks=%d", ownerByLocation.size());
         for (UUID owner : List.copyOf(ownerByLocation.values()))
         {
             RespawnBlock rb = byOwner.get(owner);

@@ -13,6 +13,8 @@ import me.aver005.escape.menu.ThemesMenu;
 import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
@@ -97,16 +99,24 @@ public class GameListener implements Listener
         if (type == Material.IRON_BARS)
         {
             // побег: решётку можно ломать, после матча она восстановится
+            DebugLog.log(Cat.WORLD, "bars-broken player=%s at=%s", p.getName(), DebugLog.at(block.getLocation()));
             session.rememberEditedBlock(block);
             e.setDropItems(false);
             return;
         }
 
         boolean ore = name.endsWith("_ORE") || name.startsWith("INFESTED_");
-        if (!ore) {e.setCancelled(true); return;}
+        if (!ore)
+        {
+            DebugLog.log(Cat.WORLD, "break-denied player=%s block=%s at=%s",
+                p.getName(), type, DebugLog.at(block.getLocation()));
+            e.setCancelled(true);
+            return;
+        }
 
         e.setDropItems(false);
         e.setExpToDrop(0);
+        DebugLog.log(Cat.WORLD, "ore-mined player=%s ore=%s at=%s", p.getName(), type, DebugLog.at(block.getLocation()));
 
         var data = session.matchData(p.getUniqueId());
         if (data != null) {data.ores++;}
@@ -168,6 +178,8 @@ public class GameListener implements Listener
 
         if (e.getFinalDamage() >= p.getHealth())
         {
+            DebugLog.log(Cat.COMBAT, "lethal-damage player=%s cause=%s damage=%.1f hp=%.1f",
+                p.getName(), e.getCause(), e.getFinalDamage(), p.getHealth());
             e.setCancelled(true);
             session.dropInventory(p, p.getLocation());
             p.setHealth(20.0);
@@ -269,6 +281,8 @@ public class GameListener implements Listener
         if (type == Material.LEVER)
         {
             String leverName = session.getArena().getLevers().get(block.getLocation());
+            DebugLog.log(Cat.WORLD, "lever player=%s named=%s at=%s",
+                p.getName(), leverName == null ? "-" : leverName, DebugLog.at(block.getLocation()));
             if (leverName != null)
             {
                 session.progressContracts(p, ContractType.ACTIVATE, c -> leverName.equals(c.getIdle()), 1);
@@ -321,6 +335,8 @@ public class GameListener implements Listener
 
         boolean shop = trader.isShop();
         boolean overseer = trader.isOverseer();
+        DebugLog.log(Cat.SHOP, "npc-open player=%s trader=%s shop=%b overseer=%b at=%s",
+            p.getName(), trader.getId(), shop, overseer, DebugLog.at(villager.getLocation()));
         if (shop && overseer) {new NpcMenu(plugin, session, trader, villager).open(p);}
         else if (overseer) {new ThemesMenu(plugin, session, trader, villager).open(p);}
         else {new ShopMenu(plugin, session, trader).open(p);}
@@ -406,6 +422,8 @@ public class GameListener implements Listener
                 return;
             }
             session.trackDrop(e.getItemDrop());
+            DebugLog.log(Cat.PLAYER, "item-drop player=%s item=%s at=%s",
+                p.getName(), DebugLog.item(e.getItemDrop().getItemStack()), DebugLog.at(p.getLocation()));
             if (session.getCurrentEvent() == GameEvent.SEARCH) {session.flagEventAction(p);}
         }
     }

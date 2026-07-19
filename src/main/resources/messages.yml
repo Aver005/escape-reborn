@@ -461,6 +461,21 @@ debug:
   key-given: "<dark_green>[debug] Выдан «Волшебный ключик»."
   insight-given: "<dark_green>[debug] Выдана «Молния прозрения»."
 
+debuglog:
+  usage: "<yellow>Использование: <aqua>/escape debuglog [on|off|save|clear|status]"
+  status: "<gray>Логирование: <state> <gray>| консоль: <console> <gray>| буфер: <yellow><lines><gray>/<yellow><limit> <gray>(вытеснено: <yellow><lost><gray>)"
+  state-on: "<dark_green>включено"
+  state-off: "<red>выключено"
+  enabled: "<dark_green>Продвинутое логирование включено, состояние сохранено в config.yml."
+  disabled: "<yellow>Продвинутое логирование выключено, состояние сохранено в config.yml. Буфер сохранён — его ещё можно записать в файл."
+  already-on: "<yellow>Логирование уже включено."
+  already-off: "<yellow>Логирование уже выключено."
+  saved: "<dark_green>Лог сохранён в <yellow><file><dark_green>, строк: <yellow><n><dark_green>."
+  saved-path: "<gray>Папка: <yellow><path>"
+  save-empty: "<red>Буфер пуст — сохранять нечего."
+  save-failed: "<red>Не удалось записать файл лога, подробности в консоли сервера."
+  cleared: "<yellow>Буфер лога очищен, строк удалено: <yellow><n><yellow>."
+
 npc:
   chooser-title-prefix: "К кому обратиться: "
   shop-button: "<gold>Магазин"
@@ -565,6 +580,8 @@ help:
     - "<gray>‖  <red>/escape worldsetup <ID> <gray>——— <yellow>Настроить gamerules мира арены"
     - "<gray>‖  <red>/escape check <ID> <gray>——— <yellow>Проверка арены (CRITICAL/WARNING/GOOD + подсказки)"
     - "<gray>‖  <red>/escape debug <действие> <gray>——— <yellow>Симуляция событий для соло-теста (право escape.admin.debug)"
+    - "<gray>‖  <red>/escape debuglog [on|off|save|clear] <gray>——— <yellow>Продвинутое логирование действий"
+    - "<gray>‖  <yellow>Включено: <gray>каждое действие идёт в консоль и в буфер; <red>save <gray>кладёт буфер в plugins/Escape/logs/"
     - "<gray>‖"
     - "<gray>‖  <red>/escape addspawn|addfinalspawn|addchest|addtable|addore <ID> <gray>——— <yellow>Маркеры точек"
     - "<gray>‖  <red>/escape addlever <ID> <Имя> <gray>——— <yellow>Именованный рычаг"
