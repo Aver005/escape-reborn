@@ -7,9 +7,7 @@ import java.util.Set;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.contract.Contract;
-import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.theme.Theme;
-import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;

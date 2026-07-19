@@ -20,14 +20,12 @@ public class RespawnUpgradeMenu extends Menu
     private static final int SLOT_INFO = 11;
     private static final int SLOT_UPGRADE = 15;
 
-    private final EscapePlugin plugin;
     private final GameSession session;
     private final RespawnBlock block;
 
     public RespawnUpgradeMenu(EscapePlugin plugin, GameSession session, RespawnBlock block)
     {
         super(27, Msg.get("respawn-block.menu-title"));
-        this.plugin = plugin;
         this.session = session;
         this.block = block;
         fillAll(Material.BLACK_STAINED_GLASS_PANE);
