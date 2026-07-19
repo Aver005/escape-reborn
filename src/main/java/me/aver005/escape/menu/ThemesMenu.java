@@ -23,6 +23,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 /** Темки смотрящего: список на взятие + активная темка с кнопкой броска. */
 public class ThemesMenu extends Menu
 {
+    /** Список темок занимает слоты 10-16 — больше семи в меню не поместится. */
+    public static final int MAX_THEMES = 7;
+
     private static final int SLOT_ACTIVE = 22;
     private static final int SLOT_BACK = 27;
 

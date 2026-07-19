@@ -23,6 +23,12 @@ import org.bukkit.inventory.meta.ItemMeta;
 /** Магазин торговца. */
 public class ShopMenu extends Menu
 {
+    /**
+     * Сколько товаров влезает в самое большое окно магазина: 6 рядов (54 слота),
+     * из них внутренних — 4 ряда по 7 слотов. Лишние товары показать негде.
+     */
+    public static final int MAX_TRADES = 28;
+
     private final EscapePlugin plugin;
     private final GameSession session;
     private final TraderType trader;
@@ -54,7 +60,8 @@ public class ShopMenu extends Menu
         int slot = 10;
         for (Trade trade : trader.getTrades())
         {
-            while (isBorder(slot)) {slot++;}
+            // границу проверяем ВНУТРИ условия: без неё slot уходит за size и цикл вечен
+            while (slot < inventory.getSize() && isBorder(slot)) {slot++;}
             if (slot >= inventory.getSize()) {break;}
 
             ItemStack display = trade.item().clone();

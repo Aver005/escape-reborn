@@ -7,6 +7,8 @@ import java.util.Set;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.contract.Contract;
+import me.aver005.escape.menu.ShopMenu;
+import me.aver005.escape.menu.ThemesMenu;
 import me.aver005.escape.theme.Theme;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.Msg;
@@ -134,6 +136,20 @@ public final class ArenaCheck
             {
                 out.add(warn(Msg.get("check.msg.npc-empty", Msg.ph("npc", typeId)),
                     "/escape addtrade " + typeId + "  |  /escape addtheme " + typeId + " <TID>"));
+            }
+            if (npc.getTrades().size() > ShopMenu.MAX_TRADES)
+            {
+                out.add(warn(Msg.get("check.msg.npc-trades-overflow",
+                    Msg.ph("npc", typeId), Msg.ph("n", npc.getTrades().size()),
+                    Msg.ph("max", ShopMenu.MAX_TRADES)),
+                    "traders.yml: " + typeId + " -> trades"));
+            }
+            if (npc.getThemes().size() > ThemesMenu.MAX_THEMES)
+            {
+                out.add(warn(Msg.get("check.msg.npc-themes-overflow",
+                    Msg.ph("npc", typeId), Msg.ph("n", npc.getThemes().size()),
+                    Msg.ph("max", ThemesMenu.MAX_THEMES)),
+                    "/escape removetheme " + typeId + " <TID>"));
             }
             for (String themeId : npc.getThemes())
             {
