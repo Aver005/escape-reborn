@@ -1,6 +1,6 @@
 # MAP — карта репозитория
 
-Last updated: 2026-07-18
+Last updated: 2026-07-19 — добавлены блоки-подсказки точек арены (SetupMarkers).
 
 ```
 escape-reborn/
@@ -36,6 +36,7 @@ escape-reborn/
         │   ├── Arena.java             # модель + load/save arenas/<ID>/{arena,locations,loot}.yml
         │   ├── ArenaCheck.java        # валидатор арены: CRITICAL/WARNING/GOOD + подсказки
         │   ├── ArenaManager.java      # реестр арен + Map игрок→сессия + delete/stopAll
+        │   ├── SetupMarkers.java      # блоки-подсказки точек: place/clearForMatch/removeAt
         │   └── WeightedItem.java      # record: предмет + вес лута
         ├── game/
         │   ├── GameSession.java       # ЯДРО (см. ARCHITECTURE)
@@ -77,7 +78,7 @@ escape-reborn/
         │   └── ThemesMenu.java        # темки смотрящего: взять/бросить
         ├── listener/
         │   ├── GameListener.java      # блоки/бой/смерть/предметы/сундуки/join-quit
-        │   ├── SetupListener.java     # установка маркеров → точки арены
+        │   ├── SetupListener.java     # маркеры → точки арены; слом подсказки → удаление точки
         │   ├── ChatListener.java      # каналы чата + блокировка команд в матче
         │   ├── ProtectionListener.java# огонь/листва/висячие в мирах арен
         │   └── MenuListener.java      # роутинг кликов в Menu

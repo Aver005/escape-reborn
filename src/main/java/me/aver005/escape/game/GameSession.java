@@ -15,6 +15,7 @@ import java.util.function.Predicate;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
+import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.arena.WeightedItem;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractPapers;
@@ -363,6 +364,10 @@ public class GameSession
         remaining = arena.getDurationSeconds();
         World world = arena.getWorld();
         if (world == null) {forceStop(); return;}
+
+        // подсказки настройки убираем ДО генерации и телепорта: игрок не должен
+        // появиться внутри стекла, а лут сундуков-маркеров в игре не участвует
+        SetupMarkers.clearForMatch(arena);
 
         placeChests();
         spawnTraders();
@@ -1283,6 +1288,9 @@ public class GameSession
         activeChests.clear();
         chestStands.clear();
         traderLocations.clear();
+
+        // мир вернулся в исходное — возвращаем и подсказки настройки
+        SetupMarkers.placeAll(arena);
 
         for (UUID id : spawnedEntities)
         {

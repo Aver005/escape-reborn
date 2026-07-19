@@ -2,17 +2,21 @@ package me.aver005.escape.listener;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
+import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
-/** Установка блоков-маркеров: добавление точек арены. */
+/** Установка блоков-маркеров: добавление точек арены и удаление их сломом. */
 public class SetupListener implements Listener
 {
     private final EscapePlugin plugin;
@@ -51,9 +55,46 @@ public class SetupListener implements Listener
         if (!placeReal) {e.setCancelled(true);}
         plugin.arenas().save(arena);
 
+        // отмена события возвращает блок в прежнее состояние — подсказку ставим следующим тиком
+        Bukkit.getScheduler().runTask(plugin, () -> SetupMarkers.placePoint(arena, loc, type));
+
         Msg.send(p, "admin.marker-added",
             Msg.ph("type", Msg.raw("marker-types." + type)),
             Msg.ph("x", loc.getBlockX()), Msg.ph("y", loc.getBlockY()), Msg.ph("z", loc.getBlockZ()),
             Msg.ph("world", loc.getWorld().getName()));
+    }
+
+    /** Слом блока-подсказки вне матча = удаление точки. */
+    @EventHandler(ignoreCancelled = true)
+    public void onBreak(BlockBreakEvent e)
+    {
+        Player p = e.getPlayer();
+        if (plugin.arenas().sessionOf(p) != null) {return;} // участников матча ведёт GameListener
+
+        Arena arena = arenaInWorld(e.getBlock().getWorld());
+        if (arena == null || arena.getSession() != null) {return;}
+
+        Location loc = e.getBlock().getLocation();
+        if (SetupMarkers.pointTypeAt(arena, loc) == null) {return;}
+        if (!p.hasPermission("escape.admin")) {e.setCancelled(true); return;}
+
+        String type = SetupMarkers.removeAt(arena, loc);
+        if (type == null) {return;}
+        plugin.arenas().save(arena);
+        e.setDropItems(false);
+
+        Msg.send(p, "admin.marker-removed",
+            Msg.ph("type", Msg.raw("marker-types." + type)),
+            Msg.ph("x", loc.getBlockX()), Msg.ph("y", loc.getBlockY()), Msg.ph("z", loc.getBlockZ()),
+            Msg.ph("world", loc.getWorld().getName()));
+    }
+
+    private Arena arenaInWorld(World world)
+    {
+        for (Arena arena : plugin.arenas().all().values())
+        {
+            if (world.getName().equals(arena.getWorldName())) {return arena;}
+        }
+        return null;
     }
 }

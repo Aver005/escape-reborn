@@ -7,6 +7,7 @@ import java.util.Locale;
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.ArenaCheck;
+import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.arena.WeightedItem;
 import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.contract.Contract;
@@ -40,7 +41,7 @@ public class EscapeCommand implements TabExecutor
     private static final List<String> PLAYER_SUBS = List.of("join", "leave", "stats", "info", "help");
     private static final List<String> ADMIN_SUBS = List.of(
         "save", "reload", "list", "stop", "start", "create", "remove", "enable", "disable", "check", "debug",
-        "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup",
+        "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup", "markers",
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
         "additem", "edititems", "addcontract",
         "createcontract", "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice",
@@ -238,6 +239,16 @@ public class EscapeCommand implements TabExecutor
                 world.setStorm(false);
                 world.setThundering(false);
                 Msg.send(p, "admin.worldsetup-done", Msg.ph("world", world.getName()));
+                return true;
+            }
+            case "markers" ->
+            {
+                Arena arena = requireArenaGet(p, id);
+                if (arena == null) {return true;}
+                if (arena.getWorld() == null) {Msg.send(p, "errors.world-not-loaded"); return true;}
+                if (arena.getSession() != null) {Msg.send(p, "admin.markers-busy", Msg.ph("arena", id)); return true;}
+                int n = SetupMarkers.placeAll(arena);
+                Msg.send(p, "admin.markers-placed", Msg.ph("arena", id), Msg.ph("n", n));
                 return true;
             }
             case "stop" ->
@@ -809,7 +820,7 @@ public class EscapeCommand implements TabExecutor
             switch (sub)
             {
                 case "join", "remove", "enable", "disable", "check", "setlobby", "setname", "setdesc",
-                     "setminplayers", "setmaxplayers", "set", "start", "worldsetup",
+                     "setminplayers", "setmaxplayers", "set", "start", "worldsetup", "markers",
                      "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
                      "additem", "edititems", "addcontract" ->
                     filter(new ArrayList<>(plugin.arenas().ids()), args[1], out);
