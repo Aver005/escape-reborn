@@ -51,6 +51,12 @@ stats.db            — статистика (SQLite)
 
 ## Быстрый старт админа
 
+> Ниже — шпаргалка. Подробные гайды с ветвлением, всеми условиями и разбором
+> подводных камней — **[guides/](guides/README.md)**: справочники по
+> [командам](guides/01-commands.md) и [конфигам](guides/02-configs.md), гайды по
+> [созданию](guides/03-arena-create.md), [наполнению](guides/04-arena-content.md),
+> [балансу](guides/05-arena-tuning.md) и [эксплуатации](guides/06-operations.md).
+
 ```
 /escape create ТЮРЬМА 12          — создать арену (мир и лобби = где стоишь)
 /escape setname ТЮРЬМА <green>Тюрьма Аркхем
