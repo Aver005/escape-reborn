@@ -65,3 +65,81 @@ traders:
       - ШАХТЁРСКАЯ
       - ПРОДПАЁК
       - ОБХОД
+
+  # ==========================================================================
+  # Зелья/безделушки/стреляющее. Полная спека предмета (работает и в loot.yml):
+  #   potion: <PotionType>          — базовый тип зелья/стрелы с эффектом
+  #   effects: [{type: <эффект>, seconds: N, amplifier: 0}] — кастом-эффекты
+  #                                   (для несуществующих в ваниле зелий)
+  #   enchants: {<чар>: уровень}    — зачарования (ванильные id: power, punch,
+  #                                   quick_charge, multishot, piercing...)
+  #   name: "<mm>"                  — своё имя предмета (MiniMessage)
+  #   lore: ["<mm>", ...]           — свой лор
+  #   color: "#8B4513" | RED        — цвет кожаной брони / зелья (DyeColor)
+  #   trim: {pattern: sentry, material: iron} — отделка брони
+  #   damage: 50                    — фикс. износ (случайный wear его не трогает)
+  #   unbreakable: true             — неломаемый
+  #   skull-owner: Ник              — голова игрока
+  #   firework-power: 2             — дальность фейерверка
+  # Пример: тюремная роба —
+  #   {type: LEATHER_CHESTPLATE, color: "#4A4E52", name: "<gray>Роба", price: 6}
+  # ==========================================================================
+
+  # Кидательные зелья вреда — дорого
+  ХИМИК:
+    name: "<dark_purple>Химик"
+    trades:
+      - {type: SPLASH_POTION, potion: HARMING, price: 30}
+      - {type: SPLASH_POTION, potion: STRONG_HARMING, price: 50}
+      - {type: SPLASH_POTION, potion: POISON, price: 25}
+      - {type: SPLASH_POTION, potion: STRONG_SLOWNESS, price: 22}
+      - {type: SPLASH_POTION, potion: WEAKNESS, price: 18}
+      - {type: SPLASH_POTION, name: "<dark_gray>Зелье слепоты", effects: [{type: blindness, seconds: 8}], price: 35}
+      - {type: LINGERING_POTION, potion: POISON, price: 40}
+
+  # Питьевые зелья поддержки — средне
+  ЛЕПИЛА:
+    name: "<red>Лепила"
+    trades:
+      - {type: POTION, potion: HEALING, price: 12}
+      - {type: POTION, potion: STRONG_HEALING, price: 22}
+      - {type: POTION, potion: REGENERATION, price: 15}
+      - {type: POTION, potion: SWIFTNESS, price: 10}
+      - {type: POTION, potion: LEAPING, price: 8}
+      - {type: POTION, potion: STRENGTH, price: 20}
+      - {type: POTION, potion: FIRE_RESISTANCE, price: 14}
+      - {type: POTION, potion: SLOW_FALLING, price: 10}
+
+  # Фишечные зелья — дорого
+  МУТНЫЙ:
+    name: "<dark_gray>Мутный"
+    trades:
+      - {type: POTION, potion: INVISIBILITY, price: 45}
+      - {type: POTION, potion: LONG_INVISIBILITY, price: 70}
+      - {type: POTION, potion: NIGHT_VISION, price: 25}
+      - {type: POTION, potion: TURTLE_MASTER, price: 35}
+
+  # Безделушки — дёшево
+  ШНЫРЬ:
+    name: "<yellow>Шнырь"
+    trades:
+      - {type: SNOWBALL, amount: 16, price: 2}
+      - {type: EGG, amount: 16, price: 2}
+      - {type: ARROW, amount: 16, price: 4}
+      - {type: SPECTRAL_ARROW, amount: 8, price: 6}
+      - {type: TIPPED_ARROW, potion: POISON, amount: 4, price: 8}
+      - {type: TIPPED_ARROW, potion: SLOWNESS, amount: 4, price: 6}
+      - {type: WIND_CHARGE, amount: 4, price: 5}
+      - {type: FIREWORK_ROCKET, amount: 3, price: 3}
+
+  # Стреляющее — дорого
+  ВЕРТУХАЙ:
+    name: "<dark_red>Вертухай"
+    trades:
+      - {type: BOW, price: 25}
+      - {type: BOW, enchants: {power: 1}, price: 40}
+      - {type: BOW, enchants: {power: 2, punch: 1}, price: 60}
+      - {type: CROSSBOW, price: 30}
+      - {type: CROSSBOW, enchants: {quick_charge: 1}, price: 45}
+      - {type: CROSSBOW, enchants: {piercing: 2}, price: 50}
+      - {type: CROSSBOW, enchants: {multishot: 1}, price: 65}

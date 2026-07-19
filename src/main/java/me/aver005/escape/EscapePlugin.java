@@ -10,6 +10,7 @@ import me.aver005.escape.theme.ThemeRegistry;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.listener.ChatListener;
 import me.aver005.escape.listener.GameListener;
+import me.aver005.escape.listener.MechanicsListener;
 import me.aver005.escape.listener.MenuListener;
 import me.aver005.escape.listener.ProtectionListener;
 import me.aver005.escape.listener.SetupListener;
@@ -54,6 +55,7 @@ public final class EscapePlugin extends JavaPlugin
         pm.registerEvents(new MenuListener(), this);
         pm.registerEvents(new SetupListener(this), this);
         pm.registerEvents(new GameListener(this), this);
+        pm.registerEvents(new MechanicsListener(this), this);
         pm.registerEvents(new ChatListener(this), this);
         pm.registerEvents(new ProtectionListener(this), this);
 

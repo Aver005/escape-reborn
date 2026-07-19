@@ -117,13 +117,11 @@ public class Arena
         for (Map<?, ?> entry : lootCfg.getMapList("items"))
         {
             // простой рукописный формат: {type: STONE_SWORD, weight: 20, amount: 1}
+            // + potion/effects/enchants/name (см. Items.fromSpec)
             ItemStack item;
-            if (entry.get("type") instanceof String typeName)
+            if (entry.get("type") instanceof String)
             {
-                Material mat = Material.matchMaterial(typeName);
-                if (mat == null || mat.isAir()) {continue;}
-                int amount = entry.get("amount") instanceof Number n ? Math.max(1, n.intValue()) : 1;
-                item = new ItemStack(mat, amount);
+                item = me.aver005.escape.util.Items.fromSpec(entry);
             }
             else
             {

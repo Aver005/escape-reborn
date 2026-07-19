@@ -41,10 +41,15 @@ items:
   - {type: IRON_AXE, weight: 3}
 
   # ---------- инструменты: разный инвентарь завхоза ----------
+  # Удочка в матче — «крюк»: подсёк игрока — притянул к себе.
   - {type: FISHING_ROD, weight: 12}
   - {type: SHEARS, weight: 10}
   - {type: FLINT_AND_STEEL, weight: 8}
   - {type: BRUSH, weight: 8}
+
+  # ---------- редкость: удочка с «Силой» (рывок через полкарты) ----------
+  # Ванильно «Силу» на удочку не наложить — только так или через /give.
+  - {type: FISHING_ROD, weight: 2, enchants: {power: 2}, name: "<gold>Крюк"}
 
   # ---------- оружие: максимум камень ----------
   - {type: WOODEN_SWORD, weight: 34}
@@ -52,6 +57,11 @@ items:
   - {type: GOLDEN_SWORD, weight: 8}
   - {type: BOW, weight: 6}
   - {type: ARROW, weight: 10, amount: 3}
+
+  # ---------- метательное: в матче бьёт по-настоящему ----------
+  # Снежок — 1 сердце, яйцо — 1.5. Убить можно, только если затариться.
+  - {type: SNOWBALL, weight: 14, amount: 8}
+  - {type: EGG, weight: 8, amount: 4}
 
   # ---------- оружие: приколы (алмаз только «не тем концом») ----------
   - {type: DIAMOND_SHOVEL, weight: 2}

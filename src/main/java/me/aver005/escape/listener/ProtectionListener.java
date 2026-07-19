@@ -11,6 +11,7 @@ import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.block.LeavesDecayEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 
 /** Защита миров с аренами: огонь, листва, висячие сущности. */
@@ -61,5 +62,16 @@ public class ProtectionListener implements Listener
     public void onHangingBreak(HangingBreakByEntityEvent e)
     {
         if (e.getRemover() instanceof Player p && plugin.arenas().inSession(p)) {e.setCancelled(true);}
+    }
+
+    /**
+     * Яйца в матче — метательное оружие, а не инкубатор: вылупившиеся куры
+     * остались бы на карте после матча (в сессии они не зарегистрированы).
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onEggHatch(CreatureSpawnEvent e)
+    {
+        if (e.getSpawnReason() != CreatureSpawnEvent.SpawnReason.EGG) {return;}
+        if (arenaInWorld(e.getLocation().getWorld()) != null) {e.setCancelled(true);}
     }
 }

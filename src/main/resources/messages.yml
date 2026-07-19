@@ -177,6 +177,10 @@ chest:
   empty-name: "<yellow>Пустой"
   refilled-name: "<dark_green>Заполнен"
 
+hook:
+  pulled: "<yellow>Вас подцепил на крючок <aqua><player><yellow>!"
+  hooked: "<dark_green>Крюк зацепил игрока <aqua><player><dark_green>!"
+
 shop:
   title-prefix: "<blue><b>Магазин </b>"
   price-lore: "<white>Цена: <yellow><price> <gold>золота"
@@ -215,6 +219,7 @@ info:
   - "<gray>‖ <white>Ломайте <yellow>решётки<white>, лутайте <yellow>сундуки<white>, выполняйте <yellow>контракты<white>,"
   - "<gray>‖ <white>торгуйте с <yellow>жителями <white>и опасайтесь <yellow>случайных событий<white>."
   - "<gray>‖ <white>Валюта — <gold>золотые слитки<white>. Они у вас в инвентаре — и выпадают при смерти."
+  - "<gray>‖ <white>Здесь свои правила: <yellow>снежки и яйца бьют<white>, а <yellow>удочкой<white> можно подтащить к себе."
   - "<gray>‖ <white>Через 20 минут — <red>финальная битва<white>. Побеждает последний выживший."
   - "<gray>╚═══════════════════════════════►"
 

@@ -1,6 +1,6 @@
 # MAP — карта репозитория
 
-Last updated: 2026-07-19 — добавлены блоки-подсказки точек арены (SetupMarkers).
+Last updated: 2026-07-19 — добавлен MechanicsListener (снежки/яйца/удочка-крюк).
 
 ```
 escape-reborn/
@@ -78,9 +78,10 @@ escape-reborn/
         │   └── ThemesMenu.java        # темки смотрящего: взять/бросить
         ├── listener/
         │   ├── GameListener.java      # блоки/бой/смерть/предметы/сундуки/join-quit
+        │   ├── MechanicsListener.java # снежки/яйца бьют, удочка-крюк тянет игрока
         │   ├── SetupListener.java     # маркеры → точки арены; слом подсказки → удаление точки
         │   ├── ChatListener.java      # каналы чата + блокировка команд в матче
-        │   ├── ProtectionListener.java# огонь/листва/висячие в мирах арен
+        │   ├── ProtectionListener.java# огонь/листва/висячие/куры-из-яиц в мирах арен
         │   └── MenuListener.java      # роутинг кликов в Menu
         ├── command/
         │   └── EscapeCommand.java     # все подкоманды + tab-completion

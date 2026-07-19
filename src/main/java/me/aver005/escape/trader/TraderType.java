@@ -37,13 +37,11 @@ public class TraderType
             Object rawItem = entry.get("item");
             Object rawPrice = entry.get("price");
             ItemStack item = null;
-            if (entry.get("type") instanceof String typeName)
+            if (entry.get("type") instanceof String)
             {
                 // рукописный формат: {type: BREAD, amount: 3, price: 2}
-                Material mat = Material.matchMaterial(typeName);
-                if (mat == null || mat.isAir()) {continue;}
-                int amount = entry.get("amount") instanceof Number n ? Math.max(1, n.intValue()) : 1;
-                item = new ItemStack(mat, amount);
+                // + potion/effects/enchants/name (см. Items.fromSpec)
+                item = me.aver005.escape.util.Items.fromSpec(entry);
             }
             else if (rawItem instanceof ItemStack is) {item = is;}
             else if (rawItem instanceof Map<?, ?> map) {item = ItemStack.deserialize((Map<String, Object>) map);}
