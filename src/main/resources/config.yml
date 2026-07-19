@@ -16,7 +16,7 @@ defaults:
   glow-bonus-gold: 18
   start-delay-seconds: 60       # отсчёт при наборе минимума
   start-delay-full-seconds: 10  # отсчёт при полной арене
-  fork-uses: 1                  # одноразовая вилка
+  fork-uses: 4                  # прочность вилки в решётках (подстраховка от промахов)
   start-gold: 24
 
 # Кулдауны «Личного помощника», секунды
