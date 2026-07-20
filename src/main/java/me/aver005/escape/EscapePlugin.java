@@ -2,7 +2,6 @@ package me.aver005.escape;
 
 import java.sql.SQLException;
 
-import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.ArenaManager;
 import me.aver005.escape.arena.ChestSetupManager;
 import me.aver005.escape.category.CategoryRegistry;
@@ -11,7 +10,6 @@ import me.aver005.escape.contract.ContractRegistry;
 import me.aver005.escape.kit.KitRegistry;
 import me.aver005.escape.modifier.ModifierRegistry;
 import me.aver005.escape.theme.ThemeRegistry;
-import me.aver005.escape.game.GameSession;
 import me.aver005.escape.listener.ChatListener;
 import me.aver005.escape.listener.GameListener;
 import me.aver005.escape.listener.MechanicsListener;
@@ -24,7 +22,6 @@ import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /** Escape — тюремный last man standing. Возрождение оригинала 2020/2021. */
@@ -120,28 +117,6 @@ public final class EscapePlugin extends JavaPlugin
         contractRegistry.load();
         themeRegistry.load();
         traderRegistry.load();
-    }
-
-    /** Вход игрока на арену (создаёт сессию при необходимости). */
-    public boolean joinArena(Player p, Arena arena)
-    {
-        // арена под настройкой мастера (или сам админ в мастере) в матч не идёт
-        if (chestSetup.isActive(p) || chestSetup.isArenaBusy(arena))
-        {
-            Msg.send(p, "chestsetup.busy-join");
-            return false;
-        }
-        GameSession session = arena.getSession();
-        boolean fresh = false;
-        if (session == null)
-        {
-            session = new GameSession(this, arena);
-            arena.setSession(session);
-            fresh = true;
-        }
-        boolean joined = session.join(p);
-        if (!joined && fresh && session.lobbySize() == 0) {arena.setSession(null);}
-        return joined;
     }
 
     public ArenaManager arenas() {return arenaManager;}

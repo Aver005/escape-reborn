@@ -78,6 +78,6 @@ public class ArenaSelectMenu extends Menu
         Arena arena = plugin.arenas().get(arenaId);
         if (arena == null) {Msg.send(p, "menu.arena-not-found"); return;}
         p.closeInventory();
-        plugin.joinArena(p, arena);
+        plugin.arenas().join(p, arena);
     }
 }

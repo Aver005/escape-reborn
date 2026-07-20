@@ -153,7 +153,10 @@ public final class Items
             if (spec.get("potion") instanceof String potionName)
             {
                 try {potionMeta.setBasePotionType(PotionType.valueOf(potionName.toUpperCase(Locale.ROOT)));}
-                catch (IllegalArgumentException ignored) {}
+                catch (IllegalArgumentException e)
+                {
+                    Bukkit.getLogger().warning("[Escape] Unknown potion type in item spec: " + potionName);
+                }
             }
             if (spec.get("effects") instanceof List<?> effects)
             {

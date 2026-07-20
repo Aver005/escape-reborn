@@ -120,7 +120,7 @@ public class EscapeCommand implements TabExecutor
                 if (args.length < 2) {new ArenaSelectMenu(plugin).open(p); return true;}
                 Arena arena = plugin.arenas().get(args[1]);
                 if (arena == null) {Msg.send(p, "errors.arena-not-exists"); return true;}
-                plugin.joinArena(p, arena);
+                plugin.arenas().join(p, arena);
                 return true;
             }
             default -> {}

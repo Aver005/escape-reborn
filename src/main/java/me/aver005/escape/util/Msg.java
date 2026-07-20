@@ -45,7 +45,10 @@ public final class Msg
                     new InputStreamReader(in, StandardCharsets.UTF_8)));
             }
         }
-        catch (IOException ignored) {}
+        catch (IOException e)
+        {
+            plugin.getLogger().warning("Failed to load bundled messages.yml defaults: " + e.getMessage());
+        }
     }
 
     public static String raw(String key)

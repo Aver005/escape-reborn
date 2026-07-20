@@ -10,18 +10,19 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.game.GameSession;
+import me.aver005.escape.util.Msg;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 
 /** Реестр арен (arenas/<id>/) и привязка игрок -> активная сессия. */
 public class ArenaManager
 {
-    private final JavaPlugin plugin;
+    private final EscapePlugin plugin;
     private final Map<String, Arena> arenas = new LinkedHashMap<>();
     private final Map<UUID, GameSession> sessionByPlayer = new ConcurrentHashMap<>();
 
-    public ArenaManager(JavaPlugin plugin) {this.plugin = plugin;}
+    public ArenaManager(EscapePlugin plugin) {this.plugin = plugin;}
 
     private File arenasFolder()
     {
@@ -121,6 +122,28 @@ public class ArenaManager
     public boolean inSession(Player p) {return sessionByPlayer.containsKey(p.getUniqueId());}
     public void bind(UUID player, GameSession session) {sessionByPlayer.put(player, session);}
     public void unbind(UUID player) {sessionByPlayer.remove(player);}
+
+    /** Вход игрока на арену (создаёт сессию при необходимости). */
+    public boolean join(Player p, Arena arena)
+    {
+        // арена под настройкой мастера (или сам админ в мастере) в матч не идёт
+        if (plugin.chestSetup().isActive(p) || plugin.chestSetup().isArenaBusy(arena))
+        {
+            Msg.send(p, "chestsetup.busy-join");
+            return false;
+        }
+        GameSession session = arena.getSession();
+        boolean fresh = false;
+        if (session == null)
+        {
+            session = new GameSession(plugin, arena);
+            arena.setSession(session);
+            fresh = true;
+        }
+        boolean joined = session.join(p);
+        if (!joined && fresh && session.lobbySize() == 0) {arena.setSession(null);}
+        return joined;
+    }
 
     public void stopAll()
     {
