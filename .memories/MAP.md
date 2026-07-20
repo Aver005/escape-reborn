@@ -1,9 +1,11 @@
 # MAP — карта репозитория
 
-Last updated: 2026-07-20 — добавлены касты (kit/Kit, kit/KitRegistry,
-menu/KitSelectMenu, menu/KitEditorMenu, resources/kits.yml), Мусорщик
-(menu/ScavengerMenu, роль scrap в TraderType) и модификаторы сессии
-(modifier/Modifier, modifier/ModifierRegistry, resources/modifiers.yml).
+Last updated: 2026-07-20 — добавлены касты, Мусорщик, модификаторы сессии и
+**категории сундуков + мастер** (category/ChestCategory, category/CategoryRegistry,
+arena/ChestSetupManager, arena/WizardState, menu/ChestSetupMenu,
+resources/chest-categories.yml). Точки сундуков в locations.yml теперь
+`{location, category}` (обратно-совместимо со старым плоским списком); у арены —
+`chest-categories.yml` (копии глоб. шаблонов, как kits.yml).
 
 ```
 escape-reborn/
@@ -39,8 +41,10 @@ escape-reborn/
         │   ├── Arena.java             # модель + load/save arenas/<ID>/{arena,locations,loot}.yml
         │   ├── ArenaCheck.java        # валидатор арены: CRITICAL/WARNING/GOOD + подсказки
         │   ├── ArenaManager.java      # реестр арен + Map игрок→сессия + delete/stopAll
+        │   ├── ChestSetupManager.java # мастер категорий сундуков: телепорт по точкам + жезлы
         │   ├── SetupMarkers.java      # блоки-подсказки точек: place/clearForMatch/removeAt
-        │   └── WeightedItem.java      # record: предмет + вес лута
+        │   ├── WeightedItem.java      # record: предмет + вес лута
+        │   └── WizardState.java       # состояние админа в мастере (арена+снимок точек+индекс)
         ├── game/
         │   ├── GameSession.java       # ЯДРО (см. ARCHITECTURE)
         │   ├── GameEvent.java         # enum 12 случайных событий (окно/canStart/onTick/resolve)
@@ -62,6 +66,9 @@ escape-reborn/
         ├── modifier/
         │   ├── Modifier.java          # модификатор сессии: name/icon/desc + Map эффектов (mult/add/flag)
         │   └── ModifierRegistry.java  # глобальный пул modifiers.yml (read-only, random-кандидат в лобби)
+        ├── category/
+        │   ├── ChestCategory.java     # категория сундука: loot-min/max, quota, refill-seconds (0=без рефилла)
+        │   └── CategoryRegistry.java  # глобальный chest-categories.yml (read-only, копии на арену)
         ├── theme/
         │   ├── Theme.java             # темка смотрящего: тип/цель/золото/turn-in (SELF|ANY|NPC)
         │   ├── ThemeType.java         # 6 контрактных + DELIVERY + COURIER
@@ -84,6 +91,7 @@ escape-reborn/
         │   ├── LootEditorMenu.java    # админ: пул лута (пересборка на onClose)
         │   ├── KitSelectMenu.java     # выбор каста в лобби (касты + «Без касты»/«Случайная»)
         │   ├── KitEditorMenu.java     # админ: предметы каста (пересборка на onClose)
+        │   ├── ChestSetupMenu.java    # мастер сундуков: пагинированный выбор точки (клик = прыжок)
         │   ├── ScavengerMenu.java     # Мусорщик: click-to-sell сломанного (цена x износ)
         │   ├── RespawnUpgradeMenu.java# прокачка блока возрождения (ПКМ по блоку)
         │   ├── NpcMenu.java           # совмещённый NPC: выбор роли «Магазин / Темки / Мусорщик» (до 3)

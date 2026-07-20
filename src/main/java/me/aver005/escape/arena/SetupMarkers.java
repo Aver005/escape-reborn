@@ -30,7 +30,7 @@ public final class SetupMarkers
         for (Location loc : arena.getSpawns()) {count += placePillar(loc, SPAWN) ? 1 : 0;}
         for (Location loc : arena.getFinalSpawns()) {count += placePillar(loc, FINAL_SPAWN) ? 1 : 0;}
         for (Location loc : arena.getTraderSpots().keySet()) {count += placePillar(loc, TRADER) ? 1 : 0;}
-        for (Location loc : arena.getChestSpots()) {count += placeChest(loc) ? 1 : 0;}
+        for (Location loc : arena.getChestSpots().keySet()) {count += placeChest(loc) ? 1 : 0;}
         return count;
     }
 
@@ -93,7 +93,7 @@ public final class SetupMarkers
         for (Location loc : arena.getSpawns()) {clearPillar(loc, SPAWN);}
         for (Location loc : arena.getFinalSpawns()) {clearPillar(loc, FINAL_SPAWN);}
         for (Location loc : arena.getTraderSpots().keySet()) {clearPillar(loc, TRADER);}
-        for (Location loc : arena.getChestSpots())
+        for (Location loc : arena.getChestSpots().keySet())
         {
             if (loc != null && loc.getWorld() != null) {clearChest(loc.getBlock());}
         }
@@ -126,7 +126,7 @@ public final class SetupMarkers
         if (arena.getSpawns().contains(base) || arena.getSpawns().contains(below)) {return "spawn";}
         if (arena.getFinalSpawns().contains(base) || arena.getFinalSpawns().contains(below)) {return "finalspawn";}
         if (arena.getTraderSpots().containsKey(base) || arena.getTraderSpots().containsKey(below)) {return "villager";}
-        if (arena.getChestSpots().contains(base)) {return "chest";}
+        if (arena.getChestSpots().containsKey(base)) {return "chest";}
         return null;
     }
 

@@ -2,7 +2,10 @@ package me.aver005.escape.listener;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
+import me.aver005.escape.arena.ChestSetupManager;
 import me.aver005.escape.arena.SetupMarkers;
+import me.aver005.escape.category.ChestCategory;
+import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
 import org.bukkit.Bukkit;
@@ -11,8 +14,12 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -45,7 +52,7 @@ public class SetupListener implements Listener
         {
             case "spawn" -> arena.getSpawns().add(loc);
             case "finalspawn" -> arena.getFinalSpawns().add(loc);
-            case "chest" -> arena.getChestSpots().add(loc);
+            case "chest" -> arena.getChestSpots().put(loc, ChestCategory.DEFAULT_ID);
             case "table" -> arena.getTableSpots().add(loc);
             case "ore" -> {arena.getOreSpots().add(loc); placeReal = true;}
             case "lever" -> {arena.getLevers().put(loc, extra == null ? "?" : extra); placeReal = true;}
@@ -87,6 +94,46 @@ public class SetupListener implements Listener
             Msg.ph("type", Msg.raw("marker-types." + type)),
             Msg.ph("x", loc.getBlockX()), Msg.ph("y", loc.getBlockY()), Msg.ph("z", loc.getBlockZ()),
             Msg.ph("world", loc.getWorld().getName()));
+    }
+
+    // ===== мастер настройки категорий сундуков (/escape chestsetup) =====
+
+    /** ПКМ жезлом мастера: назначить его категорию текущей точке / выйти. */
+    @EventHandler
+    public void onWizardInteract(PlayerInteractEvent e)
+    {
+        Player p = e.getPlayer();
+        if (!plugin.chestSetup().isActive(p)) {return;}
+        Action a = e.getAction();
+        if (a != Action.RIGHT_CLICK_AIR && a != Action.RIGHT_CLICK_BLOCK) {return;}
+        String tag = Items.specialTag(e.getItem());
+        if (ChestSetupManager.EXIT_TAG.equals(tag))
+        {
+            e.setCancelled(true);
+            plugin.chestSetup().stop(p, false);
+            return;
+        }
+        if (ChestSetupManager.WAND_TAG.equals(tag))
+        {
+            e.setCancelled(true);
+            String catId = e.getItem().getItemMeta().getPersistentDataContainer()
+                .get(Keys.CATEGORY_ID, PersistentDataType.STRING);
+            plugin.chestSetup().assign(p, catId);
+        }
+    }
+
+    /** В мастере жезлы/предмет выхода нельзя выбросить. */
+    @EventHandler(ignoreCancelled = true)
+    public void onWizardDrop(PlayerDropItemEvent e)
+    {
+        if (plugin.chestSetup().isActive(e.getPlayer())) {e.setCancelled(true);}
+    }
+
+    /** Выход в мастере: снапшот на диске восстановит onJoin при следующем входе. */
+    @EventHandler
+    public void onWizardQuit(PlayerQuitEvent e)
+    {
+        plugin.chestSetup().onQuit(e.getPlayer().getUniqueId());
     }
 
     private Arena arenaInWorld(World world)

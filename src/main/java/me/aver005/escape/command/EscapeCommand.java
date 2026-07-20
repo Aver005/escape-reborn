@@ -11,6 +11,7 @@ import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.ArenaCheck;
 import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.arena.WeightedItem;
+import me.aver005.escape.category.ChestCategory;
 import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractType;
@@ -50,7 +51,7 @@ public class EscapeCommand implements TabExecutor
         "debuglog",
         "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup", "markers",
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
-        "additem", "edititems", "addcontract", "kit",
+        "additem", "edititems", "addcontract", "kit", "chestcat", "chestsetup",
         "createcontract", "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice",
         "createtheme", "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn",
         "addtheme", "removetheme",
@@ -182,6 +183,16 @@ public class EscapeCommand implements TabExecutor
             case "kit" ->
             {
                 handleKit(p, args);
+                return true;
+            }
+            case "chestcat" ->
+            {
+                handleChestCat(p, args);
+                return true;
+            }
+            case "chestsetup" ->
+            {
+                handleChestSetup(p, args);
                 return true;
             }
             default -> {}
@@ -850,6 +861,173 @@ public class EscapeCommand implements TabExecutor
         return kit;
     }
 
+    /** /escape chestcat ... — категории сундуков: библиотека, копии, баланс (квота/лут/рефилл). */
+    private void handleChestCat(Player p, String[] args)
+    {
+        if (args.length < 2) {Msg.send(p, "chestcat.usage"); return;}
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action)
+        {
+            case "list" ->
+            {
+                if (args.length >= 3)
+                {
+                    Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
+                    if (arena == null) {return;}
+                    Msg.send(p, "chestcat.list-arena-header", Msg.ph("arena", arena.getId()));
+                    if (arena.getChestCategories().isEmpty()) {Msg.send(p, "chestcat.list-empty"); return;}
+                    for (ChestCategory cat : arena.getChestCategories()) {sendCatLine(p, cat);}
+                }
+                else
+                {
+                    Msg.send(p, "chestcat.list-global-header");
+                    if (plugin.categories().ids().isEmpty()) {Msg.send(p, "chestcat.list-empty"); return;}
+                    for (String cid : plugin.categories().ids()) {sendCatLine(p, plugin.categories().get(cid));}
+                }
+            }
+            case "copy" ->
+            {
+                if (args.length < 4) {Msg.send(p, "chestcat.copy-usage"); return;}
+                ChestCategory source = plugin.categories().get(args[2]);
+                if (source == null) {Msg.send(p, "chestcat.not-found-global", Msg.ph("id", args[2])); return;}
+                Arena arena = requireArenaGet(p, args[3].toUpperCase(Locale.ROOT));
+                if (arena == null) {return;}
+                String newId = args.length >= 5 ? args[4] : source.getId();
+                if (arena.getChestCategory(newId) != null)
+                {
+                    Msg.send(p, "chestcat.exists", Msg.ph("id", newId), Msg.ph("arena", arena.getId()));
+                    return;
+                }
+                arena.addChestCategory(source.copy(newId));
+                plugin.arenas().save(arena);
+                Msg.send(p, "chestcat.copied",
+                    Msg.ph("id", source.getId()), Msg.ph("arena", arena.getId()), Msg.ph("newid", newId));
+            }
+            case "create" ->
+            {
+                if (args.length < 4) {Msg.send(p, "chestcat.create-usage"); return;}
+                Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
+                if (arena == null) {return;}
+                String cid = args[3];
+                if (arena.getChestCategory(cid) != null)
+                {
+                    Msg.send(p, "chestcat.exists", Msg.ph("id", cid), Msg.ph("arena", arena.getId()));
+                    return;
+                }
+                ChestCategory cat = new ChestCategory(cid);
+                cat.setNameRaw("<gray>" + cid);
+                arena.addChestCategory(cat);
+                plugin.arenas().save(arena);
+                Msg.send(p, "chestcat.created", Msg.ph("id", cid), Msg.ph("arena", arena.getId()));
+                Msg.send(p, "chestcat.created-hint", Msg.ph("id", cid), Msg.ph("arena", arena.getId()));
+            }
+            case "delete" ->
+            {
+                ChestCategory cat = chestCatArg(p, args);
+                if (cat == null) {return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                arena.removeChestCategory(cat.getId());
+                plugin.arenas().save(arena);
+                Msg.send(p, "chestcat.deleted", Msg.ph("id", cat.getId()), Msg.ph("arena", arena.getId()));
+            }
+            case "name" ->
+            {
+                ChestCategory cat = chestCatArg(p, args);
+                if (cat == null) {return;}
+                if (args.length < 5) {Msg.send(p, "errors.not-enough-args"); return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                String name = joinArgs(args, 4);
+                cat.setNameRaw(name);
+                plugin.arenas().save(arena);
+                Msg.send(p, "chestcat.name-set", Msg.ph("id", cat.getId()), Msg.phMm("name", name));
+            }
+            case "icon" ->
+            {
+                ChestCategory cat = chestCatArg(p, args);
+                if (cat == null) {return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                ItemStack hand = p.getInventory().getItemInMainHand();
+                if (hand.getType().isAir()) {Msg.send(p, "errors.no-item-in-hand"); return;}
+                cat.setIcon(hand.getType());
+                plugin.arenas().save(arena);
+                Msg.send(p, "chestcat.icon-set", Msg.ph("id", cat.getId()), Msg.ph("icon", hand.getType().name()));
+            }
+            case "quota" ->
+            {
+                ChestCategory cat = chestCatArg(p, args);
+                if (cat == null) {return;}
+                if (args.length < 5) {Msg.send(p, "errors.not-enough-args"); return;}
+                Integer n = parseInt(p, args[4], 0, 10000);
+                if (n == null) {return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                cat.setQuota(n);
+                plugin.arenas().save(arena);
+                Msg.send(p, "chestcat.quota-set", Msg.ph("id", cat.getId()), Msg.ph("n", n));
+            }
+            case "loot" ->
+            {
+                ChestCategory cat = chestCatArg(p, args);
+                if (cat == null) {return;}
+                if (args.length < 6) {Msg.send(p, "chestcat.loot-usage"); return;}
+                Integer min = parseInt(p, args[4], 0, 27);
+                Integer max = parseInt(p, args[5], 0, 27);
+                if (min == null || max == null) {return;}
+                if (max < min) {Msg.send(p, "chestcat.loot-invalid"); return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                cat.setLootMin(min);
+                cat.setLootMax(max);
+                plugin.arenas().save(arena);
+                Msg.send(p, "chestcat.loot-set", Msg.ph("id", cat.getId()), Msg.ph("min", min), Msg.ph("max", max));
+            }
+            case "refill" ->
+            {
+                ChestCategory cat = chestCatArg(p, args);
+                if (cat == null) {return;}
+                if (args.length < 5) {Msg.send(p, "errors.not-enough-args"); return;}
+                Integer n = parseInt(p, args[4], 0, 86400);
+                if (n == null) {return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                cat.setRefillSeconds(n);
+                plugin.arenas().save(arena);
+                Msg.send(p, "chestcat.refill-set", Msg.ph("id", cat.getId()), Msg.ph("n", n));
+            }
+            default -> Msg.send(p, "chestcat.usage");
+        }
+    }
+
+    private void sendCatLine(Player p, ChestCategory cat)
+    {
+        Msg.send(p, "chestcat.list-entry",
+            Msg.ph("id", cat.getId()),
+            Msg.phMm("name", cat.getNameRaw() == null ? cat.getId() : cat.getNameRaw()),
+            Msg.ph("quota", cat.getQuota()),
+            Msg.ph("min", cat.getLootMin()),
+            Msg.ph("max", cat.getLootMax()),
+            Msg.ph("refill", cat.getRefillSeconds()));
+    }
+
+    /** Разбор общего хвоста `<arena> <catId>` (args[2], args[3]). Шлёт ошибку и возвращает null. */
+    private ChestCategory chestCatArg(Player p, String[] args)
+    {
+        if (args.length < 4) {Msg.send(p, "errors.not-enough-args"); return null;}
+        Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
+        if (arena == null) {return null;}
+        ChestCategory cat = arena.getChestCategory(args[3]);
+        if (cat == null) {Msg.send(p, "chestcat.not-found", Msg.ph("id", args[3]), Msg.ph("arena", arena.getId()));}
+        return cat;
+    }
+
+    /** /escape chestsetup <ID> [gui] | stop — мастер разметки точек по категориям. */
+    private void handleChestSetup(Player p, String[] args)
+    {
+        if (args.length < 2) {Msg.send(p, "chestsetup.usage"); return;}
+        if (args[1].equalsIgnoreCase("stop")) {plugin.chestSetup().stop(p, false); return;}
+        Arena arena = requireArenaGet(p, args[1].toUpperCase(Locale.ROOT));
+        if (arena == null) {return;}
+        if (args.length >= 3 && args[2].equalsIgnoreCase("gui")) {plugin.chestSetup().openGui(p, arena);}
+        else {plugin.chestSetup().start(p, arena);}
+    }
+
     /**
      * /escape debuglog [on|off|save|clear] — продвинутое логирование.
      * Состояние переживает рестарт: пишется в config.yml (debug-log.enabled).
@@ -1085,6 +1263,7 @@ public class EscapeCommand implements TabExecutor
         String sub = args[0].toLowerCase(Locale.ROOT);
 
         if (sub.equals("kit")) {return kitTab(args, out);}
+        if (sub.equals("chestcat")) {return chestCatTab(args, out);}
 
         if (args.length == 2)
         {
@@ -1099,6 +1278,12 @@ public class EscapeCommand implements TabExecutor
                 {
                     List<String> ids = new ArrayList<>(plugin.arenas().ids());
                     ids.add("all");
+                    filter(ids, args[1], out);
+                }
+                case "chestsetup" ->
+                {
+                    List<String> ids = new ArrayList<>(plugin.arenas().ids());
+                    ids.add("stop");
                     filter(ids, args[1], out);
                 }
                 case "debug" -> filter(new ArrayList<>(List.of(
@@ -1157,6 +1342,7 @@ public class EscapeCommand implements TabExecutor
                     }
                 }
                 case "set" -> filter(new ArrayList<>(ARENA_SETTINGS), args[2], out);
+                case "chestsetup" -> filter(new ArrayList<>(List.of("gui")), args[2], out);
                 case "addcontract" -> filter(new ArrayList<>(plugin.contracts().ids()), args[2], out);
                 case "addvillager" -> filter(new ArrayList<>(plugin.traders().ids()), args[2], out);
                 default -> {}
@@ -1199,6 +1385,37 @@ public class EscapeCommand implements TabExecutor
         Arena arena = plugin.arenas().get(arenaId);
         List<String> ids = new ArrayList<>();
         if (arena != null) {for (Kit kit : arena.getKits()) {ids.add(kit.getId());}}
+        return ids;
+    }
+
+    private List<String> chestCatTab(String[] args, List<String> out)
+    {
+        List<String> actions = List.of("list", "copy", "create", "delete", "name", "icon", "quota", "loot", "refill");
+        if (args.length == 2) {filter(new ArrayList<>(actions), args[1], out); return out;}
+        String action = args[1].toLowerCase(Locale.ROOT);
+        if (args.length == 3)
+        {
+            if (action.equals("copy")) {filter(new ArrayList<>(plugin.categories().ids()), args[2], out);}
+            else {filter(new ArrayList<>(plugin.arenas().ids()), args[2], out);}
+            return out;
+        }
+        if (args.length == 4)
+        {
+            switch (action)
+            {
+                case "copy" -> filter(new ArrayList<>(plugin.arenas().ids()), args[3], out);
+                case "delete", "name", "icon", "quota", "loot", "refill" -> filter(arenaCatIds(args[2]), args[3], out);
+                default -> {}
+            }
+        }
+        return out;
+    }
+
+    private List<String> arenaCatIds(String arenaId)
+    {
+        Arena arena = plugin.arenas().get(arenaId);
+        List<String> ids = new ArrayList<>();
+        if (arena != null) {for (ChestCategory cat : arena.getChestCategories()) {ids.add(cat.getId());}}
         return ids;
     }
 

@@ -4,6 +4,8 @@ import java.sql.SQLException;
 
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.ArenaManager;
+import me.aver005.escape.arena.ChestSetupManager;
+import me.aver005.escape.category.CategoryRegistry;
 import me.aver005.escape.command.EscapeCommand;
 import me.aver005.escape.contract.ContractRegistry;
 import me.aver005.escape.kit.KitRegistry;
@@ -34,6 +36,8 @@ public final class EscapePlugin extends JavaPlugin
     private TraderRegistry traderRegistry;
     private KitRegistry kitRegistry;
     private ModifierRegistry modifierRegistry;
+    private CategoryRegistry categoryRegistry;
+    private ChestSetupManager chestSetup;
     private StatsRepository statsRepository;
 
     @Override
@@ -50,6 +54,8 @@ public final class EscapePlugin extends JavaPlugin
         traderRegistry = new TraderRegistry(this);
         kitRegistry = new KitRegistry(this);
         modifierRegistry = new ModifierRegistry(this);
+        categoryRegistry = new CategoryRegistry(this);
+        chestSetup = new ChestSetupManager(this);
         statsRepository = new StatsRepository(this);
 
         try {statsRepository.open();}
@@ -57,6 +63,7 @@ public final class EscapePlugin extends JavaPlugin
 
         kitRegistry.load();
         modifierRegistry.load();
+        categoryRegistry.load();
         arenaManager.loadAll();
         contractRegistry.load();
         themeRegistry.load();
@@ -86,6 +93,7 @@ public final class EscapePlugin extends JavaPlugin
     public void onDisable()
     {
         DebugLog.log(Cat.ADMIN, "plugin disable");
+        if (chestSetup != null) {chestSetup.stopAll();}
         if (arenaManager != null) {arenaManager.stopAll();}
         saveEverything();
         if (statsRepository != null) {statsRepository.close();}
@@ -101,11 +109,13 @@ public final class EscapePlugin extends JavaPlugin
 
     public void reloadEverything()
     {
+        if (chestSetup != null) {chestSetup.stopAll();}
         reloadConfig();
         Msg.reload();
         DebugLog.reload();
         kitRegistry.load();
         modifierRegistry.load();
+        categoryRegistry.load();
         arenaManager.loadAll();
         contractRegistry.load();
         themeRegistry.load();
@@ -115,6 +125,12 @@ public final class EscapePlugin extends JavaPlugin
     /** Вход игрока на арену (создаёт сессию при необходимости). */
     public boolean joinArena(Player p, Arena arena)
     {
+        // арена под настройкой мастера (или сам админ в мастере) в матч не идёт
+        if (chestSetup.isActive(p) || chestSetup.isArenaBusy(arena))
+        {
+            Msg.send(p, "chestsetup.busy-join");
+            return false;
+        }
         GameSession session = arena.getSession();
         boolean fresh = false;
         if (session == null)
@@ -134,5 +150,7 @@ public final class EscapePlugin extends JavaPlugin
     public TraderRegistry traders() {return traderRegistry;}
     public KitRegistry kits() {return kitRegistry;}
     public ModifierRegistry modifiers() {return modifierRegistry;}
+    public CategoryRegistry categories() {return categoryRegistry;}
+    public ChestSetupManager chestSetup() {return chestSetup;}
     public StatsRepository stats() {return statsRepository;}
 }

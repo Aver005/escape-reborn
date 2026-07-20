@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import me.aver005.escape.category.ChestCategory;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.kit.Kit;
 import org.bukkit.Bukkit;
@@ -55,7 +56,7 @@ public class Arena
     // locations.yml
     private List<Location> spawns = new ArrayList<>();
     private List<Location> finalSpawns = new ArrayList<>();
-    private List<Location> chestSpots = new ArrayList<>();
+    private final Map<Location, String> chestSpots = new LinkedHashMap<>();   // точка -> id категории
     private List<Location> tableSpots = new ArrayList<>();
     private List<Location> oreSpots = new ArrayList<>();
     private final Map<Location, String> levers = new LinkedHashMap<>();       // точка -> имя локации
@@ -67,6 +68,9 @@ public class Arena
     // kits.yml — стартовые наборы («касты»), копии глобальных шаблонов
     private final List<Kit> kits = new ArrayList<>();
     private String defaultKit = "random";  // выбор по умолчанию: random | none | <id каста>
+
+    // chest-categories.yml — категории сундуков (квоты/лут/рефилл), копии глобальных шаблонов
+    private final List<ChestCategory> chestCategories = new ArrayList<>();
 
     // runtime
     private GameSession session;
@@ -112,7 +116,7 @@ public class Arena
         YamlConfiguration locs = YamlConfiguration.loadConfiguration(new File(folder, "locations.yml"));
         arena.spawns = readLocations(locs, "spawns");
         arena.finalSpawns = readLocations(locs, "final-spawns");
-        arena.chestSpots = readLocations(locs, "chests");
+        readChestSpots(locs, arena.chestSpots);
         arena.tableSpots = readLocations(locs, "tables");
         arena.oreSpots = readLocations(locs, "ores");
         readNamedLocations(locs, "levers", "name", arena.levers);
@@ -146,6 +150,17 @@ public class Arena
             {
                 ConfigurationSection ks = kitsRoot.getConfigurationSection(kid);
                 if (ks != null) {arena.kits.add(Kit.load(kid, ks));}
+            }
+        }
+
+        YamlConfiguration catCfg = YamlConfiguration.loadConfiguration(new File(folder, "chest-categories.yml"));
+        ConfigurationSection catRoot = catCfg.getConfigurationSection("categories");
+        if (catRoot != null)
+        {
+            for (String cid : catRoot.getKeys(false))
+            {
+                ConfigurationSection cs = catRoot.getConfigurationSection(cid);
+                if (cs != null) {arena.chestCategories.add(ChestCategory.load(cid, cs));}
             }
         }
         return arena;
@@ -184,7 +199,7 @@ public class Arena
         YamlConfiguration locs = new YamlConfiguration();
         locs.set("spawns", spawns);
         locs.set("final-spawns", finalSpawns);
-        locs.set("chests", chestSpots);
+        locs.set("chests", writeNamedLocations(chestSpots, "category"));
         locs.set("tables", tableSpots);
         locs.set("ores", oreSpots);
         locs.set("levers", writeNamedLocations(levers, "name"));
@@ -205,12 +220,19 @@ public class Arena
             kit.save(kitsCfg.createSection("kits." + kit.getId()));
         }
 
+        YamlConfiguration catCfg = new YamlConfiguration();
+        for (ChestCategory cat : chestCategories)
+        {
+            cat.save(catCfg.createSection("categories." + cat.getId()));
+        }
+
         try
         {
             cfg.save(new File(folder, "arena.yml"));
             locs.save(new File(folder, "locations.yml"));
             lootCfg.save(new File(folder, "loot.yml"));
             kitsCfg.save(new File(folder, "kits.yml"));
+            catCfg.save(new File(folder, "chest-categories.yml"));
         }
         catch (IOException e)
         {
@@ -235,6 +257,27 @@ public class Arena
             Object loc = entry.get("location");
             Object value = entry.get(valueKey);
             if (loc instanceof Location l && value != null) {target.put(l, String.valueOf(value));}
+        }
+    }
+
+    /**
+     * Точки сундуков: НОВЫЙ формат — список {location, category}, СТАРЫЙ — плоский
+     * список Location (тогда категория = default). Так старые арены не теряют точки
+     * при первой загрузке новой версии; пере-сейв апгрейдит файл до нового формата.
+     */
+    private static void readChestSpots(ConfigurationSection sec, Map<Location, String> target)
+    {
+        for (Object o : sec.getList("chests", List.of()))
+        {
+            if (o instanceof Location l)
+            {
+                target.put(l, ChestCategory.DEFAULT_ID);
+            }
+            else if (o instanceof Map<?, ?> m && m.get("location") instanceof Location l)
+            {
+                Object cat = m.get("category");
+                target.put(l, cat != null ? String.valueOf(cat) : ChestCategory.DEFAULT_ID);
+            }
         }
     }
 
@@ -310,7 +353,7 @@ public class Arena
     public List<String> getDeadMessages() {return deadMessages;}
     public List<Location> getSpawns() {return spawns;}
     public List<Location> getFinalSpawns() {return finalSpawns;}
-    public List<Location> getChestSpots() {return chestSpots;}
+    public Map<Location, String> getChestSpots() {return chestSpots;}
     public List<Location> getTableSpots() {return tableSpots;}
     public List<Location> getOreSpots() {return oreSpots;}
     public Map<Location, String> getLevers() {return levers;}
@@ -336,6 +379,26 @@ public class Arena
     public boolean removeKit(String id)
     {
         return kits.removeIf(kit -> kit.getId().equalsIgnoreCase(id));
+    }
+
+    public List<ChestCategory> getChestCategories() {return chestCategories;}
+
+    /** Категория сундука арены по id (без учёта регистра) или null. */
+    public ChestCategory getChestCategory(String id)
+    {
+        if (id == null) {return null;}
+        for (ChestCategory cat : chestCategories)
+        {
+            if (cat.getId().equalsIgnoreCase(id)) {return cat;}
+        }
+        return null;
+    }
+
+    public void addChestCategory(ChestCategory cat) {chestCategories.add(cat);}
+
+    public boolean removeChestCategory(String id)
+    {
+        return chestCategories.removeIf(cat -> cat.getId().equalsIgnoreCase(id));
     }
 
     public GameSession getSession() {return session;}

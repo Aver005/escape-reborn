@@ -1,11 +1,15 @@
 package me.aver005.escape.arena;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import me.aver005.escape.EscapePlugin;
+import me.aver005.escape.category.ChestCategory;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.menu.ShopMenu;
 import me.aver005.escape.menu.ThemesMenu;
@@ -83,12 +87,50 @@ public final class ArenaCheck
         {
             out.add(warn(Msg.get("check.msg.insight-undeliverable"), "/escape addchest " + id));
         }
-        if (!arena.isDynamicChests() && arena.getChestCount() > arena.getChestSpots().size()
-            && !arena.getChestSpots().isEmpty())
+        if (arena.getChestCategories().isEmpty())
         {
-            out.add(warn(Msg.get("check.msg.chest-count-high",
-                Msg.ph("count", arena.getChestCount()), Msg.ph("spots", arena.getChestSpots().size())),
-                "/escape set " + id + " chests " + arena.getChestSpots().size()));
+            // fallback-режим: одно случайное подмножество chest-count
+            if (!arena.isDynamicChests() && arena.getChestCount() > arena.getChestSpots().size()
+                && !arena.getChestSpots().isEmpty())
+            {
+                out.add(warn(Msg.get("check.msg.chest-count-high",
+                    Msg.ph("count", arena.getChestCount()), Msg.ph("spots", arena.getChestSpots().size())),
+                    "/escape set " + id + " chests " + arena.getChestSpots().size()));
+            }
+        }
+        else
+        {
+            // quota-режим: точки по категориям, сироты и перекос квот
+            Map<String, Integer> pointsByCat = new HashMap<>();
+            int orphanPoints = 0;
+            for (String catId : arena.getChestSpots().values())
+            {
+                if (arena.getChestCategory(catId) != null)
+                {
+                    pointsByCat.merge(catId.toLowerCase(Locale.ROOT), 1, Integer::sum);
+                }
+                else {orphanPoints++;}
+            }
+            if (orphanPoints > 0)
+            {
+                out.add(warn(Msg.get("check.msg.cat-orphan-points", Msg.ph("n", orphanPoints)),
+                    "/escape chestsetup " + id));
+            }
+            for (ChestCategory cat : arena.getChestCategories())
+            {
+                int pts = pointsByCat.getOrDefault(cat.getId().toLowerCase(Locale.ROOT), 0);
+                if (cat.getQuota() > 0 && pts == 0)
+                {
+                    out.add(warn(Msg.get("check.msg.cat-no-points", Msg.ph("cat", cat.getId())),
+                        "/escape chestsetup " + id));
+                }
+                else if (cat.getQuota() > pts)
+                {
+                    out.add(warn(Msg.get("check.msg.cat-quota-high",
+                        Msg.ph("cat", cat.getId()), Msg.ph("quota", cat.getQuota()), Msg.ph("spots", pts)),
+                        "/escape chestcat quota " + id + " " + cat.getId() + " " + pts));
+                }
+            }
         }
         if (arena.getTraderCount() > arena.getTraderSpots().size())
         {
@@ -214,8 +256,28 @@ public final class ArenaCheck
             Msg.ph("ores", arena.getOreSpots().size()),
             Msg.ph("levers", arena.getLevers().size()),
             Msg.ph("tables", arena.getTableSpots().size()))));
-        out.add(good(Msg.get(arena.isDynamicChests() ? "check.msg.summary-chests-dynamic" : "check.msg.summary-chests-static",
-            Msg.ph("spots", arena.getChestSpots().size()), Msg.ph("count", arena.getChestCount()))));
+        if (!arena.getChestCategories().isEmpty())
+        {
+            Map<String, Integer> pts = new HashMap<>();
+            for (String catId : arena.getChestSpots().values())
+            {
+                if (arena.getChestCategory(catId) != null) {pts.merge(catId.toLowerCase(Locale.ROOT), 1, Integer::sum);}
+            }
+            int perMatch = 0;
+            for (ChestCategory cat : arena.getChestCategories())
+            {
+                perMatch += Math.min(cat.getQuota(), pts.getOrDefault(cat.getId().toLowerCase(Locale.ROOT), 0));
+            }
+            out.add(good(Msg.get("check.msg.summary-chests-quota",
+                Msg.ph("spots", arena.getChestSpots().size()),
+                Msg.ph("cats", arena.getChestCategories().size()),
+                Msg.ph("count", perMatch))));
+        }
+        else
+        {
+            out.add(good(Msg.get(arena.isDynamicChests() ? "check.msg.summary-chests-dynamic" : "check.msg.summary-chests-static",
+                Msg.ph("spots", arena.getChestSpots().size()), Msg.ph("count", arena.getChestCount()))));
+        }
         out.add(good(Msg.get("check.msg.summary-npc",
             Msg.ph("spots", arena.getTraderSpots().size()),
             Msg.ph("types", placedNpcTypes.size()),

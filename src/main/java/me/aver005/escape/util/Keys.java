@@ -20,6 +20,7 @@ public final class Keys
     public static NamespacedKey THEME_OWNER;       // uuid взявшего темку (на пакете)
     public static NamespacedKey KIT_ID;            // id каста на иконке меню выбора
     public static NamespacedKey SCRAP_SLOT;        // индекс слота инвентаря на иконке приёмки Мусорщика
+    public static NamespacedKey CATEGORY_ID;       // id категории сундука на жезле мастера настройки
 
     private Keys() {}
 
@@ -39,5 +40,6 @@ public final class Keys
         THEME_OWNER = new NamespacedKey(plugin, "theme_owner");
         KIT_ID = new NamespacedKey(plugin, "kit_id");
         SCRAP_SLOT = new NamespacedKey(plugin, "scrap_slot");
+        CATEGORY_ID = new NamespacedKey(plugin, "category_id");
     }
 }
