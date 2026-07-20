@@ -22,6 +22,7 @@ import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.entity.ArmorStand;
@@ -46,6 +47,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -145,11 +147,12 @@ public class GameListener implements Listener
         if (e.getEntity() instanceof ItemFrame) {e.setCancelled(true); return;}
         if (!(e.getEntity() instanceof Player victim)) {return;}
 
-        // разминка в лобби: урона нет, счёт идёт
+        // разминка в лобби: реального урона нет, но бьём с анимацией/звуком/отдачей, счёт идёт
         if (session.isLobbyMember(victim.getUniqueId()) && session.isLobbyMember(damager.getUniqueId()))
         {
             session.addWarmupDamage(damager, e.getDamage());
             e.setCancelled(true);
+            playWarmupHitFeedback(victim, damager);
             return;
         }
 
@@ -166,6 +169,19 @@ public class GameListener implements Listener
         if (damager instanceof Player p) {return p;}
         if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Player p) {return p;}
         return null;
+    }
+
+    // Визуал удара в разминке: событие отменено (урона нет), но клиенту показываем
+    // красный флэш, звук получения урона и лёгкую отдачу от атакующего.
+    private void playWarmupHitFeedback(Player victim, Player damager)
+    {
+        Location vLoc = victim.getLocation();
+        double dx = damager.getX() - vLoc.getX();
+        double dz = damager.getZ() - vLoc.getZ();
+        float sourceYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        victim.playHurtAnimation(sourceYaw - vLoc.getYaw());
+        victim.getWorld().playSound(vLoc, Sound.ENTITY_PLAYER_HURT, 1.0f, 1.0f);
+        victim.knockback(0.4, dx, dz);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
@@ -417,6 +433,28 @@ public class GameListener implements Listener
         boolean shiftFromBottom = e.getRawSlot() >= top.getSize()
             && e.isShiftClick() && Items.isSpecial(e.getCurrentItem(), "respawn_block");
         if (intoTop || shiftFromBottom) {e.setCancelled(true);}
+    }
+
+    /**
+     * Системные предметы нельзя разбирать/крафтить (блок возрождения -> слитки,
+     * передачка-темка из кожи -> броня и т.п.): если в сетке лежит предмет с
+     * меткой special, результат обнуляется. PrepareItemCraftEvent не Cancellable —
+     * отмена только через setResult(null); закрывает и крафт 2x2, и верстак.
+     */
+    @EventHandler
+    public void onPrepareCraft(PrepareItemCraftEvent e)
+    {
+        if (!(e.getView().getPlayer() instanceof Player p)) {return;}
+        GameSession session = session(p);
+        if (session == null) {return;}
+        for (ItemStack item : e.getInventory().getMatrix())
+        {
+            String tag = Items.specialTag(item);
+            if (tag == null) {continue;}
+            e.getInventory().setResult(null);
+            DebugLog.log(Cat.PLAYER, "craft-denied player=%s special=%s", p.getName(), tag);
+            return;
+        }
     }
 
     // ===== разное =====
