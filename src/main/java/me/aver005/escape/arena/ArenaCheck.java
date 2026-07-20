@@ -132,7 +132,7 @@ public final class ArenaCheck
                 continue;
             }
             if (npc.isOverseer()) {overseers++;}
-            if (!npc.isShop() && !npc.isOverseer())
+            if (!npc.isShop() && !npc.isOverseer() && !npc.isScavenger())
             {
                 out.add(warn(Msg.get("check.msg.npc-empty", Msg.ph("npc", typeId)),
                     "/escape addtrade " + typeId + "  |  /escape addtheme " + typeId + " <TID>"));

@@ -9,6 +9,7 @@ import me.aver005.escape.menu.KitSelectMenu;
 import me.aver005.escape.menu.Menu;
 import me.aver005.escape.menu.NpcMenu;
 import me.aver005.escape.menu.RespawnUpgradeMenu;
+import me.aver005.escape.menu.ScavengerMenu;
 import me.aver005.escape.menu.ShopMenu;
 import me.aver005.escape.menu.ThemesMenu;
 import me.aver005.escape.player.PlayerSnapshot;
@@ -341,10 +342,13 @@ public class GameListener implements Listener
 
         boolean shop = trader.isShop();
         boolean overseer = trader.isOverseer();
-        DebugLog.log(Cat.SHOP, "npc-open player=%s trader=%s shop=%b overseer=%b at=%s",
-            p.getName(), trader.getId(), shop, overseer, DebugLog.at(villager.getLocation()));
-        if (shop && overseer) {new NpcMenu(plugin, session, trader, villager).open(p);}
+        boolean scavenger = trader.isScavenger();
+        int roles = (shop ? 1 : 0) + (overseer ? 1 : 0) + (scavenger ? 1 : 0);
+        DebugLog.log(Cat.SHOP, "npc-open player=%s trader=%s shop=%b overseer=%b scavenger=%b at=%s",
+            p.getName(), trader.getId(), shop, overseer, scavenger, DebugLog.at(villager.getLocation()));
+        if (roles >= 2) {new NpcMenu(plugin, session, trader, villager).open(p);}
         else if (overseer) {new ThemesMenu(plugin, session, trader, villager).open(p);}
+        else if (scavenger) {new ScavengerMenu(plugin, session, trader, null).open(p);}
         else {new ShopMenu(plugin, session, trader).open(p);}
     }
 

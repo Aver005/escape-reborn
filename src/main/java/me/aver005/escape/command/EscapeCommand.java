@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
@@ -53,7 +54,8 @@ public class EscapeCommand implements TabExecutor
         "createcontract", "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice",
         "createtheme", "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn",
         "addtheme", "removetheme",
-        "createvillager", "villagername", "addtrade");
+        "createvillager", "villagername", "addtrade",
+        "addscrap", "removescrap", "scrapwear", "scraplist");
     private static final List<String> ARENA_SETTINGS = List.of(
         "duration", "eventinterval", "salaryinterval", "salarygold", "glowtime", "glowgold",
         "chests", "traders", "tables", "forkuses", "startgold", "startdelay", "startdelayfull",
@@ -614,6 +616,63 @@ public class EscapeCommand implements TabExecutor
                 Msg.send(p, "admin.trade-menu-hint");
                 return true;
             }
+            case "addscrap" ->
+            {
+                TraderType trader = requireTrader(p, id);
+                if (trader == null) {return true;}
+                if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
+                Integer price = parseInt(p, args[2], 1, 100000);
+                if (price == null) {return true;}
+                ItemStack hand = p.getInventory().getItemInMainHand();
+                if (hand.getType().isAir()) {Msg.send(p, "errors.no-item-in-hand"); return true;}
+                if (hand.getType().getMaxDurability() <= 0)
+                {
+                    Msg.send(p, "admin.scrap-not-durable", Msg.ph("item", hand.getType().name()));
+                    return true;
+                }
+                trader.getScrapPrices().put(hand.getType(), price);
+                plugin.traders().save();
+                Msg.send(p, "admin.scrap-added",
+                    Msg.ph("trader", id), Msg.ph("item", hand.getType().name()), Msg.ph("n", price));
+                return true;
+            }
+            case "removescrap" ->
+            {
+                TraderType trader = requireTrader(p, id);
+                if (trader == null) {return true;}
+                ItemStack hand = p.getInventory().getItemInMainHand();
+                if (hand.getType().isAir()) {Msg.send(p, "errors.no-item-in-hand"); return true;}
+                boolean removed = trader.getScrapPrices().remove(hand.getType()) != null;
+                plugin.traders().save();
+                Msg.send(p, removed ? "admin.scrap-removed" : "admin.scrap-absent",
+                    Msg.ph("trader", id), Msg.ph("item", hand.getType().name()));
+                return true;
+            }
+            case "scrapwear" ->
+            {
+                TraderType trader = requireTrader(p, id);
+                if (trader == null) {return true;}
+                if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
+                Integer n = parseInt(p, args[2], 0, 99);
+                if (n == null) {return true;}
+                trader.setScrapMinWearPercent(n);
+                plugin.traders().save();
+                Msg.send(p, "admin.scrap-wear-set", Msg.ph("trader", id), Msg.ph("n", n));
+                return true;
+            }
+            case "scraplist" ->
+            {
+                TraderType trader = requireTrader(p, id);
+                if (trader == null) {return true;}
+                Msg.send(p, "admin.scrap-list-header",
+                    Msg.ph("trader", id), Msg.ph("wear", trader.getScrapMinWearPercent()));
+                if (trader.getScrapPrices().isEmpty()) {Msg.send(p, "admin.scrap-list-empty"); return true;}
+                for (Map.Entry<Material, Integer> e : trader.getScrapPrices().entrySet())
+                {
+                    Msg.send(p, "admin.scrap-list-entry", Msg.ph("item", e.getKey().name()), Msg.ph("n", e.getValue()));
+                }
+                return true;
+            }
             default ->
             {
                 Msg.send(p, "errors.unknown-subcommand");
@@ -1051,7 +1110,8 @@ public class EscapeCommand implements TabExecutor
                     filter(new ArrayList<>(plugin.contracts().ids()), args[1], out);
                 case "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn" ->
                     filter(new ArrayList<>(plugin.themes().ids()), args[1], out);
-                case "villagername", "addtrade", "addtheme", "removetheme" ->
+                case "villagername", "addtrade", "addtheme", "removetheme",
+                     "addscrap", "removescrap", "scrapwear", "scraplist" ->
                     filter(new ArrayList<>(plugin.traders().ids()), args[1], out);
                 default -> {}
             }

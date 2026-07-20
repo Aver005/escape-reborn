@@ -188,6 +188,29 @@ shop:
   no-space: "<red>У вас не хватает места в инвентаре..."
   bought: "<dark_green>Предмет куплен. <yellow>-<price> <gold>золота. <dark_green>У вас осталось <yellow><rest> <gold>золота"
 
+scavenger:
+  title-prefix: "<dark_gray><b>Мусорщик </b>"
+  info-name: "<gold>Приёмка хлама"
+  info-lore:
+    - "<gray>Скупаю только <yellow>сломанное<gray> снаряжение."
+    - "<gray>Чем ушатаннее вещь — тем больше металла,"
+    - "<gray>тем больше золота."
+    - "<gray>Беру вещи с износом <yellow><wear>%<gray> и выше."
+  price-lore: "<white>Цена: <yellow><price> <gold>золота <gray>(износ <yellow><wear>%<gray>)"
+  sell-hint: "<yellow>► Нажмите, чтобы сдать"
+  sell-all-name: "<gold>Сдать весь хлам"
+  sell-all-lore:
+    - "<gray>Позиций: <yellow><n>"
+    - "<gray>Итого: <yellow><total> <gold>золота"
+    - "<yellow>► Нажмите, чтобы сдать всё"
+  empty-name: "<gray>Сдавать нечего"
+  empty-lore:
+    - "<gray>У вас нет достаточно сломанных вещей."
+    - "<gray>Возвращайтесь, когда снаряжение износится."
+  sold: "<dark_green>Сдано на металлолом. <yellow>+<price> <gold>золота<dark_green>. Всего: <yellow><rest> <gold>золота"
+  sold-all: "<dark_green>Сдано вещей: <yellow><n><dark_green>. <yellow>+<total> <gold>золота<dark_green>. Всего: <yellow><rest> <gold>золота"
+  nothing: "<yellow>У вас нет подходящего хлама."
+
 death-messages:
   - "<yellow>Игрок <aqua><player><yellow> не справился с управлением"
   - "<yellow>Игрок <aqua><player><yellow> споткнулся"
@@ -311,6 +334,14 @@ admin:
   trade-no-item: "<red>Вы не положили предмет для покупки."
   trade-max-price: "<red>Достигнута максимальная цена."
   trade-min-price: "<red>Достигнута минимальная цена."
+  scrap-added: "<dark_green>Мусорщик <aqua><trader><dark_green> принимает <yellow><item><dark_green> по базе <yellow><n><dark_green> (цена x доля износа)."
+  scrap-removed: "<yellow>Мусорщик <aqua><trader><yellow> больше не принимает <yellow><item><yellow>."
+  scrap-absent: "<red>У мусорщика <aqua><trader><red> и так нет <yellow><item><red> в прайсе."
+  scrap-not-durable: "<red>Предмет <yellow><item><red> без прочности — Мусорщик принимает только снаряжение с износом."
+  scrap-wear-set: "<dark_green>Мусорщик <aqua><trader><dark_green> берёт вещи с износом от <yellow><n>%<dark_green>."
+  scrap-list-header: "<dark_green>Прайс Мусорщика <aqua><trader><dark_green> (порог износа <yellow><wear>%<dark_green>):"
+  scrap-list-entry: "<gray>  • <yellow><item> <gray>— база <gold><n>"
+  scrap-list-empty: "<gray>  Пусто. Добавьте: /escape addscrap <TID> <цена> (предмет в руке)."
   list-header: "<gray>===== <dark_green>Арены <gray>====="
   list-entry: "<white><arena> <gray>— <status> <gray>(<current>/<max>)"
   list-status-idle: "<dark_green>ожидание"
@@ -484,6 +515,9 @@ npc:
   themes-button: "<green>Темки"
   themes-button-lore:
     - "<gray>Задания смотрящего: сделал — сдал — получил"
+  scavenger-button: "<gold>Мусорщик"
+  scavenger-button-lore:
+    - "<gray>Скупка сломанного снаряжения за золото"
   back-button: "<yellow>Назад"
   back-button-lore:
     - "<gray>Вернуться к выбору"
@@ -660,5 +694,11 @@ help:
     - "<gray>‖  <red>/escape createvillager <VID> <gray>——— <yellow>Тип жителя"
     - "<gray>‖  <red>/escape villagername <VID> <Имя...> <gray>——— <yellow>Имя жителя"
     - "<gray>‖  <red>/escape addtrade <VID> <gray>——— <yellow>Добавить товар"
+    - "<gray>‖"
+    - "<gray>‖  <red>/escape addscrap <VID> <цена> <gray>——— <yellow>Мусорщик: скупать предмет из руки (база; цена x износ)"
+    - "<gray>‖  <red>/escape removescrap <VID> <gray>——— <yellow>Убрать предмет из руки из прайса Мусорщика"
+    - "<gray>‖  <red>/escape scrapwear <VID> <%> <gray>——— <yellow>Мин. износ, с которого Мусорщик берёт вещь"
+    - "<gray>‖  <red>/escape scraplist <VID> <gray>——— <yellow>Показать прайс Мусорщика"
+    - "<gray>‖  <yellow>Мусорщик — третья роль NPC: скупает СЛОМАННОЕ снаряжение за золото. Системку продать нельзя."
     - "<gray>‖"
     - "<gray>╚═══════════════════════════════►"

@@ -1,7 +1,8 @@
 # MAP — карта репозитория
 
 Last updated: 2026-07-20 — добавлены касты (kit/Kit, kit/KitRegistry,
-menu/KitSelectMenu, menu/KitEditorMenu, resources/kits.yml).
+menu/KitSelectMenu, menu/KitEditorMenu, resources/kits.yml) и Мусорщик
+(menu/ScavengerMenu, роль scrap в TraderType).
 
 ```
 escape-reborn/
@@ -79,8 +80,9 @@ escape-reborn/
         │   ├── LootEditorMenu.java    # админ: пул лута (пересборка на onClose)
         │   ├── KitSelectMenu.java     # выбор каста в лобби (касты + «Без касты»/«Случайная»)
         │   ├── KitEditorMenu.java     # админ: предметы каста (пересборка на onClose)
+        │   ├── ScavengerMenu.java     # Мусорщик: click-to-sell сломанного (цена x износ)
         │   ├── RespawnUpgradeMenu.java# прокачка блока возрождения (ПКМ по блоку)
-        │   ├── NpcMenu.java           # совмещённый NPC: выбор «Магазин / Темки»
+        │   ├── NpcMenu.java           # совмещённый NPC: выбор роли «Магазин / Темки / Мусорщик» (до 3)
         │   └── ThemesMenu.java        # темки смотрящего: взять/бросить
         ├── listener/
         │   ├── GameListener.java      # блоки/бой/смерть/предметы/сундуки/join-quit
