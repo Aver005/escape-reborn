@@ -1,8 +1,9 @@
 # MAP — карта репозитория
 
 Last updated: 2026-07-20 — добавлены касты (kit/Kit, kit/KitRegistry,
-menu/KitSelectMenu, menu/KitEditorMenu, resources/kits.yml) и Мусорщик
-(menu/ScavengerMenu, роль scrap в TraderType).
+menu/KitSelectMenu, menu/KitEditorMenu, resources/kits.yml), Мусорщик
+(menu/ScavengerMenu, роль scrap в TraderType) и модификаторы сессии
+(modifier/Modifier, modifier/ModifierRegistry, resources/modifiers.yml).
 
 ```
 escape-reborn/
@@ -58,6 +59,9 @@ escape-reborn/
         ├── kit/
         │   ├── Kit.java               # каст: name/icon/gold/items; load(spec|serialized)/copy/apply
         │   └── KitRegistry.java       # глобальная библиотека kits.yml (read-only, копируется на арену)
+        ├── modifier/
+        │   ├── Modifier.java          # модификатор сессии: name/icon/desc + Map эффектов (mult/add/flag)
+        │   └── ModifierRegistry.java  # глобальный пул modifiers.yml (read-only, random-кандидат в лобби)
         ├── theme/
         │   ├── Theme.java             # темка смотрящего: тип/цель/золото/turn-in (SELF|ANY|NPC)
         │   ├── ThemeType.java         # 6 контрактных + DELIVERY + COURIER

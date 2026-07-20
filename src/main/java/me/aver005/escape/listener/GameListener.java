@@ -214,6 +214,11 @@ public class GameListener implements Listener
                 e.setCancelled(true);
                 new KitSelectMenu(plugin, session, p.getUniqueId()).open(p);
             }
+            else if (Items.isSpecial(hand, "modifier-vote") && rightClick)
+            {
+                e.setCancelled(true);
+                session.toggleModifierVote(p);
+            }
             return;
         }
 

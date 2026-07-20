@@ -186,7 +186,7 @@ public class ScavengerMenu extends Menu
         int damage = (item.getItemMeta() instanceof Damageable d) ? d.getDamage() : 0;
         double wear = (double) damage / max;
         if (wear * 100.0 < trader.getScrapMinWearPercent()) {return 0;}
-        int price = (int) Math.round(base * wear);
+        int price = (int) Math.round(base * wear * session.modMult("scrap-mult"));
         return Math.max(1, price) * Math.max(1, item.getAmount());
     }
 

@@ -7,6 +7,7 @@ import me.aver005.escape.arena.ArenaManager;
 import me.aver005.escape.command.EscapeCommand;
 import me.aver005.escape.contract.ContractRegistry;
 import me.aver005.escape.kit.KitRegistry;
+import me.aver005.escape.modifier.ModifierRegistry;
 import me.aver005.escape.theme.ThemeRegistry;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.listener.ChatListener;
@@ -32,6 +33,7 @@ public final class EscapePlugin extends JavaPlugin
     private ThemeRegistry themeRegistry;
     private TraderRegistry traderRegistry;
     private KitRegistry kitRegistry;
+    private ModifierRegistry modifierRegistry;
     private StatsRepository statsRepository;
 
     @Override
@@ -47,12 +49,14 @@ public final class EscapePlugin extends JavaPlugin
         themeRegistry = new ThemeRegistry(this);
         traderRegistry = new TraderRegistry(this);
         kitRegistry = new KitRegistry(this);
+        modifierRegistry = new ModifierRegistry(this);
         statsRepository = new StatsRepository(this);
 
         try {statsRepository.open();}
         catch (SQLException e) {getLogger().severe("Failed to open stats.db: " + e.getMessage());}
 
         kitRegistry.load();
+        modifierRegistry.load();
         arenaManager.loadAll();
         contractRegistry.load();
         themeRegistry.load();
@@ -101,6 +105,7 @@ public final class EscapePlugin extends JavaPlugin
         Msg.reload();
         DebugLog.reload();
         kitRegistry.load();
+        modifierRegistry.load();
         arenaManager.loadAll();
         contractRegistry.load();
         themeRegistry.load();
@@ -128,5 +133,6 @@ public final class EscapePlugin extends JavaPlugin
     public ThemeRegistry themes() {return themeRegistry;}
     public TraderRegistry traders() {return traderRegistry;}
     public KitRegistry kits() {return kitRegistry;}
+    public ModifierRegistry modifiers() {return modifierRegistry;}
     public StatsRepository stats() {return statsRepository;}
 }

@@ -211,6 +211,18 @@ scavenger:
   sold-all: "<dark_green>Сдано вещей: <yellow><n><dark_green>. <yellow>+<total> <gold>золота<dark_green>. Всего: <yellow><rest> <gold>золота"
   nothing: "<yellow>У вас нет подходящего хлама."
 
+modifier:
+  candidate: "<yellow>[Голосование] <gray>Предложен режим сессии: <name><gray>. Голос — предмет в лобби (ПКМ)."
+  ballot-name: "<gold>Голосовать за режим: <name>"
+  ballot-tally: "<gray>За: <yellow><for> <gray>(нужно <yellow><need><gray> — больше 1/3)"
+  ballot-voted: "<green>✔ Ваш голос: ЗА"
+  ballot-not: "<red>✘ Вы ещё не голосовали"
+  ballot-hint: "<yellow>ПКМ — переключить голос"
+  voted-for: "<dark_green>Вы проголосовали ЗА режим <name><dark_green>. За: <yellow><for>/<need><dark_green>."
+  voted-cancel: "<yellow>Вы отозвали голос за режим <name><yellow>. За: <yellow><for>/<need><yellow>."
+  accepted: "<light_purple>[Режим] <gold>Лобби выбрало режим сессии: <name><gold>!"
+  rejected: "<gray>[Режим] Режим <name><gray> не набрал больше 1/3 голосов — обычный матч."
+
 death-messages:
   - "<yellow>Игрок <aqua><player><yellow> не справился с управлением"
   - "<yellow>Игрок <aqua><player><yellow> споткнулся"

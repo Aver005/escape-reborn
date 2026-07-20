@@ -21,6 +21,7 @@ import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractPapers;
 import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.kit.Kit;
+import me.aver005.escape.modifier.Modifier;
 import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.util.DebugLog;
@@ -110,6 +111,11 @@ public class GameSession
     private final OfflineGuards offlineGuards;
     private final Themes themes;
 
+    // модификатор сессии (§15): кандидат на голосование в лобби и принятый на матч
+    private final Modifier candidateModifier;
+    private final Set<UUID> modifierVotes = new HashSet<>();
+    private Modifier activeModifier = null;
+
     public GameSession(EscapePlugin plugin, Arena arena)
     {
         this.plugin = plugin;
@@ -117,6 +123,7 @@ public class GameSession
         this.respawnBlocks = new RespawnBlocks(plugin, this);
         this.offlineGuards = new OfflineGuards(plugin, this);
         this.themes = new Themes(plugin, this);
+        this.candidateModifier = plugin.modifiers().random(RANDOM);
     }
 
     // ===== доступ =====
@@ -146,6 +153,77 @@ public class GameSession
     /** Текущий выбор каста игрока: id | "none" | "random"; null — ещё не выбирал. */
     public String getChosenKit(UUID id) {return chosenKit.get(id);}
     public void setChosenKit(UUID id, String choice) {chosenKit.put(id, choice);}
+
+    // ===== модификатор сессии (§15) =====
+
+    /** Множитель принятого модификатора (1.0, если модификатора нет). */
+    public double modMult(String key) {return activeModifier == null ? 1.0 : activeModifier.mult(key);}
+    /** Аддитивная добавка принятого модификатора (0.0, если модификатора нет). */
+    public double modAdd(String key) {return activeModifier == null ? 0.0 : activeModifier.add(key);}
+    /** Флаг принятого модификатора. */
+    public boolean modFlag(String key) {return activeModifier != null && activeModifier.flag(key);}
+
+    private long countModifierVotes() {return lobby.stream().filter(modifierVotes::contains).count();}
+
+    /** Бюллетень в лобби: описание кандидата, текущий счётчик и состояние голоса. */
+    private void giveModifierBallot(Player p)
+    {
+        if (candidateModifier == null) {return;}
+        boolean voted = modifierVotes.contains(p.getUniqueId());
+        long forVotes = countModifierVotes();
+        int need = lobby.size() / 3 + 1;
+        List<Component> lore = new ArrayList<>();
+        for (String line : candidateModifier.getDescRaw()) {lore.add(Msg.mm(line));}
+        lore.add(Component.empty());
+        lore.add(Msg.get("modifier.ballot-tally", Msg.ph("for", forVotes), Msg.ph("need", need)));
+        lore.add(Msg.get(voted ? "modifier.ballot-voted" : "modifier.ballot-not"));
+        lore.add(Msg.get("modifier.ballot-hint"));
+        p.getInventory().setItem(4, Items.special(candidateModifier.getIcon(),
+            Msg.get("modifier.ballot-name", Msg.phMm("name", candidateModifier.getNameRaw())), lore, "modifier-vote"));
+    }
+
+    private void refreshBallots()
+    {
+        forEachOnline(lobby, this::giveModifierBallot);
+    }
+
+    /** Переключить голос игрока «за» кандидата и обновить бюллетени лобби. */
+    public void toggleModifierVote(Player p)
+    {
+        if (candidateModifier == null) {return;}
+        UUID id = p.getUniqueId();
+        boolean nowFor;
+        if (modifierVotes.remove(id)) {nowFor = false;}
+        else {modifierVotes.add(id); nowFor = true;}
+        long forVotes = countModifierVotes();
+        int need = lobby.size() / 3 + 1;
+        Msg.send(p, nowFor ? "modifier.voted-for" : "modifier.voted-cancel",
+            Msg.phMm("name", candidateModifier.getNameRaw()),
+            Msg.ph("for", forVotes), Msg.ph("need", need));
+        refreshBallots();
+    }
+
+    /** Решение по модификатору: применяем, если «за» больше 1/3 стартующих. */
+    private void decideModifier(World world)
+    {
+        activeModifier = null;
+        if (candidateModifier == null) {return;}
+        int starting = lobby.size();
+        long forVotes = countModifierVotes();
+        boolean accepted = forVotes * 3 > starting;
+        DebugLog.log(Cat.SESSION, "modifier arena=%s candidate=%s votes=%d/%d accepted=%b",
+            arena.getId(), candidateModifier.getId(), forVotes, starting, accepted);
+        if (accepted)
+        {
+            activeModifier = candidateModifier;
+            lobbyChat.systemKey("modifier.accepted", Msg.phMm("name", candidateModifier.getNameRaw()));
+            if (activeModifier.flag("night-start") && world != null) {world.setTime(18000L);}
+        }
+        else
+        {
+            lobbyChat.systemKey("modifier.rejected", Msg.phMm("name", candidateModifier.getNameRaw()));
+        }
+    }
 
     public long cooldownLeft(String key)
     {
@@ -186,6 +264,11 @@ public class GameSession
         {
             p.getInventory().setItem(0, Items.special(Material.CHEST,
                 Msg.get("kit.select-item-name"), Msg.getList("kit.select-item-lore"), "kit-select"));
+        }
+        if (candidateModifier != null)
+        {
+            refreshBallots(); // счётчик «нужно N» зависит от размера лобби — обновляем всем
+            Msg.send(p, "modifier.candidate", Msg.phMm("name", candidateModifier.getNameRaw()));
         }
 
         if (phase == Phase.WAITING && lobby.size() >= arena.getMinPlayers())
@@ -405,6 +488,10 @@ public class GameSession
         DebugLog.log(Cat.SESSION, "start arena=%s world=%s players=%d duration=%ds dynamic-chests=%b",
             arena.getId(), world.getName(), lobby.size(), remaining, arena.isDynamicChests());
 
+        // модификатор сессии решаем ДО генерации и раздачи: он крутит числа
+        // (кол-во сундуков, стартовое золото, износ, ночь)
+        decideModifier(world);
+
         // подсказки настройки убираем ДО генерации и телепорта: игрок не должен
         // появиться внутри стекла, а лут сундуков-маркеров в игре не участвует
         SetupMarkers.clearForMatch(arena);
@@ -488,6 +575,7 @@ public class GameSession
         // выбранный каст: своё золото (или дефолт арены) + доп. предметы
         Kit kit = resolveKit(p.getUniqueId());
         int gold = (kit != null && kit.getGold() >= 0) ? kit.getGold() : arena.getStartGold();
+        gold = (int) Math.round(gold * modMult("start-gold-mult"));
         if (gold > 0) {p.getInventory().addItem(new ItemStack(Material.GOLD_INGOT, gold));}
         if (kit != null)
         {
@@ -513,7 +601,8 @@ public class GameSession
     {
         List<Location> pool = new ArrayList<>(arena.getChestSpots());
         Collections.shuffle(pool, RANDOM);
-        int count = Math.min(arena.getChestCount(), pool.size());
+        int wanted = Math.max(1, (int) Math.round(arena.getChestCount() * modMult("chest-count-mult")));
+        int count = Math.min(wanted, pool.size());
         for (int i = 0; i < count; i++)
         {
             Location loc = pool.get(i);
@@ -636,8 +725,9 @@ public class GameSession
         if (maxDurability <= 0 || !(item.getItemMeta() instanceof Damageable meta)) {return item;}
         if (meta.hasDamage()) {return item;}
 
-        int minPct = Math.max(0, Math.min(arena.getWearMinPercent(), maxPct));
-        maxPct = Math.min(99, maxPct);
+        int wearAdd = (int) Math.round(modAdd("wear-add"));
+        int minPct = Math.max(0, Math.min(arena.getWearMinPercent() + wearAdd, 99));
+        maxPct = Math.max(minPct, Math.min(99, maxPct + wearAdd));
         int pct = minPct + RANDOM.nextInt(maxPct - minPct + 1);
         int damage = Math.min(maxDurability - 1, maxDurability * pct / 100);
         if (damage <= 0) {return item;}
@@ -727,7 +817,7 @@ public class GameSession
 
         updateTimerBar();
 
-        int interval = Math.max(30, arena.getEventIntervalSeconds());
+        int interval = Math.max(30, (int) Math.round(arena.getEventIntervalSeconds() * modMult("event-interval-mult")));
         if (currentEvent == null && remaining > 0 && remaining % interval == 0 && remaining != arena.getDurationSeconds())
         {
             startRandomEvent();
@@ -742,13 +832,14 @@ public class GameSession
         int salaryInterval = Math.max(60, arena.getSalaryIntervalSeconds());
         if (remaining > 0 && remaining % salaryInterval == 0)
         {
+            int salary = Math.max(0, (int) Math.round(arena.getSalaryGold() * modMult("salary-mult")));
             DebugLog.log(Cat.SESSION, "salary arena=%s gold=%d alive=%d remaining=%ds",
-                arena.getId(), arena.getSalaryGold(), playing.size(), remaining);
-            gameChat.systemKey("game.salary", Msg.ph("n", arena.getSalaryGold()));
+                arena.getId(), salary, playing.size(), remaining);
+            gameChat.systemKey("game.salary", Msg.ph("n", salary));
             forEachPlaying(p ->
             {
                 p.getWorld().strikeLightningEffect(p.getLocation());
-                giveGold(p, arena.getSalaryGold());
+                giveGold(p, salary);
             });
         }
 
@@ -1074,7 +1165,8 @@ public class GameSession
             stand.setCustomNameVisible(true);
         }
 
-        int delay = plugin.getConfig().getInt("chest-refill-seconds", 180);
+        int delay = Math.max(5, (int) Math.round(
+            plugin.getConfig().getInt("chest-refill-seconds", 180) * modMult("refill-mult")));
         DebugLog.log(Cat.CHEST, "refill-scheduled arena=%s at=%s in=%ds", arena.getId(), DebugLog.at(loc), delay);
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () ->
         {
@@ -1486,6 +1578,8 @@ public class GameSession
         spectatorChat.clear();
         matchData.clear();
         chosenKit.clear();
+        modifierVotes.clear();
+        activeModifier = null;
         cooldowns.clear();
         currentEvent = null;
         eventPositions.clear();
