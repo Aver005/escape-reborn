@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import me.aver005.escape.game.GameSession;
+import me.aver005.escape.kit.Kit;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -62,6 +63,10 @@ public class Arena
 
     // loot.yml
     private final List<WeightedItem> loot = new ArrayList<>();
+
+    // kits.yml — стартовые наборы («касты»), копии глобальных шаблонов
+    private final List<Kit> kits = new ArrayList<>();
+    private String defaultKit = "random";  // выбор по умолчанию: random | none | <id каста>
 
     // runtime
     private GameSession session;
@@ -131,6 +136,18 @@ public class Arena
             if (item == null) {continue;}
             arena.loot.add(new WeightedItem(item, weight instanceof Number n ? Math.max(1, n.intValue()) : 1));
         }
+
+        YamlConfiguration kitsCfg = YamlConfiguration.loadConfiguration(new File(folder, "kits.yml"));
+        arena.defaultKit = kitsCfg.getString("default-kit", "random");
+        ConfigurationSection kitsRoot = kitsCfg.getConfigurationSection("kits");
+        if (kitsRoot != null)
+        {
+            for (String kid : kitsRoot.getKeys(false))
+            {
+                ConfigurationSection ks = kitsRoot.getConfigurationSection(kid);
+                if (ks != null) {arena.kits.add(Kit.load(kid, ks));}
+            }
+        }
         return arena;
     }
 
@@ -181,11 +198,19 @@ public class Arena
         }
         lootCfg.set("items", items);
 
+        YamlConfiguration kitsCfg = new YamlConfiguration();
+        kitsCfg.set("default-kit", defaultKit);
+        for (Kit kit : kits)
+        {
+            kit.save(kitsCfg.createSection("kits." + kit.getId()));
+        }
+
         try
         {
             cfg.save(new File(folder, "arena.yml"));
             locs.save(new File(folder, "locations.yml"));
             lootCfg.save(new File(folder, "loot.yml"));
+            kitsCfg.save(new File(folder, "kits.yml"));
         }
         catch (IOException e)
         {
@@ -291,6 +316,27 @@ public class Arena
     public Map<Location, String> getLevers() {return levers;}
     public Map<Location, String> getTraderSpots() {return traderSpots;}
     public List<WeightedItem> getLoot() {return loot;}
+    public List<Kit> getKits() {return kits;}
+    public String getDefaultKit() {return defaultKit;}
+    public void setDefaultKit(String v) {this.defaultKit = v;}
+
+    /** Каст арены по id (без учёта регистра) или null. */
+    public Kit getKit(String id)
+    {
+        if (id == null) {return null;}
+        for (Kit kit : kits)
+        {
+            if (kit.getId().equalsIgnoreCase(id)) {return kit;}
+        }
+        return null;
+    }
+
+    public void addKit(Kit kit) {kits.add(kit);}
+
+    public boolean removeKit(String id)
+    {
+        return kits.removeIf(kit -> kit.getId().equalsIgnoreCase(id));
+    }
 
     public GameSession getSession() {return session;}
     public void setSession(GameSession session) {this.session = session;}

@@ -14,7 +14,9 @@ import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.game.GameSession;
+import me.aver005.escape.kit.Kit;
 import me.aver005.escape.menu.ArenaSelectMenu;
+import me.aver005.escape.menu.KitEditorMenu;
 import me.aver005.escape.menu.LootEditorMenu;
 import me.aver005.escape.menu.TradeEditorMenu;
 import me.aver005.escape.theme.Theme;
@@ -47,7 +49,7 @@ public class EscapeCommand implements TabExecutor
         "debuglog",
         "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup", "markers",
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
-        "additem", "edititems", "addcontract",
+        "additem", "edititems", "addcontract", "kit",
         "createcontract", "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice",
         "createtheme", "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn",
         "addtheme", "removetheme",
@@ -173,6 +175,11 @@ public class EscapeCommand implements TabExecutor
             case "debuglog" ->
             {
                 handleDebugLog(p, args);
+                return true;
+            }
+            case "kit" ->
+            {
+                handleKit(p, args);
                 return true;
             }
             default -> {}
@@ -637,6 +644,153 @@ public class EscapeCommand implements TabExecutor
         return true;
     }
 
+    /** /escape kit ... — стартовые наборы («касты»): библиотека, копии, редактирование. */
+    private void handleKit(Player p, String[] args)
+    {
+        if (args.length < 2) {Msg.send(p, "kit.usage"); return;}
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action)
+        {
+            case "list" ->
+            {
+                if (args.length >= 3)
+                {
+                    Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
+                    if (arena == null) {return;}
+                    Msg.send(p, "kit.list-arena-header",
+                        Msg.ph("arena", arena.getId()), Msg.ph("default", arena.getDefaultKit()));
+                    if (arena.getKits().isEmpty()) {Msg.send(p, "kit.list-empty"); return;}
+                    for (Kit kit : arena.getKits()) {sendKitLine(p, kit);}
+                }
+                else
+                {
+                    Msg.send(p, "kit.list-global-header");
+                    if (plugin.kits().ids().isEmpty()) {Msg.send(p, "kit.list-empty"); return;}
+                    for (String kid : plugin.kits().ids()) {sendKitLine(p, plugin.kits().get(kid));}
+                }
+            }
+            case "copy" ->
+            {
+                if (args.length < 4) {Msg.send(p, "kit.copy-usage"); return;}
+                Kit source = plugin.kits().get(args[2]);
+                if (source == null) {Msg.send(p, "kit.not-found-global", Msg.ph("id", args[2])); return;}
+                Arena arena = requireArenaGet(p, args[3].toUpperCase(Locale.ROOT));
+                if (arena == null) {return;}
+                String newId = args.length >= 5 ? args[4] : source.getId();
+                if (arena.getKit(newId) != null)
+                {
+                    Msg.send(p, "kit.exists", Msg.ph("id", newId), Msg.ph("arena", arena.getId()));
+                    return;
+                }
+                arena.addKit(source.copy(newId));
+                plugin.arenas().save(arena);
+                Msg.send(p, "kit.copied",
+                    Msg.ph("id", source.getId()), Msg.ph("arena", arena.getId()), Msg.ph("newid", newId));
+            }
+            case "create" ->
+            {
+                if (args.length < 4) {Msg.send(p, "kit.create-usage"); return;}
+                Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
+                if (arena == null) {return;}
+                String kid = args[3];
+                if (arena.getKit(kid) != null)
+                {
+                    Msg.send(p, "kit.exists", Msg.ph("id", kid), Msg.ph("arena", arena.getId()));
+                    return;
+                }
+                arena.addKit(new Kit(kid));
+                plugin.arenas().save(arena);
+                Msg.send(p, "kit.created", Msg.ph("id", kid), Msg.ph("arena", arena.getId()));
+                Msg.send(p, "kit.created-hint", Msg.ph("id", kid), Msg.ph("arena", arena.getId()));
+            }
+            case "delete" ->
+            {
+                Kit kit = kitArg(p, args);
+                if (kit == null) {return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                arena.removeKit(kit.getId());
+                plugin.arenas().save(arena);
+                Msg.send(p, "kit.deleted", Msg.ph("id", kit.getId()), Msg.ph("arena", arena.getId()));
+            }
+            case "edit" ->
+            {
+                Kit kit = kitArg(p, args);
+                if (kit == null) {return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                new KitEditorMenu(plugin, arena, kit).open(p);
+                Msg.send(p, "kit.editor-hint", Msg.ph("id", kit.getId()), Msg.ph("arena", arena.getId()));
+            }
+            case "name" ->
+            {
+                Kit kit = kitArg(p, args);
+                if (kit == null) {return;}
+                if (args.length < 5) {Msg.send(p, "errors.not-enough-args"); return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                String name = joinArgs(args, 4);
+                kit.setNameRaw(name);
+                plugin.arenas().save(arena);
+                Msg.send(p, "kit.name-set", Msg.ph("id", kit.getId()), Msg.phMm("name", name));
+            }
+            case "icon" ->
+            {
+                Kit kit = kitArg(p, args);
+                if (kit == null) {return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                ItemStack hand = p.getInventory().getItemInMainHand();
+                if (hand.getType().isAir()) {Msg.send(p, "errors.no-item-in-hand"); return;}
+                kit.setIcon(hand.getType());
+                plugin.arenas().save(arena);
+                Msg.send(p, "kit.icon-set", Msg.ph("id", kit.getId()), Msg.ph("icon", hand.getType().name()));
+            }
+            case "gold" ->
+            {
+                Kit kit = kitArg(p, args);
+                if (kit == null) {return;}
+                if (args.length < 5) {Msg.send(p, "errors.not-enough-args"); return;}
+                Integer n = parseInt(p, args[4], -1, 100000);
+                if (n == null) {return;}
+                Arena arena = plugin.arenas().get(args[2]);
+                kit.setGold(n);
+                plugin.arenas().save(arena);
+                Msg.send(p, "kit.gold-set", Msg.ph("id", kit.getId()), Msg.ph("n", n));
+            }
+            case "default" ->
+            {
+                if (args.length < 4) {Msg.send(p, "kit.default-usage"); return;}
+                Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
+                if (arena == null) {return;}
+                String value = args[3];
+                boolean special = value.equalsIgnoreCase("random") || value.equalsIgnoreCase("none");
+                Kit named = arena.getKit(value);
+                if (!special && named == null) {Msg.send(p, "kit.default-invalid", Msg.ph("value", value)); return;}
+                arena.setDefaultKit(special ? value.toLowerCase(Locale.ROOT) : named.getId());
+                plugin.arenas().save(arena);
+                Msg.send(p, "kit.default-set", Msg.ph("arena", arena.getId()), Msg.ph("value", arena.getDefaultKit()));
+            }
+            default -> Msg.send(p, "kit.usage");
+        }
+    }
+
+    private void sendKitLine(Player p, Kit kit)
+    {
+        Msg.send(p, "kit.list-entry",
+            Msg.ph("id", kit.getId()),
+            Msg.phMm("name", kit.getNameRaw()),
+            Msg.ph("goldval", kit.getGold()),
+            Msg.ph("items", kit.getItems().size()));
+    }
+
+    /** Разбор общего хвоста `<arena> <kitId>` (args[2], args[3]). Шлёт ошибку и возвращает null. */
+    private Kit kitArg(Player p, String[] args)
+    {
+        if (args.length < 4) {Msg.send(p, "errors.not-enough-args"); return null;}
+        Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
+        if (arena == null) {return null;}
+        Kit kit = arena.getKit(args[3]);
+        if (kit == null) {Msg.send(p, "kit.not-found", Msg.ph("id", args[3]), Msg.ph("arena", arena.getId()));}
+        return kit;
+    }
+
     /**
      * /escape debuglog [on|off|save|clear] — продвинутое логирование.
      * Состояние переживает рестарт: пишется в config.yml (debug-log.enabled).
@@ -871,6 +1025,8 @@ public class EscapeCommand implements TabExecutor
         if (!p.hasPermission("escape.admin")) {return out;}
         String sub = args[0].toLowerCase(Locale.ROOT);
 
+        if (sub.equals("kit")) {return kitTab(args, out);}
+
         if (args.length == 2)
         {
             switch (sub)
@@ -947,6 +1103,43 @@ public class EscapeCommand implements TabExecutor
             }
         }
         return out;
+    }
+
+    private List<String> kitTab(String[] args, List<String> out)
+    {
+        List<String> actions = List.of("list", "copy", "create", "delete", "edit", "name", "icon", "gold", "default");
+        if (args.length == 2) {filter(new ArrayList<>(actions), args[1], out); return out;}
+        String action = args[1].toLowerCase(Locale.ROOT);
+        if (args.length == 3)
+        {
+            if (action.equals("copy")) {filter(new ArrayList<>(plugin.kits().ids()), args[2], out);}
+            else {filter(new ArrayList<>(plugin.arenas().ids()), args[2], out);}
+            return out;
+        }
+        if (args.length == 4)
+        {
+            switch (action)
+            {
+                case "copy" -> filter(new ArrayList<>(plugin.arenas().ids()), args[3], out);
+                case "delete", "edit", "name", "icon", "gold" -> filter(arenaKitIds(args[2]), args[3], out);
+                case "default" ->
+                {
+                    List<String> vals = new ArrayList<>(List.of("random", "none"));
+                    vals.addAll(arenaKitIds(args[2]));
+                    filter(vals, args[3], out);
+                }
+                default -> {}
+            }
+        }
+        return out;
+    }
+
+    private List<String> arenaKitIds(String arenaId)
+    {
+        Arena arena = plugin.arenas().get(arenaId);
+        List<String> ids = new ArrayList<>();
+        if (arena != null) {for (Kit kit : arena.getKits()) {ids.add(kit.getId());}}
+        return ids;
     }
 
     private void filter(List<String> options, String prefix, List<String> out)

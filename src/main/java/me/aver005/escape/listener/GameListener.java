@@ -5,6 +5,7 @@ import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.menu.AssistantMenu;
+import me.aver005.escape.menu.KitSelectMenu;
 import me.aver005.escape.menu.Menu;
 import me.aver005.escape.menu.NpcMenu;
 import me.aver005.escape.menu.RespawnUpgradeMenu;
@@ -201,11 +202,16 @@ public class GameListener implements Listener
         if (session.isLobbyMember(p.getUniqueId()))
         {
             ItemStack hand = p.getInventory().getItemInMainHand();
-            if (Items.isSpecial(hand, "leave")
-                && (e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK))
+            boolean rightClick = e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK;
+            if (Items.isSpecial(hand, "leave") && rightClick)
             {
                 e.setCancelled(true);
                 if (session.leave(p)) {Msg.send(p, "lobby.left-match");}
+            }
+            else if (Items.isSpecial(hand, "kit-select") && rightClick)
+            {
+                e.setCancelled(true);
+                new KitSelectMenu(plugin, session, p.getUniqueId()).open(p);
             }
             return;
         }

@@ -1,0 +1,86 @@
+# ГЛОБАЛЬНАЯ БИБЛИОТЕКА КАСТОВ (стартовых наборов).
+#
+# Это шаблоны. На арену каст ставится КОПИЕЙ: /escape kit copy <id> <арена>.
+# Копия живёт в arenas/<арена>/kits.yml и редактируется отдельно, не задевая
+# оригинал здесь. Игрок выбирает каст в лобби (селектор рядом с «Выйти»);
+# в меню всегда есть «Без касты» и «Случайная».
+#
+# Каст = ДОП. предметы поверх системных (вилка, помощник, блок возрождения)
+# + своё стартовое золото (gold; -1 = брать start-gold арены).
+#
+# ФИЛОСОФИЯ БАЛАНСА: всё снаряжение выдаётся ПОЧТИ СЛОМАННЫМ (поле damage) —
+# постоянный ремонт снаряжения и есть двигатель игры. Уровень «бомжеватый»
+# (см. docs/07-decisions §11): максимум камень/железо, сильно изношено.
+# Разница между кастами — не в силе, а в РОЛИ (ПвП / квесты / экономика).
+#
+# Формат предмета — как в loot.yml (util/Items.fromSpec):
+#   type/amount/name/lore/enchants/color/damage/unbreakable/potion/effects...
+# damage — фикс. урон прочности, износом арены НЕ перекатывается.
+
+kits:
+
+  # --- ПвП: ближний бой ---
+  warrior:
+    name: "<red>Боец"
+    icon: STONE_SWORD
+    gold: 4
+    lore:
+      - "<gray>Для любителей ближнего боя."
+      - "<gray>Меч и драная кожа — чинить придётся часто."
+    items:
+      - {type: WOODEN_SWORD, damage: 50}
+      - {type: LEATHER_CHESTPLATE, color: "#5A3A1E", damage: 68}
+      - {type: COOKED_BEEF, amount: 2}
+
+  # --- ПвП: дальний бой ---
+  archer:
+    name: "<yellow>Стрелок"
+    icon: BOW
+    gold: 4
+    lore:
+      - "<gray>Бей на расстоянии: лук и снежки."
+      - "<gray>Снежки в матче наносят урон."
+    items:
+      - {type: BOW, damage: 340}
+      - {type: ARROW, amount: 8}
+      - {type: SNOWBALL, amount: 6}
+      - {type: LEATHER_HELMET, color: "#3A4A2A", damage: 47}
+
+  # --- ПвП: контроль ---
+  angler:
+    name: "<aqua>Рыбак"
+    icon: FISHING_ROD
+    gold: 4
+    lore:
+      - "<gray>Удочка с «Силой» подтягивает врага к тебе,"
+      - "<gray>а топор довершает дело."
+    items:
+      - {type: FISHING_ROD, damage: 54, enchants: {power: 1}}
+      - {type: STONE_AXE, damage: 115}
+      - {type: LEATHER_BOOTS, color: "#2A3A4A", damage: 55}
+
+  # --- Квесты: добыча ---
+  miner:
+    name: "<gold>Работяга"
+    icon: STONE_PICKAXE
+    gold: 8
+    lore:
+      - "<gray>Для контрактов на добычу и раскопки."
+      - "<gray>Алмазная лопата — просто ради фана."
+    items:
+      - {type: STONE_PICKAXE, damage: 110}
+      - {type: DIAMOND_SHOVEL, damage: 1400}
+      - {type: BREAD, amount: 2}
+
+  # --- Экономика ---
+  dealer:
+    name: "<green>Делец"
+    icon: GOLD_INGOT
+    gold: 12
+    lore:
+      - "<gray>Больше стартового золота и лазурит"
+      - "<gray>под зачарования у торговцев."
+    items:
+      - {type: WOODEN_SWORD, damage: 50}
+      - {type: LAPIS_LAZULI, amount: 6}
+      - {type: LEATHER_LEGGINGS, color: "#3A3A3A", damage: 64}

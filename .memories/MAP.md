@@ -1,7 +1,7 @@
 # MAP — карта репозитория
 
-Last updated: 2026-07-19 — добавлены MechanicsListener (снежки/яйца/удочка-крюк)
-и DebugLog (продвинутое логирование).
+Last updated: 2026-07-20 — добавлены касты (kit/Kit, kit/KitRegistry,
+menu/KitSelectMenu, menu/KitEditorMenu, resources/kits.yml).
 
 ```
 escape-reborn/
@@ -54,6 +54,9 @@ escape-reborn/
         │   ├── ContractType.java      # KILLS/ACTIVATE/MINE/FIND/BREAK/LOOT
         │   ├── ContractRegistry.java  # contracts.yml
         │   └── ContractPapers.java    # бумага «Задание»: PDC id/progress/nonce + лор
+        ├── kit/
+        │   ├── Kit.java               # каст: name/icon/gold/items; load(spec|serialized)/copy/apply
+        │   └── KitRegistry.java       # глобальная библиотека kits.yml (read-only, копируется на арену)
         ├── theme/
         │   ├── Theme.java             # темка смотрящего: тип/цель/золото/turn-in (SELF|ANY|NPC)
         │   ├── ThemeType.java         # 6 контрактных + DELIVERY + COURIER
@@ -74,6 +77,8 @@ escape-reborn/
         │   ├── ShopMenu.java          # магазин торговца (покупка за золото)
         │   ├── TradeEditorMenu.java   # админ: добавить трейд (цена кнопками)
         │   ├── LootEditorMenu.java    # админ: пул лута (пересборка на onClose)
+        │   ├── KitSelectMenu.java     # выбор каста в лобби (касты + «Без касты»/«Случайная»)
+        │   ├── KitEditorMenu.java     # админ: предметы каста (пересборка на onClose)
         │   ├── RespawnUpgradeMenu.java# прокачка блока возрождения (ПКМ по блоку)
         │   ├── NpcMenu.java           # совмещённый NPC: выбор «Магазин / Темки»
         │   └── ThemesMenu.java        # темки смотрящего: взять/бросить

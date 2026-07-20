@@ -20,6 +20,7 @@ import me.aver005.escape.arena.WeightedItem;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractPapers;
 import me.aver005.escape.contract.ContractType;
+import me.aver005.escape.kit.Kit;
 import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.util.DebugLog;
@@ -70,6 +71,9 @@ public class GameSession
     private final Map<UUID, MatchPlayer> matchData = new HashMap<>();
 
     private final Map<UUID, Double> warmupDamage = new HashMap<>();
+
+    // выбор каста в лобби: id каста | "none" | "random"; нет записи = default арены
+    private final Map<UUID, String> chosenKit = new HashMap<>();
 
     private final ChatChannel lobbyChat = new ChatChannel("chat.lobby-format");
     private final ChatChannel gameChat = new ChatChannel("chat.game-format");
@@ -139,6 +143,10 @@ public class GameSession
     public boolean isFinalBattle() {return finalBattleStarted;}
     public boolean isGlowActive() {return glowActive;}
 
+    /** Текущий выбор каста игрока: id | "none" | "random"; null — ещё не выбирал. */
+    public String getChosenKit(UUID id) {return chosenKit.get(id);}
+    public void setChosenKit(UUID id, String choice) {chosenKit.put(id, choice);}
+
     public long cooldownLeft(String key)
     {
         long until = cooldowns.getOrDefault(key, 0L);
@@ -174,6 +182,11 @@ public class GameSession
         p.teleport(arena.getLobby());
         p.getInventory().setItem(8, Items.special(Material.MAGMA_CREAM,
             Msg.get("lobby.leave-item-name"), List.of(Msg.get("lobby.leave-item-lore")), "leave"));
+        if (!arena.getKits().isEmpty())
+        {
+            p.getInventory().setItem(0, Items.special(Material.CHEST,
+                Msg.get("kit.select-item-name"), Msg.getList("kit.select-item-lore"), "kit-select"));
+        }
 
         if (phase == Phase.WAITING && lobby.size() >= arena.getMinPlayers())
         {
@@ -459,6 +472,7 @@ public class GameSession
 
     private void giveKit(Player p)
     {
+        // системные предметы — всегда, независимо от каста
         ItemStack fork = Items.special(Material.GOLDEN_PICKAXE,
             Msg.get("game.fork-name"), Msg.getList("game.fork-lore"), "fork");
         ItemMeta meta = fork.getItemMeta();
@@ -467,10 +481,32 @@ public class GameSession
         ((Damageable) meta).setDamage(maxDurability - uses);
         fork.setItemMeta(meta);
         p.getInventory().addItem(fork);
-        p.getInventory().addItem(new ItemStack(Material.GOLD_INGOT, arena.getStartGold()));
         p.getInventory().addItem(Items.special(Material.COMPASS,
             Msg.get("game.assistant-name"), Msg.getList("game.assistant-lore"), "assistant"));
         p.getInventory().addItem(respawnBlocks.initFor(p));
+
+        // выбранный каст: своё золото (или дефолт арены) + доп. предметы
+        Kit kit = resolveKit(p.getUniqueId());
+        int gold = (kit != null && kit.getGold() >= 0) ? kit.getGold() : arena.getStartGold();
+        if (gold > 0) {p.getInventory().addItem(new ItemStack(Material.GOLD_INGOT, gold));}
+        if (kit != null)
+        {
+            kit.apply(p);
+            DebugLog.log(Cat.PLAYER, "kit arena=%s player=%s kit=%s gold=%d items=%d",
+                arena.getId(), p.getName(), kit.getId(), gold, kit.getItems().size());
+        }
+    }
+
+    /** Разрешить выбор игрока в конкретный каст: учитывает none/random и дефолт арены. */
+    private Kit resolveKit(UUID id)
+    {
+        List<Kit> kits = arena.getKits();
+        if (kits.isEmpty()) {return null;}
+        String choice = chosenKit.get(id);
+        if (choice == null) {choice = arena.getDefaultKit();}
+        if (choice == null || choice.equalsIgnoreCase("none")) {return null;}
+        if (choice.equalsIgnoreCase("random")) {return kits.get(RANDOM.nextInt(kits.size()));}
+        return arena.getKit(choice);
     }
 
     private void placeChests()
@@ -1449,6 +1485,7 @@ public class GameSession
         gameChat.clear();
         spectatorChat.clear();
         matchData.clear();
+        chosenKit.clear();
         cooldowns.clear();
         currentEvent = null;
         eventPositions.clear();

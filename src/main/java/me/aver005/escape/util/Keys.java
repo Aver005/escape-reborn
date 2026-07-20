@@ -18,6 +18,7 @@ public final class Keys
     public static NamespacedKey RESPAWN_OWNER;     // владелец предмета-блока возрождения
     public static NamespacedKey THEME_ID;          // id темки на пакете-«передачке»
     public static NamespacedKey THEME_OWNER;       // uuid взявшего темку (на пакете)
+    public static NamespacedKey KIT_ID;            // id каста на иконке меню выбора
 
     private Keys() {}
 
@@ -35,5 +36,6 @@ public final class Keys
         RESPAWN_OWNER = new NamespacedKey(plugin, "respawn_owner");
         THEME_ID = new NamespacedKey(plugin, "theme_id");
         THEME_OWNER = new NamespacedKey(plugin, "theme_owner");
+        KIT_ID = new NamespacedKey(plugin, "kit_id");
     }
 }
