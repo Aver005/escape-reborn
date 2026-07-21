@@ -87,8 +87,8 @@ public enum GameEvent
         public void resolvePlayer(GameSession s, Player p)
         {
             PlayerInventory inv = p.getInventory();
-            boolean naked = inv.getHelmet() == null && inv.getChestplate() == null
-                && inv.getLeggings() == null && inv.getBoots() == null;
+            boolean naked = empty(inv.getHelmet()) && empty(inv.getChestplate())
+                && empty(inv.getLeggings()) && empty(inv.getBoots());
             if (!naked) {Msg.send(p, "events.armor-fail"); return;}
             p.getInventory().addItem(new ItemStack(Material.GOLD_INGOT, 8));
             Msg.send(p, "events.armor-ok");
@@ -258,4 +258,7 @@ public enum GameEvent
 
     /** Вызывается по окончании окна (после resolvePlayer). */
     public void onEnd(GameSession s) {}
+
+    /** Пустой слот брони приходит как null ИЛИ как предмет AIR — учитываем оба. */
+    private static boolean empty(ItemStack item) {return item == null || item.getType().isAir();}
 }

@@ -117,6 +117,7 @@ public class GameSession
     // модификатор сессии (§15): кандидат на голосование в лобби и принятый на матч
     private final Modifier candidateModifier;
     private final Set<UUID> modifierVotes = new HashSet<>();
+    private final Map<UUID, Long> lastVoteMs = new HashMap<>();
     private Modifier activeModifier = null;
 
     public GameSession(EscapePlugin plugin, Arena arena)
@@ -195,6 +196,12 @@ public class GameSession
     {
         if (candidateModifier == null) {return;}
         UUID id = p.getUniqueId();
+        // Один ПКМ иногда даёт парный BLOCK+AIR (или дубль-пакет) на главной руке —
+        // фильтр OFF_HAND их не ловит. Дебаунс: один клик = одно переключение.
+        long now = System.currentTimeMillis();
+        Long last = lastVoteMs.get(id);
+        if (last != null && now - last < 200L) {return;}
+        lastVoteMs.put(id, now);
         boolean nowFor;
         if (modifierVotes.remove(id)) {nowFor = false;}
         else {modifierVotes.add(id); nowFor = true;}
@@ -1634,6 +1641,7 @@ public class GameSession
         matchData.clear();
         chosenKit.clear();
         modifierVotes.clear();
+        lastVoteMs.clear();
         activeModifier = null;
         cooldowns.clear();
         currentEvent = null;
