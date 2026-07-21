@@ -11,30 +11,32 @@ import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 /**
- * Редактор пула лута арены: свободно добавляйте/убирайте предметы,
- * при закрытии пул пересобирается. Новые предметы получают вес 1
- * (точный вес — через /escape additem <ID> <вес>).
+ * Редактор пула лута арены: свободно добавляйте/убирайте предметы (с пагинацией,
+ * нижний ряд — управление), при закрытии пул пересобирается. Новые предметы
+ * получают вес 1 (точный вес — через /escape additem <ID> <вес>).
  */
-public class LootEditorMenu extends Menu
+public class LootEditorMenu extends PaginatedEditorMenu
 {
     private final EscapePlugin plugin;
     private final Arena arena;
 
     public LootEditorMenu(EscapePlugin plugin, Arena arena)
     {
-        super(54, Msg.get("loot-editor.title-prefix").append(Component.text(arena.getId())));
+        super(Msg.get("loot-editor.title-prefix").append(Component.text(arena.getId())), buildInitial(arena));
         this.plugin = plugin;
         this.arena = arena;
+    }
 
+    private static List<ItemStack> buildInitial(Arena arena)
+    {
+        List<ItemStack> out = new ArrayList<>();
         List<WeightedItem> loot = arena.getLoot();
-        for (int i = 0; i < loot.size() && i < 54; i++)
+        for (int i = 0; i < loot.size(); i++)
         {
             WeightedItem entry = loot.get(i);
             ItemStack display = entry.item().clone();
@@ -44,24 +46,18 @@ public class LootEditorMenu extends Menu
             meta.lore(lore);
             meta.getPersistentDataContainer().set(Keys.LOOT_INDEX, PersistentDataType.INTEGER, i);
             display.setItemMeta(meta);
-            inventory.setItem(i, display);
+            out.add(display);
         }
+        return out;
     }
 
     @Override
-    public boolean allowsInteraction() {return true;}
-
-    @Override
-    public void onClick(InventoryClickEvent e) {}
-
-    @Override
-    public void onClose(InventoryCloseEvent e)
+    protected void onSave(Player p, List<ItemStack> items)
     {
         List<WeightedItem> old = new ArrayList<>(arena.getLoot());
         List<WeightedItem> next = new ArrayList<>();
-        for (ItemStack item : inventory.getContents())
+        for (ItemStack item : items)
         {
-            if (item == null || item.getType().isAir()) {continue;}
             Integer index = item.hasItemMeta()
                 ? item.getItemMeta().getPersistentDataContainer().get(Keys.LOOT_INDEX, PersistentDataType.INTEGER)
                 : null;
@@ -77,9 +73,6 @@ public class LootEditorMenu extends Menu
         arena.getLoot().clear();
         arena.getLoot().addAll(next);
         plugin.arenas().save(arena);
-        if (e.getPlayer() instanceof Player p)
-        {
-            Msg.send(p, "admin.loot-saved", Msg.ph("arena", arena.getId()));
-        }
+        Msg.send(p, "admin.loot-saved", Msg.ph("arena", arena.getId()));
     }
 }

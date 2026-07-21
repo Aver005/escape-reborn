@@ -9,6 +9,10 @@ prefix:
 
 menu:
   title: "<dark_gray><b>Escape"
+  # общий нижний ряд пагинации (все меню со списками)
+  page-info: "<gray>Страница <yellow><page><gray>/<yellow><pages>"
+  page-prev: "<yellow>◄ Назад"
+  page-next: "<yellow>Вперёд ►"
   arena-item-name: "<green><arena>"
   arena-item-lore:
     - ""

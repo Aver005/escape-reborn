@@ -14,7 +14,10 @@ public class MenuListener implements Listener
     public void onClick(InventoryClickEvent e)
     {
         if (!(e.getView().getTopInventory().getHolder() instanceof Menu menu)) {return;}
+        int topSize = e.getView().getTopInventory().getSize();
+        int raw = e.getRawSlot();
         if (!menu.allowsInteraction()) {e.setCancelled(true);}
+        else if (raw >= 0 && raw < topSize && menu.isProtectedSlot(raw)) {e.setCancelled(true);}
         menu.onClick(e);
     }
 
@@ -22,8 +25,16 @@ public class MenuListener implements Listener
     public void onDrag(InventoryDragEvent e)
     {
         if (!(e.getView().getTopInventory().getHolder() instanceof Menu menu)) {return;}
-        if (menu.allowsInteraction()) {return;}
         int topSize = e.getView().getTopInventory().getSize();
+        if (menu.allowsInteraction())
+        {
+            // в интерактивном меню тянуть можно, но НЕ на защищённые кнопки управления
+            for (int slot : e.getRawSlots())
+            {
+                if (slot < topSize && menu.isProtectedSlot(slot)) {e.setCancelled(true); return;}
+            }
+            return;
+        }
         for (int slot : e.getRawSlots())
         {
             if (slot < topSize) {e.setCancelled(true); return;}
