@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -83,6 +84,7 @@ public class GameSession
 
     // runtime мира
     private final LinkedHashMap<Location, BlockData> editedBlocks = new LinkedHashMap<>();
+    private final Set<Location> matchFires = new HashSet<>();   // огонь, зажжённый игроками (гаснет по таймеру)
     private final Set<Location> activeChests = new HashSet<>();
     private final Map<Location, UUID> chestStands = new HashMap<>();
     /** Игровой сундук -> id его категории (лут и рефилл; пусто в legacy-режиме). */
@@ -516,9 +518,9 @@ public class GameSession
             new PotionEffect(PotionEffectType.SPEED, 20 * 12, 0, false, false),
             new PotionEffect(PotionEffectType.REGENERATION, 20 * 20, 0, false, false));
 
-        List<Location> spawnPool = new ArrayList<>(arena.getSpawns());
-        Collections.shuffle(spawnPool, RANDOM);
-        int spawnIndex = 0;
+        // мешок точек: каждому игроку РАЗНАЯ точка; повтор только когда точки
+        // кончились, и тогда мешок пересыпается заново — стаканья на одной точке нет
+        List<Location> spawnBag = new ArrayList<>();
 
         for (UUID id : new ArrayList<>(lobby))
         {
@@ -531,8 +533,7 @@ public class GameSession
             gameChat.add(id);
             plugin.stats().add(id, p.getName(), "games_played", 1);
 
-            Location spawn = spawnPool.get(spawnIndex % spawnPool.size());
-            spawnIndex++;
+            Location spawn = nextFromBag(spawnBag, arena.getSpawns());
             spawn.getChunk().load();
             DebugLog.log(Cat.PLAYER, "spawn arena=%s player=%s at=%s", arena.getId(), p.getName(), DebugLog.at(spawn));
 
@@ -790,32 +791,71 @@ public class GameSession
 
     private void spawnTraders()
     {
+        if (arena.getTraderQuotas().isEmpty()) {spawnTradersGlobal(); return;}
+
+        // лимиты по типам: точки группируем по типу, из каждой группы случайно
+        // min(quota, точек); тип без записи в trader-quotas выставляется целиком
+        Map<String, List<Location>> byType = new LinkedHashMap<>();
+        for (Map.Entry<Location, String> entry : arena.getTraderSpots().entrySet())
+        {
+            byType.computeIfAbsent(entry.getValue().toUpperCase(Locale.ROOT), k -> new ArrayList<>())
+                .add(entry.getKey());
+        }
+        int total = 0;
+        for (Map.Entry<String, List<Location>> entry : byType.entrySet())
+        {
+            String typeId = entry.getKey();
+            List<Location> points = entry.getValue();
+            Collections.shuffle(points, RANDOM);
+            Integer quota = arena.getTraderQuotas().get(typeId);
+            int want = quota != null ? Math.max(0, quota) : points.size();
+            int count = Math.min(want, points.size());
+            for (int i = 0; i < count; i++)
+            {
+                if (spawnOneTrader(points.get(i), typeId)) {total++;}
+            }
+            DebugLog.log(Cat.WORLD, "traders-type arena=%s type=%s placed=%d quota=%s points=%d",
+                arena.getId(), typeId, count, quota == null ? "all" : quota.toString(), points.size());
+        }
+        DebugLog.log(Cat.WORLD, "traders-placed arena=%s mode=quota total=%d spots=%d",
+            arena.getId(), total, arena.getTraderSpots().size());
+    }
+
+    /** Без лимитов по типам (trader-quotas пуст): случайное подмножество размера trader-count. */
+    private void spawnTradersGlobal()
+    {
         List<Map.Entry<Location, String>> pool = new ArrayList<>(arena.getTraderSpots().entrySet());
         Collections.shuffle(pool, RANDOM);
         int count = Math.min(arena.getTraderCount(), pool.size());
+        int placed = 0;
         for (int i = 0; i < count; i++)
         {
-            Location loc = pool.get(i).getKey();
-            String typeId = pool.get(i).getValue();
-            var type = plugin.traders().get(typeId);
-            if (type == null || loc.getWorld() == null) {continue;}
-            Villager villager = loc.getWorld().spawn(loc.clone().add(0.5, 0, 0.5), Villager.class, v ->
-            {
-                v.setAI(false);
-                v.setInvulnerable(true);
-                v.setPersistent(true);
-                v.setCanPickupItems(false);
-                v.customName(type.displayName());
-                v.setCustomNameVisible(true);
-                v.getPersistentDataContainer().set(Keys.TRADER_TYPE,
-                    PersistentDataType.STRING, type.getId());
-            });
-            spawnedEntities.add(villager.getUniqueId());
-            traderLocations.add(villager.getLocation());
-            DebugLog.log(Cat.WORLD, "trader-spawn arena=%s type=%s at=%s", arena.getId(), typeId, DebugLog.at(loc));
+            if (spawnOneTrader(pool.get(i).getKey(), pool.get(i).getValue())) {placed++;}
         }
-        DebugLog.log(Cat.WORLD, "traders-placed arena=%s placed=%d wanted=%d spots=%d",
-            arena.getId(), traderLocations.size(), arena.getTraderCount(), pool.size());
+        DebugLog.log(Cat.WORLD, "traders-placed arena=%s mode=global placed=%d wanted=%d spots=%d",
+            arena.getId(), placed, arena.getTraderCount(), pool.size());
+    }
+
+    /** Заспавнить одного жителя заданного типа в точке. false — тип/мир недоступны. */
+    private boolean spawnOneTrader(Location loc, String typeId)
+    {
+        var type = plugin.traders().get(typeId);
+        if (type == null || loc.getWorld() == null) {return false;}
+        Villager villager = loc.getWorld().spawn(loc.clone().add(0.5, 0, 0.5), Villager.class, v ->
+        {
+            v.setAI(false);
+            v.setInvulnerable(true);
+            v.setPersistent(true);
+            v.setCanPickupItems(false);
+            v.customName(type.displayName());
+            v.setCustomNameVisible(true);
+            v.getPersistentDataContainer().set(Keys.TRADER_TYPE,
+                PersistentDataType.STRING, type.getId());
+        });
+        spawnedEntities.add(villager.getUniqueId());
+        traderLocations.add(villager.getLocation());
+        DebugLog.log(Cat.WORLD, "trader-spawn arena=%s type=%s at=%s", arena.getId(), typeId, DebugLog.at(loc));
+        return true;
     }
 
     private void placeOres()
@@ -1082,17 +1122,29 @@ public class GameSession
             showTimerBarToAll();
         }
         List<Location> pool = arena.getFinalSpawns().isEmpty() ? arena.getSpawns() : arena.getFinalSpawns();
-        List<Location> shuffled = new ArrayList<>(pool);
-        Collections.shuffle(shuffled, RANDOM);
-        int i = 0;
+        List<Location> bag = new ArrayList<>();
         for (UUID id : playing)
         {
             Player p = Bukkit.getPlayer(id);
             if (p == null) {continue;}
-            Location loc = shuffled.get(i % shuffled.size());
-            i++;
+            Location loc = nextFromBag(bag, pool);
             p.teleport(loc.clone().add(0.5, 0, 0.5));
         }
+    }
+
+    /**
+     * Взять следующую РАЗНУЮ точку из мешка: пока мешок не пуст — отдаём из него,
+     * иначе пересыпаем весь пул заново вперемешку. Так двое игроков не встают на
+     * одну точку, пока точек хватает, а при нехватке повторы тоже случайны.
+     */
+    private Location nextFromBag(List<Location> bag, List<Location> pool)
+    {
+        if (bag.isEmpty())
+        {
+            bag.addAll(pool);
+            Collections.shuffle(bag, RANDOM);
+        }
+        return bag.remove(bag.size() - 1);
     }
 
     // ===== золото =====
@@ -1306,6 +1358,70 @@ public class GameSession
             DebugLog.log(Cat.WORLD, "block-remember arena=%s at=%s was=%s total=%d",
                 arena.getId(), DebugLog.at(block.getLocation()), block.getType(), editedBlocks.size());
         }
+    }
+
+    /**
+     * Запомнить ломаемый блок и, если он часть многоблочной структуры
+     * (дверь/кровать/высокое растение), её вторую половину: ваниль при сломе
+     * убирает обе половины сама, поэтому обе надо запомнить ДО слома, иначе
+     * оставшаяся половина не вернётся после матча.
+     */
+    public void rememberStructure(Block block)
+    {
+        rememberEditedBlock(block);
+        Block partner = SetupMarkers.structurePartner(block);
+        if (partner != null) {rememberEditedBlock(partner);}
+    }
+
+    // ===== огонь =====
+
+    /**
+     * Игрок поджёг огонь в матче: помним место (вернём после матча), держим огонь
+     * живым до таймера (BlockFadeEvent отменяется в ProtectionListener) и гасим
+     * через случайное fire.min..max секунд. false — поджиг выключен (fire.enabled)
+     * или матч не идёт: вызывающий отменяет событие поджига.
+     */
+    public boolean registerMatchFire(Location loc)
+    {
+        if (phase != Phase.RUNNING) {return false;}
+        if (!plugin.getConfig().getBoolean("fire.enabled", true)) {return false;}
+        Block block = loc.getBlock();
+        rememberEditedBlock(block); // сейчас тут воздух/заменяемый — cleanup вернёт его
+        Location fireLoc = block.getLocation();
+        matchFires.add(fireLoc);
+
+        int min = Math.max(1, plugin.getConfig().getInt("fire.min-seconds", 12));
+        int max = Math.max(min, plugin.getConfig().getInt("fire.max-seconds", 30));
+        int seconds = min + RANDOM.nextInt(max - min + 1);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> extinguishMatchFire(fireLoc), seconds * 20L);
+        DebugLog.log(Cat.WORLD, "fire-lit arena=%s at=%s seconds=%d active=%d",
+            arena.getId(), DebugLog.at(fireLoc), seconds, matchFires.size());
+        return true;
+    }
+
+    /** Это игрок-огонь (можно тушить), а не изначальный огонь карты? */
+    public boolean isMatchFire(Location loc) {return matchFires.contains(loc);}
+
+    /** Игрок потушил огонь рукой: снять с учёта (сам блок гасит ваниль слома). */
+    public void douseMatchFire(Location loc)
+    {
+        if (matchFires.remove(loc))
+        {
+            DebugLog.log(Cat.WORLD, "fire-doused arena=%s at=%s active=%d",
+                arena.getId(), DebugLog.at(loc), matchFires.size());
+        }
+    }
+
+    /** Погасить игрок-огонь по таймеру. */
+    private void extinguishMatchFire(Location loc)
+    {
+        if (phase != Phase.RUNNING) {return;}
+        if (!matchFires.remove(loc)) {return;}
+        if (loc.getWorld() == null) {return;}
+        Block block = loc.getBlock();
+        if (block.getType() == Material.FIRE) {block.setType(Material.AIR);}
+        DebugLog.log(Cat.WORLD, "fire-out arena=%s at=%s active=%d",
+            arena.getId(), DebugLog.at(loc), matchFires.size());
     }
 
     /**
@@ -1578,16 +1694,29 @@ public class GameSession
         // вернуть все изменённые блоки (решётки, сундуки, руды, столы)
         int restored = 0;
         int skipped = 0;
+        List<Block> restoredBlocks = new ArrayList<>();
         for (Map.Entry<Location, BlockData> entry : editedBlocks.entrySet())
         {
             Location loc = entry.getKey();
             if (loc.getWorld() == null) {skipped++; continue;}
-            loc.getBlock().setBlockData(entry.getValue(), false);
+            Block block = loc.getBlock();
+            block.setBlockData(entry.getValue(), false); // точная форма без физики (иначе прикреплённые блоки отваливаются)
+            restoredBlocks.add(block);
             restored++;
+        }
+        // второй проход С физикой: соседи, НЕ попавшие в editedBlocks (например,
+        // уцелевшие прутья рядом со сломанным), пересчитывают стыки. Без него
+        // между восстановленными прутьями и соседними остаются щели, и сквозь
+        // них иногда можно пролезть. Первый проход уже вернул все блоки на места,
+        // поэтому физика ничего не «уронит».
+        for (Block block : restoredBlocks)
+        {
+            block.setBlockData(block.getBlockData(), true);
         }
         DebugLog.log(Cat.WORLD, "blocks-restored arena=%s restored=%d skipped-no-world=%d",
             arena.getId(), restored, skipped);
         editedBlocks.clear();
+        matchFires.clear();
         activeChests.clear();
         activeChestCategory.clear();
         chestStands.clear();

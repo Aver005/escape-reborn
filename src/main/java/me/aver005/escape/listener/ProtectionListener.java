@@ -3,11 +3,13 @@ package me.aver005.escape.listener;
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.game.GameSession;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockFadeEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.block.LeavesDecayEvent;
@@ -41,9 +43,35 @@ public class ProtectionListener implements Listener
     {
         Arena arena = arenaInWorld(e.getBlock().getWorld());
         if (arena == null) {return;}
-        // как в оригинале: во время матча поджиг разрешён, вне матча — нет
         GameSession session = arena.getSession();
-        if (session == null || session.getPhase() != GameSession.Phase.RUNNING) {e.setCancelled(true);}
+        if (session == null || session.getPhase() != GameSession.Phase.RUNNING) {e.setCancelled(true); return;}
+
+        // в матче — только НАМЕРЕННЫЙ поджиг (огниво / огненный шар / горящая
+        // стрела). Огонь регистрируется как игровой: не распространяется, не жжёт
+        // блоки, гаснет по таймеру. Лава/распространение/молния/взрыв запрещены.
+        switch (e.getCause())
+        {
+            case FLINT_AND_STEEL, FIREBALL, ARROW ->
+            {
+                if (!session.registerMatchFire(e.getBlock().getLocation())) {e.setCancelled(true);}
+            }
+            default -> e.setCancelled(true);
+        }
+    }
+
+    /**
+     * Игровой огонь держим живым до нашего таймера: ваниль иначе гасит его на
+     * негорючей поверхности почти сразу. Огонь, бывший на карте изначально, гаснет
+     * как обычно.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onFade(BlockFadeEvent e)
+    {
+        if (e.getBlock().getType() != Material.FIRE) {return;}
+        Arena arena = arenaInWorld(e.getBlock().getWorld());
+        if (arena == null) {return;}
+        GameSession session = arena.getSession();
+        if (session != null && session.isMatchFire(e.getBlock().getLocation())) {e.setCancelled(true);}
     }
 
     @EventHandler(ignoreCancelled = true)

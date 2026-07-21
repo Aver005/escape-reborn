@@ -1,6 +1,16 @@
 # MAP — карта репозитория
 
-Last updated: 2026-07-20 — добавлены касты, Мусорщик, модификаторы сессии и
+Last updated: 2026-07-21 — пакет админ-GUI и геймплей-правок (см.
+JOURNAL/2026-07-21 разделы 3-4). Новое: `menu/ScavengerEditorMenu`,
+`menu/TradeListEditorMenu`, `menu/VillagerPointsMenu`; команды `scrapedit/trades/
+villagers/chesttag/traderquota/breakable`. Новые данные арены: `arena.yml` →
+`trader-quotas` (лимит жителей по типу), `locations.yml` → `breakables`
+(отмеченные ломаемые блоки). `config.yml` → `fire:` (управляемый огонь).
+`SetupMarkers.structurePartner` (вторая половина дверей/кроватей).
+Отметчик категории и метчик ломаемых блоков — на PDC `SPECIAL_ITEM` (chesttag/
+breakwand) + `MARKER_ARENA` + `CATEGORY_ID`, без новых ключей.
+
+Ранее (2026-07-20): касты, Мусорщик, модификаторы сессии и
 **категории сундуков + мастер** (category/ChestCategory, category/CategoryRegistry,
 arena/ChestSetupManager, arena/WizardState, menu/ChestSetupMenu,
 resources/chest-categories.yml). Точки сундуков в locations.yml теперь
@@ -93,6 +103,9 @@ escape-reborn/
         │   ├── KitEditorMenu.java     # админ: предметы каста (пересборка на onClose)
         │   ├── ChestSetupMenu.java    # мастер сундуков: пагинированный выбор точки (клик = прыжок)
         │   ├── ScavengerMenu.java     # Мусорщик: click-to-sell сломанного (цена x износ)
+        │   ├── ScavengerEditorMenu.java # админ: GUI прайса Мусорщика (клик=цена, порог, «из руки»)
+        │   ├── TradeListEditorMenu.java # админ: GUI торгов жителя (клик=цена, Q=убрать, «добавить»)
+        │   ├── VillagerPointsMenu.java# админ: точки жителей — ЛКМ телепорт, ПКМ редактор торгов
         │   ├── RespawnUpgradeMenu.java# прокачка блока возрождения (ПКМ по блоку)
         │   ├── NpcMenu.java           # совмещённый NPC: выбор роли «Магазин / Темки / Мусорщик» (до 3)
         │   └── ThemesMenu.java        # темки смотрящего: взять/бросить

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import me.aver005.escape.category.ChestCategory;
@@ -61,6 +62,7 @@ public class Arena
     private List<Location> oreSpots = new ArrayList<>();
     private final Map<Location, String> levers = new LinkedHashMap<>();       // точка -> имя локации
     private final Map<Location, String> traderSpots = new LinkedHashMap<>();  // точка -> тип торговца
+    private List<Location> breakables = new ArrayList<>();                    // отмеченные ломаемые блоки (вернутся после матча)
 
     // loot.yml
     private final List<WeightedItem> loot = new ArrayList<>();
@@ -71,6 +73,9 @@ public class Arena
 
     // chest-categories.yml — категории сундуков (квоты/лут/рефилл), копии глобальных шаблонов
     private final List<ChestCategory> chestCategories = new ArrayList<>();
+
+    // arena.yml — лимит числа жителей ПО ТИПУ (typeId -> макс. за матч); нет записи = все точки типа
+    private final Map<String, Integer> traderQuotas = new LinkedHashMap<>();
 
     // runtime
     private GameSession session;
@@ -121,6 +126,7 @@ public class Arena
         arena.oreSpots = readLocations(locs, "ores");
         readNamedLocations(locs, "levers", "name", arena.levers);
         readNamedLocations(locs, "traders", "type", arena.traderSpots);
+        arena.breakables = readLocations(locs, "breakables");
 
         YamlConfiguration lootCfg = YamlConfiguration.loadConfiguration(new File(folder, "loot.yml"));
         for (Map<?, ?> entry : lootCfg.getMapList("items"))
@@ -163,6 +169,15 @@ public class Arena
                 if (cs != null) {arena.chestCategories.add(ChestCategory.load(cid, cs));}
             }
         }
+
+        ConfigurationSection tqRoot = cfg.getConfigurationSection("trader-quotas");
+        if (tqRoot != null)
+        {
+            for (String key : tqRoot.getKeys(false))
+            {
+                arena.traderQuotas.put(key.toUpperCase(Locale.ROOT), Math.max(0, tqRoot.getInt(key)));
+            }
+        }
         return arena;
     }
 
@@ -195,6 +210,11 @@ public class Arena
         cfg.set("lobby", lobby);
         cfg.set("contracts", contractIds);
         cfg.set("dead-messages", deadMessages);
+        if (!traderQuotas.isEmpty())
+        {
+            ConfigurationSection tq = cfg.createSection("trader-quotas");
+            for (Map.Entry<String, Integer> e : traderQuotas.entrySet()) {tq.set(e.getKey(), e.getValue());}
+        }
 
         YamlConfiguration locs = new YamlConfiguration();
         locs.set("spawns", spawns);
@@ -204,6 +224,7 @@ public class Arena
         locs.set("ores", oreSpots);
         locs.set("levers", writeNamedLocations(levers, "name"));
         locs.set("traders", writeNamedLocations(traderSpots, "type"));
+        locs.set("breakables", breakables);
 
         YamlConfiguration lootCfg = new YamlConfiguration();
         List<Map<String, Object>> items = new ArrayList<>();
@@ -358,6 +379,8 @@ public class Arena
     public List<Location> getOreSpots() {return oreSpots;}
     public Map<Location, String> getLevers() {return levers;}
     public Map<Location, String> getTraderSpots() {return traderSpots;}
+    public Map<String, Integer> getTraderQuotas() {return traderQuotas;}
+    public List<Location> getBreakables() {return breakables;}
     public List<WeightedItem> getLoot() {return loot;}
     public List<Kit> getKits() {return kits;}
     public String getDefaultKit() {return defaultKit;}

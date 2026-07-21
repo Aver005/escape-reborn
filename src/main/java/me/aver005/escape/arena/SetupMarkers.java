@@ -3,7 +3,11 @@ package me.aver005.escape.arena;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
+import org.bukkit.block.data.Bisected;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Bed;
 
 /**
  * Блоки-подсказки настроенных точек арены: стоят вне матча, чтобы админ видел,
@@ -111,6 +115,27 @@ public final class SetupMarkers
     private static void clearChest(Block block)
     {
         if (block.getState() instanceof Chest chest) {chest.getInventory().clear();}
+    }
+
+    /**
+     * Вторая половина многоблочной структуры (дверь/высокое растение — по половине;
+     * кровать — по части и направлению) или null для обычного блока. Нужно, чтобы
+     * при пометке/сломе ломаемого блока запомнить и вернуть ОБЕ половины.
+     */
+    public static Block structurePartner(Block block)
+    {
+        BlockData data = block.getBlockData();
+        if (data instanceof Bed bed)
+        {
+            BlockFace face = bed.getPart() == Bed.Part.HEAD
+                ? bed.getFacing().getOppositeFace() : bed.getFacing();
+            return block.getRelative(face);
+        }
+        if (data instanceof Bisected bisected)
+        {
+            return block.getRelative(bisected.getHalf() == Bisected.Half.TOP ? BlockFace.DOWN : BlockFace.UP);
+        }
+        return null;
     }
 
     // ===== слом маркера =====

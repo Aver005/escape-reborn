@@ -342,6 +342,11 @@ admin:
   trader-renamed-hint: "<dark_green>Добавьте ему предметы для торговли: <yellow>/escape addtrade <trader>"
   trade-menu-opened: "<dark_green>Меню добавления нового трейда открыто."
   trade-menu-hint: "<dark_green>Нажимайте на стекло, чтобы увеличить или уменьшить цену."
+  trades-editor-hint: "<dark_green>Редактор товаров жителя <aqua><trader><dark_green>: клик = цена, Q = убрать, «Добавить» = новый товар."
+  scrap-editor-hint: "<dark_green>Редактор Мусорщика <aqua><trader><dark_green>: клик = цена, Q = убрать, Shift-клик вещи в инвентаре = добавить материал."
+  traderquota-usage: "<yellow>/escape traderquota <Арена> <Тип> <N> <gray>(N=-1 — снять лимит, тип спавнится целиком)"
+  traderquota-set: "<dark_green>Арена <aqua><arena><dark_green>: жителей типа <aqua><type><dark_green> за матч — не больше <yellow><n><dark_green> (случайные точки)."
+  traderquota-cleared: "<yellow>Арена <aqua><arena><yellow>: лимит для типа <aqua><type><yellow> снят — спавнятся все точки этого типа."
   trade-saved: "<dark_green>Трейд сохранён для трейдера <aqua><trader><dark_green>."
   trade-no-item: "<red>Вы не положили предмет для покупки."
   trade-max-price: "<red>Достигнута максимальная цена."
@@ -700,6 +705,89 @@ chestsetup:
   page-prev: "<yellow>◄ Назад"
   page-next: "<yellow>Вперёд ►"
 
+scrap-editor:
+  title-prefix: "<dark_gray><b>Мусорщик: </b>"
+  info-name: "<gold>Настройка приёмки"
+  info-lore:
+    - "<gray>Материалов в прайсе: <yellow><n> <dark_gray>(стр. <page>/<pages>)"
+    - "<gray>Порог износа: <yellow><wear>%"
+    - "<gray>Цена вещи = база x доля износа."
+    - "<yellow>Shift-клик по вещи с прочностью в своём"
+    - "<yellow>инвентаре — добавить материал в прайс."
+  wear-name: "<gold>Порог износа: <yellow><wear>%"
+  wear-lore:
+    - "<gray>С какого износа Мусорщик берёт вещь."
+    - "<yellow>ЛКМ +5 <gray>/ <yellow>ПКМ -5 <gray>(<yellow>Shift <gray>= ±1)"
+  entry-price: "<white>База: <yellow><price> <gold>золота"
+  entry-lore:
+    - "<yellow>ЛКМ +1 <gray>/ <yellow>ПКМ -1 <gray>(<yellow>Shift <gray>= ±10)"
+    - "<red>Q — убрать материал из прайса"
+  empty-name: "<gray>Прайс пуст"
+  empty-lore:
+    - "<gray>Shift-клик по вещи с прочностью в своём"
+    - "<gray>инвентаре — добавить материал в прайс."
+  added: "<dark_green>Мусорщик принимает <yellow><item><dark_green> по базе <yellow><price><dark_green>."
+  removed: "<yellow>Материал <white><item><yellow> убран из прайса Мусорщика."
+  already: "<red>Материал <yellow><item><red> уже в прайсе."
+
+trade-list:
+  title-prefix: "<dark_gray><b>Товары: </b>"
+  page-info: "<gray>Страница <yellow><page><gray>/<yellow><pages> <gray>(товаров <yellow><n><gray>)"
+  add-name: "<green>Добавить товар"
+  add-lore:
+    - "<gray>Открыть меню нового товара"
+    - "<gray>(предмет из руки + цена)."
+  entry-price: "<white>Цена: <yellow><price> <gold>золота"
+  entry-lore:
+    - "<yellow>ЛКМ +1 <gray>/ <yellow>ПКМ -1 <gray>(<yellow>Shift <gray>= ±10)"
+    - "<red>Q — убрать товар"
+  empty-name: "<gray>Товаров нет"
+  empty-lore:
+    - "<gray>Нажмите «Добавить товар»,"
+    - "<gray>чтобы завести первый."
+  removed: "<yellow>Товар убран у жителя <aqua><trader><yellow>."
+
+villagers:
+  menu-title: "<dark_gray><b>Точки жителей:</b>"
+  point-name: "<gold>Точка #<index> <gray>(<x>, <y>, <z>)"
+  point-trader: "<gray>Житель: <aqua><id> <gray>— <name>"
+  point-orphan: "<red>Тип «<id>» не найден"
+  point-lore:
+    - "<yellow>► ЛКМ — телепорт к точке"
+    - "<yellow>► ПКМ — редактор товаров"
+  page-info: "<gray>Страница <yellow><page><gray>/<yellow><pages> <gray>(точек <yellow><n><gray>)"
+  teleported: "<dark_green>Телепорт к точке #<index> <gray>(<x>, <y>, <z>)<dark_green>."
+  no-trader: "<red>У этой точки нет существующего типа жителя."
+  no-points: "<red>У арены <aqua><arena><red> нет точек жителей (/escape addvillager)."
+  arena-busy: "<red>Арена <aqua><arena><red> сейчас в игре — телепорт недоступен."
+  opened-hint: "<dark_green>Точки жителей арены <aqua><arena><dark_green>: <yellow><n><dark_green>. ЛКМ — телепорт, ПКМ — товары."
+
+chesttag:
+  item-lore:
+    - "<gray>Отметчик категории сундука арены <aqua><arena><gray>."
+    - "<yellow>ПКМ по сундуку-точке <gray>или <yellow>сломай его —"
+    - "<gray>точке присвоится эта категория."
+  given: "<dark_green>Выданы отметчики категорий арены <aqua><arena><dark_green>: <yellow><n><dark_green>. ПКМ/слом сундука-точки = категория."
+  assigned: "<dark_green>Точка <gray>(<x>, <y>, <z>)<dark_green> → категория <category><dark_green>."
+  not-a-point: "<red>Это не точка сундука этой арены (/escape addchest)."
+  wrong-arena: "<red>Отметчик от арены <aqua><tag><red>, а вы в <aqua><arena><red>."
+  bad-category: "<red>Категория этого отметчика больше не существует на арене."
+  no-categories: "<red>У арены <aqua><arena><red> нет категорий (/escape chestcat copy|create)."
+
+breakable:
+  wand-name: "<gold>Метчик ломаемых блоков"
+  wand-lore:
+    - "<gray>Арена <aqua><arena><gray>."
+    - "<yellow>ПКМ по блоку — пометить/снять."
+    - "<gray>Помеченный блок игрок сможет сломать,"
+    - "<gray>после матча он вернётся на место."
+    - "<gray>Двери/кровати помечаются целиком."
+  wand-given: "<dark_green>Выдан метчик ломаемых блоков арены <aqua><arena><dark_green>. Помечено сейчас: <yellow><n><dark_green>."
+  marked: "<dark_green>Блок <yellow><block> <gray>(<x>, <y>, <z>)<dark_green> помечен ломаемым. Всего: <yellow><n><dark_green>."
+  unmarked: "<yellow>Блок <white><block> <gray>(<x>, <y>, <z>)<yellow> снят с пометки. Всего: <yellow><n><yellow>."
+  arena-busy: "<red>Арена <aqua><arena><red> сейчас в игре — пометка недоступна."
+  wrong-world: "<red>Этот блок не в мире арены <aqua><arena><red>."
+
 help:
   player:
     - "<gray>╔═════ <dark_green>Команды мини-режима <gray>═════►"
@@ -737,6 +825,7 @@ help:
     - "<gray>‖  <red>/escape addspawn|addfinalspawn|addchest|addtable|addore <ID> <gray>——— <yellow>Маркеры точек"
     - "<gray>‖  <red>/escape addlever <ID> <Имя> <gray>——— <yellow>Именованный рычаг"
     - "<gray>‖  <red>/escape addvillager <ID> <VID> <gray>——— <yellow>Точка торговца"
+    - "<gray>‖  <red>/escape breakable <ID> <gray>——— <yellow>Метчик ломаемых блоков (ПКМ пометить; вернутся после матча)"
     - "<gray>‖  <red>/escape markers <ID> <gray>——— <yellow>Расставить блоки-подсказки точек (вне матча)"
     - "<gray>‖  <yellow>Подсказки: <gray>серое стекло — спавн, чёрное — финальный спавн, розовое — житель, сундук — точка сундука"
     - "<gray>‖  <yellow>Сломать подсказку = удалить точку. На матч они снимаются и возвращаются после."
@@ -771,11 +860,16 @@ help:
     - "<gray>‖"
     - "<gray>‖  <red>/escape createvillager <VID> <gray>——— <yellow>Тип жителя"
     - "<gray>‖  <red>/escape villagername <VID> <Имя...> <gray>——— <yellow>Имя жителя"
-    - "<gray>‖  <red>/escape addtrade <VID> <gray>——— <yellow>Добавить товар"
+    - "<gray>‖  <red>/escape addtrade <VID> <gray>——— <yellow>Добавить один товар"
+    - "<gray>‖  <red>/escape trades <VID> <gray>——— <yellow>GUI-редактор товаров (цена/удаление/добавление)"
+    - "<gray>‖  <red>/escape villagers <ID> <gray>——— <yellow>GUI точек жителей арены: ЛКМ телепорт, ПКМ товары"
+    - "<gray>‖  <red>/escape traderquota <ID> <VID> <N> <gray>——— <yellow>Лимит числа жителей типа за матч (случайные точки; -1 снять)"
+    - "<gray>‖  <red>/escape chesttag <ID> <gray>——— <yellow>Выдать отметчики категорий: ПКМ/слом сундука-точки = категория"
     - "<gray>‖"
     - "<gray>‖  <red>/escape addscrap <VID> <цена> <gray>——— <yellow>Мусорщик: скупать предмет из руки (база; цена x износ)"
     - "<gray>‖  <red>/escape removescrap <VID> <gray>——— <yellow>Убрать предмет из руки из прайса Мусорщика"
     - "<gray>‖  <red>/escape scrapwear <VID> <%> <gray>——— <yellow>Мин. износ, с которого Мусорщик берёт вещь"
+    - "<gray>‖  <red>/escape scrapedit <VID> <gray>——— <yellow>GUI-редактор прайса Мусорщика (цена/порог/добавление)"
     - "<gray>‖  <red>/escape scraplist <VID> <gray>——— <yellow>Показать прайс Мусорщика"
     - "<gray>‖  <yellow>Мусорщик — третья роль NPC: скупает СЛОМАННОЕ снаряжение за золото. Системку продать нельзя."
     - "<gray>‖"

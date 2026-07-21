@@ -109,6 +109,29 @@ public class GameListener implements Listener
             return;
         }
 
+        // отмеченные ломаемые блоки: игрок ломает, после матча вернутся (обе половины дверей/кроватей)
+        if (session.getArena().getBreakables().contains(block.getLocation()))
+        {
+            DebugLog.log(Cat.WORLD, "breakable-broken player=%s block=%s at=%s",
+                p.getName(), type, DebugLog.at(block.getLocation()));
+            session.rememberStructure(block);
+            e.setDropItems(false);
+            return;
+        }
+
+        // огонь: свой/чужой игрок-огонь можно потушить рукой; огонь карты — нельзя
+        if (type == Material.FIRE)
+        {
+            if (session.isMatchFire(block.getLocation()))
+            {
+                session.douseMatchFire(block.getLocation());
+                DebugLog.log(Cat.WORLD, "fire-punch player=%s at=%s", p.getName(), DebugLog.at(block.getLocation()));
+                return; // ваниль убирает блок огня
+            }
+            e.setCancelled(true);
+            return;
+        }
+
         boolean ore = name.endsWith("_ORE") || name.startsWith("INFESTED_");
         if (!ore)
         {

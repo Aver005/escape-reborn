@@ -20,7 +20,10 @@ import me.aver005.escape.kit.Kit;
 import me.aver005.escape.menu.ArenaSelectMenu;
 import me.aver005.escape.menu.KitEditorMenu;
 import me.aver005.escape.menu.LootEditorMenu;
+import me.aver005.escape.menu.ScavengerEditorMenu;
 import me.aver005.escape.menu.TradeEditorMenu;
+import me.aver005.escape.menu.TradeListEditorMenu;
+import me.aver005.escape.menu.VillagerPointsMenu;
 import me.aver005.escape.theme.Theme;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
@@ -50,13 +53,13 @@ public class EscapeCommand implements TabExecutor
         "save", "reload", "list", "stop", "start", "create", "remove", "enable", "disable", "check", "debug",
         "debuglog",
         "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup", "markers",
-        "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
+        "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager", "breakable",
         "additem", "edititems", "addcontract", "kit", "chestcat", "chestsetup",
         "createcontract", "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice",
         "createtheme", "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn",
         "addtheme", "removetheme",
-        "createvillager", "villagername", "addtrade",
-        "addscrap", "removescrap", "scrapwear", "scraplist");
+        "createvillager", "villagername", "addtrade", "trades", "villagers", "chesttag", "traderquota",
+        "addscrap", "removescrap", "scrapwear", "scraplist", "scrapedit");
     private static final List<String> ARENA_SETTINGS = List.of(
         "duration", "eventinterval", "salaryinterval", "salarygold", "glowtime", "glowgold",
         "chests", "traders", "tables", "forkuses", "startgold", "startdelay", "startdelayfull",
@@ -408,6 +411,19 @@ public class EscapeCommand implements TabExecutor
                 if (!plugin.traders().exists(traderId)) {Msg.send(p, "errors.trader-not-exists"); return true;}
                 return giveMarker(p, id, "villager", Material.CRAFTING_TABLE, traderId);
             }
+            case "breakable" ->
+            {
+                Arena arena = requireArenaGet(p, id);
+                if (arena == null) {return true;}
+                ItemStack wand = Items.special(Material.IRON_AXE, Msg.get("breakable.wand-name"),
+                    Msg.getList("breakable.wand-lore", Msg.ph("arena", id)), "breakwand");
+                ItemMeta meta = wand.getItemMeta();
+                meta.getPersistentDataContainer().set(Keys.MARKER_ARENA, PersistentDataType.STRING, arena.getId());
+                wand.setItemMeta(meta);
+                p.getInventory().addItem(wand);
+                Msg.send(p, "breakable.wand-given", Msg.ph("arena", id), Msg.ph("n", arena.getBreakables().size()));
+                return true;
+            }
             case "additem" ->
             {
                 Arena arena = requireArenaGet(p, id);
@@ -625,6 +641,74 @@ public class EscapeCommand implements TabExecutor
                 new TradeEditorMenu(plugin, trader).open(p);
                 Msg.send(p, "admin.trade-menu-opened");
                 Msg.send(p, "admin.trade-menu-hint");
+                return true;
+            }
+            case "trades" ->
+            {
+                TraderType trader = requireTrader(p, id);
+                if (trader == null) {return true;}
+                new TradeListEditorMenu(plugin, trader).open(p);
+                Msg.send(p, "admin.trades-editor-hint", Msg.ph("trader", trader.getId()));
+                return true;
+            }
+            case "scrapedit" ->
+            {
+                TraderType trader = requireTrader(p, id);
+                if (trader == null) {return true;}
+                new ScavengerEditorMenu(plugin, trader).open(p);
+                Msg.send(p, "admin.scrap-editor-hint", Msg.ph("trader", trader.getId()));
+                return true;
+            }
+            case "villagers" ->
+            {
+                Arena arena = requireArenaGet(p, id);
+                if (arena == null) {return true;}
+                if (arena.getWorld() == null) {Msg.send(p, "errors.world-not-loaded"); return true;}
+                if (arena.getTraderSpots().isEmpty()) {Msg.send(p, "villagers.no-points", Msg.ph("arena", id)); return true;}
+                new VillagerPointsMenu(plugin, arena).open(p);
+                Msg.send(p, "villagers.opened-hint", Msg.ph("arena", id), Msg.ph("n", arena.getTraderSpots().size()));
+                return true;
+            }
+            case "chesttag" ->
+            {
+                Arena arena = requireArenaGet(p, id);
+                if (arena == null) {return true;}
+                if (arena.getChestCategories().isEmpty()) {Msg.send(p, "chesttag.no-categories", Msg.ph("arena", id)); return true;}
+                for (ChestCategory cat : arena.getChestCategories())
+                {
+                    String catName = cat.getNameRaw() == null ? cat.getId() : cat.getNameRaw();
+                    ItemStack tag = Items.special(cat.getIcon(), Msg.mm(catName),
+                        Msg.getList("chesttag.item-lore", Msg.ph("arena", id)), "chesttag");
+                    ItemMeta meta = tag.getItemMeta();
+                    var pdc = meta.getPersistentDataContainer();
+                    pdc.set(Keys.MARKER_ARENA, PersistentDataType.STRING, arena.getId());
+                    pdc.set(Keys.CATEGORY_ID, PersistentDataType.STRING, cat.getId());
+                    tag.setItemMeta(meta);
+                    p.getInventory().addItem(tag);
+                }
+                Msg.send(p, "chesttag.given", Msg.ph("arena", id), Msg.ph("n", arena.getChestCategories().size()));
+                return true;
+            }
+            case "traderquota" ->
+            {
+                Arena arena = requireArenaGet(p, id);
+                if (arena == null) {return true;}
+                if (args.length < 4) {Msg.send(p, "admin.traderquota-usage"); return true;}
+                String type = args[2].toUpperCase(Locale.ROOT);
+                if (!plugin.traders().exists(type)) {Msg.send(p, "errors.trader-not-exists"); return true;}
+                Integer n = parseInt(p, args[3], -1, 100000);
+                if (n == null) {return true;}
+                if (n < 0)
+                {
+                    arena.getTraderQuotas().remove(type);
+                    Msg.send(p, "admin.traderquota-cleared", Msg.ph("arena", id), Msg.ph("type", type));
+                }
+                else
+                {
+                    arena.getTraderQuotas().put(type, n);
+                    Msg.send(p, "admin.traderquota-set", Msg.ph("arena", id), Msg.ph("type", type), Msg.ph("n", n));
+                }
+                plugin.arenas().save(arena);
                 return true;
             }
             case "addscrap" ->
@@ -1272,7 +1356,7 @@ public class EscapeCommand implements TabExecutor
                 case "join", "remove", "enable", "disable", "check", "setlobby", "setname", "setdesc",
                      "setminplayers", "setmaxplayers", "set", "start", "worldsetup", "markers",
                      "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
-                     "additem", "edititems", "addcontract" ->
+                     "additem", "edititems", "addcontract", "villagers", "chesttag", "traderquota", "breakable" ->
                     filter(new ArrayList<>(plugin.arenas().ids()), args[1], out);
                 case "stop" ->
                 {
@@ -1295,8 +1379,8 @@ public class EscapeCommand implements TabExecutor
                     filter(new ArrayList<>(plugin.contracts().ids()), args[1], out);
                 case "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn" ->
                     filter(new ArrayList<>(plugin.themes().ids()), args[1], out);
-                case "villagername", "addtrade", "addtheme", "removetheme",
-                     "addscrap", "removescrap", "scrapwear", "scraplist" ->
+                case "villagername", "addtrade", "trades", "addtheme", "removetheme",
+                     "addscrap", "removescrap", "scrapwear", "scraplist", "scrapedit" ->
                     filter(new ArrayList<>(plugin.traders().ids()), args[1], out);
                 default -> {}
             }
@@ -1344,7 +1428,7 @@ public class EscapeCommand implements TabExecutor
                 case "set" -> filter(new ArrayList<>(ARENA_SETTINGS), args[2], out);
                 case "chestsetup" -> filter(new ArrayList<>(List.of("gui")), args[2], out);
                 case "addcontract" -> filter(new ArrayList<>(plugin.contracts().ids()), args[2], out);
-                case "addvillager" -> filter(new ArrayList<>(plugin.traders().ids()), args[2], out);
+                case "addvillager", "traderquota" -> filter(new ArrayList<>(plugin.traders().ids()), args[2], out);
                 default -> {}
             }
         }

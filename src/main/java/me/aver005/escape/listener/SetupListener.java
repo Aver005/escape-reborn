@@ -1,16 +1,24 @@
 package me.aver005.escape.listener;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.ChestSetupManager;
 import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.category.ChestCategory;
+import me.aver005.escape.util.DebugLog;
+import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -81,6 +89,13 @@ public class SetupListener implements Listener
         Arena arena = arenaInWorld(e.getBlock().getWorld());
         if (arena == null || arena.getSession() != null) {return;}
 
+        // отметчик категории в руке: ломание сундука-точки = присвоить категорию, а не удалить точку
+        if (tryChestTag(p, e.getBlock(), arena, p.getInventory().getItemInMainHand()))
+        {
+            e.setCancelled(true);
+            return;
+        }
+
         Location loc = e.getBlock().getLocation();
         if (SetupMarkers.pointTypeAt(arena, loc) == null) {return;}
         if (!p.hasPermission("escape.admin")) {e.setCancelled(true); return;}
@@ -134,6 +149,122 @@ public class SetupListener implements Listener
     public void onWizardQuit(PlayerQuitEvent e)
     {
         plugin.chestSetup().onQuit(e.getPlayer().getUniqueId());
+    }
+
+    // ===== отметчики категорий (/escape chesttag) =====
+
+    /** ПКМ отметчиком по сундуку-точке вне матча = присвоить его категорию точке. */
+    @EventHandler
+    public void onChestTagInteract(PlayerInteractEvent e)
+    {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) {return;}
+        if (!Items.isSpecial(e.getItem(), "chesttag")) {return;}
+        Block block = e.getClickedBlock();
+        if (block == null || block.getType() != Material.CHEST) {return;}
+        Player p = e.getPlayer();
+        if (plugin.arenas().sessionOf(p) != null) {return;}
+        Arena arena = arenaInWorld(block.getWorld());
+        if (arena == null || arena.getSession() != null) {return;}
+        e.setCancelled(true); // не открываем сундук / не ставим блок
+        tryChestTag(p, block, arena, e.getItem());
+    }
+
+    // ===== жезл ломаемых блоков (/escape breakable) =====
+
+    /** ПКМ жезлом-меткой по блоку вне матча = пометить/снять блок как ломаемый (обе половины структур). */
+    @EventHandler
+    public void onBreakableWand(PlayerInteractEvent e)
+    {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) {return;}
+        if (!Items.isSpecial(e.getItem(), "breakwand")) {return;}
+        Block block = e.getClickedBlock();
+        if (block == null) {return;}
+        Player p = e.getPlayer();
+        e.setCancelled(true);
+        if (plugin.arenas().sessionOf(p) != null) {return;}
+        if (!p.hasPermission("escape.admin")) {return;}
+
+        String tagArena = e.getItem().getItemMeta().getPersistentDataContainer()
+            .get(Keys.MARKER_ARENA, PersistentDataType.STRING);
+        Arena arena = plugin.arenas().get(tagArena);
+        if (arena == null) {Msg.send(p, "errors.arena-not-exists"); return;}
+        if (arena.getSession() != null) {Msg.send(p, "breakable.arena-busy", Msg.ph("arena", arena.getId())); return;}
+        if (!block.getWorld().getName().equals(arena.getWorldName()))
+        {
+            Msg.send(p, "breakable.wrong-world", Msg.ph("arena", arena.getId()));
+            return;
+        }
+        toggleBreakable(p, block, arena);
+    }
+
+    /** Пометить/снять блок и его вторую половину (дверь/кровать) как ломаемый. */
+    private void toggleBreakable(Player p, Block block, Arena arena)
+    {
+        List<Location> locs = new ArrayList<>();
+        locs.add(block.getLocation());
+        Block partner = SetupMarkers.structurePartner(block);
+        if (partner != null) {locs.add(partner.getLocation());}
+
+        boolean marked = arena.getBreakables().contains(block.getLocation());
+        if (marked)
+        {
+            arena.getBreakables().removeAll(locs);
+            p.playSound(p.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 0.6f, 1.0f);
+        }
+        else
+        {
+            for (Location l : locs)
+            {
+                if (!arena.getBreakables().contains(l)) {arena.getBreakables().add(l);}
+            }
+            p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.6f);
+        }
+        plugin.arenas().save(arena);
+        DebugLog.log(Cat.ADMIN, "breakable-toggle admin=%s arena=%s at=%s marked=%b total=%d",
+            p.getName(), arena.getId(), DebugLog.at(block.getLocation()), !marked, arena.getBreakables().size());
+        Msg.send(p, marked ? "breakable.unmarked" : "breakable.marked",
+            Msg.ph("block", block.getType().name()),
+            Msg.ph("x", block.getX()), Msg.ph("y", block.getY()), Msg.ph("z", block.getZ()),
+            Msg.ph("n", arena.getBreakables().size()));
+    }
+
+    /**
+     * Обработать отметчик категории в руке: если это сундук-точка арены — присвоить
+     * ей категорию отметчика. Возвращает true, если действие «поглощено» отметчиком
+     * (вызывающий должен отменить событие). Арену сохраняет сам.
+     */
+    private boolean tryChestTag(Player p, Block block, Arena arena, ItemStack item)
+    {
+        if (!Items.isSpecial(item, "chesttag")) {return false;}
+        if (block.getType() != Material.CHEST) {return false;}
+        if (!p.hasPermission("escape.admin")) {return true;}
+
+        var pdc = item.getItemMeta().getPersistentDataContainer();
+        String tagArena = pdc.get(Keys.MARKER_ARENA, PersistentDataType.STRING);
+        if (tagArena != null && !tagArena.equalsIgnoreCase(arena.getId()))
+        {
+            Msg.send(p, "chesttag.wrong-arena", Msg.ph("arena", arena.getId()), Msg.ph("tag", tagArena));
+            return true;
+        }
+        Location point = block.getLocation();
+        if (!arena.getChestSpots().containsKey(point))
+        {
+            Msg.send(p, "chesttag.not-a-point");
+            return true;
+        }
+        String catId = pdc.get(Keys.CATEGORY_ID, PersistentDataType.STRING);
+        ChestCategory cat = arena.getChestCategory(catId);
+        if (cat == null) {Msg.send(p, "chesttag.bad-category"); return true;}
+
+        arena.getChestSpots().put(point, cat.getId());
+        plugin.arenas().save(arena);
+        p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 1.4f);
+        DebugLog.log(Cat.ADMIN, "chesttag-assign admin=%s arena=%s point=%s cat=%s",
+            p.getName(), arena.getId(), DebugLog.at(point), cat.getId());
+        Msg.send(p, "chesttag.assigned",
+            Msg.phMm("category", cat.getNameRaw()),
+            Msg.ph("x", point.getBlockX()), Msg.ph("y", point.getBlockY()), Msg.ph("z", point.getBlockZ()));
+        return true;
     }
 
     private Arena arenaInWorld(World world)
