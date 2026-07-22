@@ -1,5 +1,14 @@
 # MAP — карта репозитория
 
+Last updated: 2026-07-22 — «Правка 6»: общий хаб настройки арены `/escape gui
+<ID>`. Новое: `menu/ArenaHubMenu`, `menu/ArenaSettingsMenu`, `menu/ArenaPointsMenu`,
+`menu/ArenaContractsMenu`, `menu/ArenaKitsMenu`, `menu/AnvilInputMenu` (ввод текста
+через наковальню). Инфра ввода: `Menu(InventoryType)` конструктор + `Menu.onPrepareAnvil`
+хук + `PrepareAnvilEvent` в `MenuListener`. Фабрики маркеров вынесены в
+`SetupMarkers.markerItem/breakWand` (переиспользуются командой и хабом). Команда
+`/escape gui <ID>` (EscapeCommand, id-switch). Хаб-действия — через `performCommand`.
+Без новых PDC-ключей. Ранее «Правка 5»:
+
 Last updated: 2026-07-22 — «Правка 5»: ориентация сундуков. Новое поле
 `Arena.chestFacings` (Map<Location, BlockFace>) → опциональный `facing:` в записи
 точки `locations.yml`. Команда `/escape chestface <ID>` (EscapeCommand) —
@@ -107,6 +116,12 @@ escape-reborn/
         ├── menu/
         │   ├── Menu.java              # база: InventoryHolder + allowsInteraction + onClose
         │   ├── ArenaSelectMenu.java   # главное меню (лаймовая шерсть)
+        │   ├── ArenaHubMenu.java      # ХАБ настройки арены (/escape gui): все разделы + действия (performCommand)
+        │   ├── ArenaSettingsMenu.java # ± редактор числовых/булевых настроек арены (data-driven)
+        │   ├── ArenaPointsMenu.java   # точки: выдача маркеров из GUI, счётчики, лобби, подсказки
+        │   ├── ArenaContractsMenu.java# тумблер привязки глобальных контрактов к арене
+        │   ├── ArenaKitsMenu.java     # список кастов арены → KitEditorMenu
+        │   ├── AnvilInputMenu.java    # ввод текста через наковальню (Consumer<String> колбэк)
         │   ├── AssistantMenu.java     # «Личный помощник»: 4 способности + кулдауны
         │   ├── PlacesMenu.java        # «Отмеченные локации» (рычаги)
         │   ├── ShopMenu.java          # магазин торговца (покупка за золото)

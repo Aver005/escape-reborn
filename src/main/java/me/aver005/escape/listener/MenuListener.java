@@ -6,6 +6,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.PrepareAnvilEvent;
 
 /** Маршрутизация кликов в Menu. */
 public class MenuListener implements Listener
@@ -45,5 +46,11 @@ public class MenuListener implements Listener
     public void onClose(InventoryCloseEvent e)
     {
         if (e.getView().getTopInventory().getHolder() instanceof Menu menu) {menu.onClose(e);}
+    }
+
+    @EventHandler
+    public void onPrepareAnvil(PrepareAnvilEvent e)
+    {
+        if (e.getView().getTopInventory().getHolder() instanceof Menu menu) {menu.onPrepareAnvil(e);}
     }
 }

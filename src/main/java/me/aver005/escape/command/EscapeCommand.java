@@ -16,6 +16,7 @@ import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.kit.Kit;
+import me.aver005.escape.menu.ArenaHubMenu;
 import me.aver005.escape.menu.ArenaSelectMenu;
 import me.aver005.escape.menu.KitEditorMenu;
 import me.aver005.escape.menu.LootEditorMenu;
@@ -54,7 +55,7 @@ public class EscapeCommand implements TabExecutor
     private static final List<String> PLAYER_SUBS = List.of("join", "leave", "stats", "info", "help");
     private static final List<String> ADMIN_SUBS = List.of(
         "save", "reload", "list", "stop", "start", "create", "remove", "enable", "disable", "check", "debug",
-        "debuglog",
+        "debuglog", "gui",
         "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup", "markers",
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager", "breakable",
         "chestface", "addcontract", "kit", "loot", "chestsetup",
@@ -215,6 +216,13 @@ public class EscapeCommand implements TabExecutor
 
         switch (sub)
         {
+            case "gui" ->
+            {
+                Arena arena = requireArenaGet(p, id);
+                if (arena == null) {return true;}
+                new ArenaHubMenu(plugin, arena).open(p);
+                return true;
+            }
             case "create" ->
             {
                 if (plugin.arenas().exists(id)) {Msg.send(p, "errors.arena-exists"); return true;}
@@ -427,12 +435,7 @@ public class EscapeCommand implements TabExecutor
             {
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
-                ItemStack wand = Items.special(Material.IRON_AXE, Msg.get("breakable.wand-name"),
-                    Msg.getList("breakable.wand-lore", Msg.ph("arena", id)), "breakwand");
-                ItemMeta meta = wand.getItemMeta();
-                meta.getPersistentDataContainer().set(Keys.MARKER_ARENA, PersistentDataType.STRING, arena.getId());
-                wand.setItemMeta(meta);
-                p.getInventory().addItem(wand);
+                p.getInventory().addItem(SetupMarkers.breakWand(arena));
                 Msg.send(p, "breakable.wand-given", Msg.ph("arena", id), Msg.ph("n", arena.getBreakables().size()));
                 return true;
             }
@@ -787,18 +790,7 @@ public class EscapeCommand implements TabExecutor
     {
         Arena arena = requireArenaGet(p, arenaId);
         if (arena == null) {return true;}
-        List<Component> lore = new ArrayList<>();
-        lore.add(Msg.get("admin.marker-lore-arena", Msg.ph("arena", arena.getId())));
-        if (extra != null) {lore.add(Msg.get("admin.marker-lore-extra", Msg.ph("extra", extra)));}
-        ItemStack item = Items.named(material,
-            Msg.get("admin.marker-name", Msg.ph("type", Msg.raw("marker-types." + type))), lore);
-        ItemMeta meta = item.getItemMeta();
-        var pdc = meta.getPersistentDataContainer();
-        pdc.set(Keys.MARKER_TYPE, PersistentDataType.STRING, type);
-        pdc.set(Keys.MARKER_ARENA, PersistentDataType.STRING, arena.getId());
-        if (extra != null) {pdc.set(Keys.MARKER_EXTRA, PersistentDataType.STRING, extra);}
-        item.setItemMeta(meta);
-        p.getInventory().addItem(item);
+        p.getInventory().addItem(SetupMarkers.markerItem(arena, type, material, extra));
         Msg.send(p, "admin.marker-given", Msg.ph("type", Msg.raw("marker-types." + type)));
         return true;
     }
@@ -1326,7 +1318,7 @@ public class EscapeCommand implements TabExecutor
         {
             switch (sub)
             {
-                case "join", "remove", "enable", "disable", "check", "setlobby", "setname", "setdesc",
+                case "join", "remove", "enable", "disable", "check", "gui", "setlobby", "setname", "setdesc",
                      "setminplayers", "setmaxplayers", "set", "start", "worldsetup", "markers",
                      "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
                      "addcontract", "villagers", "chesttag", "traderquota", "breakable", "chestface" ->

@@ -1020,6 +1020,7 @@ help:
     - "<gray>‖  <red>/escape start <ID> <gray>——— <yellow>Запустить игру принудительно"
     - "<gray>‖"
     - "<gray>‖  <red>/escape create <ID> [Макс. игроков] <gray>——— <yellow>Создать арену"
+    - "<gray>‖  <red>/escape gui <ID> <gray>——— <yellow>ХАБ настройки арены: всё в одном меню (параметры/точки/касты/контракты/жители/лут…)"
     - "<gray>‖  <red>/escape remove <ID> <gray>——— <yellow>Удалить арену"
     - "<gray>‖  <red>/escape enable|disable <ID> <gray>——— <yellow>Вкл/выкл арену"
     - "<gray>‖  <red>/escape setlobby <ID> <gray>——— <yellow>Установить лобби"
@@ -1085,3 +1086,202 @@ help:
     - "<gray>‖  <yellow>Мусорщик — третья роль NPC: скупает СЛОМАННОЕ снаряжение за золото. Системку продать нельзя."
     - "<gray>‖"
     - "<gray>╚═══════════════════════════════►"
+
+anvil:
+  empty: "<red>Введите текст в поле переименования наковальни."
+
+arena-hub:
+  title: "<dark_gray><b>Настройка арены: </b>"
+  back-name: "<yellow>◄ Назад в хаб"
+  back-lore:
+    - "<gray>Вернуться в меню настройки арены."
+  close-name: "<red>Закрыть"
+  close-lore:
+    - "<gray>Закрыть меню."
+  status-id: "<dark_gray>id: <gray><id>"
+  status-world: "<gray>Мир: <yellow><world>"
+  status-none: "не задан"
+  status-enabled: "<gray>Включена: <value>"
+  status-yes: "<green>да"
+  status-no: "<red>нет"
+  status-players: "<gray>Игроки: <yellow><min><gray>–<yellow><max>"
+  status-session: "<gray>Матч: <value>"
+  status-running: "<green>идёт"
+  status-idle: "<gray>нет"
+  status-points: "<gray>Точек: спавны <yellow><spawns><gray>, сундуки <yellow><chests><gray>, жители <yellow><traders><gray>, касты <yellow><kits>"
+  btn-settings-name: "<gold>Параметры арены"
+  btn-settings-lore:
+    - "<gray>Числа и переключатели: длительность,"
+    - "<gray>золото, интервалы, износ, контракты…"
+  btn-points-name: "<gold>Точки арены"
+  btn-points-lore:
+    - "<gray>Выдать маркеры точек, лобби,"
+    - "<gray>подсказки-блоки; счётчики точек."
+  btn-chestcat-name: "<gold>Категории сундуков (мастер)"
+  btn-chestcat-lore:
+    - "<gray>Мастер разметки точек сундуков"
+    - "<gray>по категориям лута (жезлы)."
+  btn-villagers-name: "<gold>Жители арены"
+  btn-villagers-lore:
+    - "<gray>Точки жителей: телепорт, товары."
+  btn-kits-name: "<gold>Касты арены"
+  btn-kits-lore:
+    - "<gray>Стартовые наборы: предметы, золото."
+  btn-contracts-name: "<gold>Контракты арены"
+  btn-contracts-lore:
+    - "<gray>Привязать/отвязать контракты"
+    - "<gray>к этой арене (тумблер)."
+  btn-name-name: "<gold>Имя арены"
+  btn-name-lore:
+    - "<gray>Ввести имя через наковальню"
+    - "<gray>(MiniMessage-разметка)."
+  btn-desc-name: "<gold>Описание арены"
+  btn-desc-lore:
+    - "<gray>Ввести описание через наковальню."
+  btn-check-name: "<gold>Проверка (check)"
+  btn-check-lore:
+    - "<gray>Валидатор арены: что мешает включить."
+  btn-world-name: "<gold>Настроить мир (worldsetup)"
+  btn-world-lore:
+    - "<gray>Игровые правила мира арены"
+    - "<gray>(спавн мобов, огонь, погода…)."
+  btn-enable-name: "<green>Включить арену"
+  btn-enable-lore:
+    - "<gray>Пройдёт проверку и включит арену."
+  btn-disable-name: "<red>Выключить арену"
+  btn-disable-lore:
+    - "<gray>Снять арену с игры."
+  btn-start-name: "<green>Форс-старт"
+  btn-start-lore:
+    - "<gray>Запустить матч (если есть лобби)."
+  btn-stop-name: "<red>Остановить матч"
+  btn-stop-lore:
+    - "<gray>Досрочно завершить текущий матч."
+  btn-loot-name: "<gold>Лут: категории"
+  btn-loot-lore:
+    - "<gray>Глобальные категории лута"
+    - "<gray>(создание/наполнение/лимиты)."
+  btn-traders-name: "<gold>Жители: типы"
+  btn-traders-lore:
+    - "<gray>Глобальные типы жителей"
+    - "<gray>(создание/товары/наполнение)."
+  btn-gcontracts-name: "<gold>Контракты: типы"
+  btn-gcontracts-lore:
+    - "<gray>Глобальные контракты — команды."
+  btn-themes-name: "<gold>Темки"
+  btn-themes-lore:
+    - "<gray>Темки смотрящих — команды."
+  btn-modifiers-name: "<gold>Модификаторы"
+  btn-modifiers-lore:
+    - "<gray>Модификаторы сессии — файл/команды."
+  name-anvil-title: "<dark_gray>Имя арены:"
+  desc-anvil-title: "<dark_gray>Описание арены:"
+  hint-gcontracts: "<yellow>Глобальные контракты: <gray>/escape createcontract|contracttype|contractidle|contractdesc|contractamount|contractprice <TID> ..."
+  hint-themes: "<yellow>Темки: <gray>/escape createtheme|themetype|themeidle|themedesc|themeamount|themegold|themereturn <TID> ... <gray>и <gray>/escape addtheme|removetheme <VID> <TID>"
+  hint-modifiers: "<yellow>Модификаторы сессии настраиваются в <gray>modifiers.yml<yellow> (перезагрузка: /escape reload)."
+
+arena-settings:
+  title: "<dark_gray>Параметры: "
+  value: "<gray>Текущее: <yellow><value>"
+  adjust:
+    - "<dark_green>ЛКМ +1 <gray>(Shift +10)"
+    - "<yellow>ПКМ -1 <gray>(Shift -10)"
+  toggle:
+    - "<yellow>► Клик — переключить"
+  state-on: "<green>вкл"
+  state-off: "<red>выкл"
+  note-unlimited: "<dark_gray>-1 = ∞ без ограничения"
+  unlimited: "∞"
+  name-minplayers: "<gold>Мин. игроков"
+  name-maxplayers: "<gold>Макс. игроков"
+  name-duration: "<gold>Длительность матча (сек)"
+  name-startdelay: "<gold>Задержка старта (сек)"
+  name-startdelayfull: "<gold>Задержка при полном лобби (сек)"
+  name-eventinterval: "<gold>Интервал событий (сек)"
+  name-salaryinterval: "<gold>Интервал зарплаты (сек)"
+  name-glowtime: "<gold>Свечение: за сколько до конца (сек)"
+  name-salarygold: "<gold>Зарплата (золото)"
+  name-startgold: "<gold>Стартовое золото"
+  name-glowgold: "<gold>Бонус золота за свечение"
+  name-forkuses: "<gold>Использований вилки"
+  name-traders: "<gold>Число торговцев"
+  name-tables: "<gold>Число столов"
+  name-wearmin: "<gold>Износ лута: мин (%)"
+  name-wearmax: "<gold>Износ лута: макс (%)"
+  name-dynamicchests: "<gold>Динамические сундуки"
+  name-contractminarena: "<gold>Контракты: мин на арене"
+  name-contractmaxarena: "<gold>Контракты: макс на арене"
+  name-contractminchest: "<gold>Контракты: мин в сундуке"
+  name-contractmaxchest: "<gold>Контракты: макс в сундуке"
+
+arena-points:
+  title: "<dark_gray>Точки: "
+  name-spawn: "<gold>Спавны"
+  name-finalspawn: "<gold>Финальные спавны"
+  name-chest: "<gold>Сундуки"
+  name-table: "<gold>Столы зачарования"
+  name-ore: "<gold>Руды"
+  name-breakable: "<gold>Ломаемые блоки"
+  name-lever: "<gold>Рычаги (локации)"
+  name-villager: "<gold>Точки жителей"
+  count: "<gray>Размечено: <yellow><n>"
+  give-lore:
+    - "<yellow>► Клик — получить маркер."
+    - "<gray>ПКМ маркером по блоку = точка."
+  chest-extra:
+    - "<dark_gray>Категории: /escape chestsetup <id> или chesttag"
+    - "<dark_gray>Разворот: /escape chestface <id> (смотри на сундук)"
+  lever-lore:
+    - "<yellow>► Клик — показать команду."
+    - "<dark_gray>рычагу нужно имя локации"
+  villager-lore:
+    - "<yellow>► Клик — показать команду."
+    - "<dark_gray>точке нужен тип жителя"
+  lever-hint: "<yellow>Рычаг-точка: <gray>/escape addlever <arena> <ИмяЛокации> <yellow>— выдаст маркер (ПКМ по рычагу)."
+  villager-hint: "<yellow>Точка жителя: <gray>/escape addvillager <arena> <VID> <yellow>— выдаст маркер; управление — «Жители арены» в хабе."
+  lobby-name: "<gold>Лобби = моя позиция"
+  lobby-current: "<gray>Лобби задано: <value>"
+  lobby-yes: "<green>да"
+  lobby-no: "<red>нет"
+  lobby-lore:
+    - "<yellow>► Клик — сделать лобби здесь"
+    - "<gray>(мир арены тоже станет текущим)."
+  markers-name: "<gold>Расставить подсказки-блоки"
+  markers-lore:
+    - "<gray>Стёкла/сундуки на всех точках,"
+    - "<gray>чтобы видеть разметку (вне матча)."
+
+arena-contracts:
+  title: "<dark_gray>Контракты арены: "
+  lore-type: "<gray>Тип: <yellow><type>"
+  no-type: "не задан"
+  lore-attached: "<green>✔ Привязан к арене"
+  lore-detached: "<dark_gray>✘ Не привязан"
+  pick-attach: "<green>► ЛКМ — привязать"
+  pick-detach: "<red>► ЛКМ — отвязать"
+  attached: "<dark_green>Контракт <aqua><id><dark_green> привязан к арене <aqua><arena><dark_green>."
+  detached: "<yellow>Контракт <aqua><id><yellow> отвязан от арены <aqua><arena><yellow>."
+  empty-name: "<gray>Контрактов нет"
+  empty-lore:
+    - "<gray>Создайте: /escape createcontract <id>,"
+    - "<gray>затем настройте тип и цель."
+
+arena-kits:
+  title: "<dark_gray>Касты арены: "
+  lore-id: "<dark_gray>id: <gray><id>"
+  lore-gold: "<gray>Золото: <yellow><gold>"
+  gold-arena: "как у арены"
+  lore-items: "<gray>Предметов: <yellow><n>"
+  lore-default: "<green>✔ Каст по умолчанию"
+  lore-edit:
+    - "<yellow>► ЛКМ — редактор предметов"
+  info-name: "<gold>О кастах арены"
+  info-lore:
+    - "<gray>ЛКМ по касту — редактор предметов."
+    - "<gray>Имя/иконка/золото/по умолчанию и"
+    - "<gray>создание/копия — командами (клик)."
+  info-hint: "<yellow>Касты: <gray>/escape kit create <arena> <id> <yellow>| <gray>copy <ГлобКаст> <arena> <yellow>| <gray>name|icon|gold|default <arena> <id> ... <yellow>| <gray>list <arena>"
+  empty-name: "<gray>Кастов нет"
+  empty-lore:
+    - "<gray>Создайте: /escape kit create <arena> <id>"
+    - "<gray>или скопируйте глобальный: kit copy."

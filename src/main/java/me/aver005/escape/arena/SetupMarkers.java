@@ -1,5 +1,12 @@
 package me.aver005.escape.arena;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import me.aver005.escape.util.Items;
+import me.aver005.escape.util.Keys;
+import me.aver005.escape.util.Msg;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -9,6 +16,9 @@ import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.Bed;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 /**
  * Блоки-подсказки настроенных точек арены: стоят вне матча, чтобы админ видел,
@@ -25,6 +35,40 @@ public final class SetupMarkers
     public static final Material TRADER = Material.PINK_STAINED_GLASS;
 
     private SetupMarkers() {}
+
+    // ===== предметы-маркеры (выдаются админу для расстановки точек) =====
+
+    /**
+     * Предмет-маркер точки: ПКМ по блоку размечает точку типа {@code type} на арене.
+     * PDC — MARKER_TYPE/MARKER_ARENA (+ MARKER_EXTRA, если {@code extra} задан:
+     * имя рычага, id жителя). Используется и командой, и хабом настройки арены.
+     */
+    public static ItemStack markerItem(Arena arena, String type, Material material, String extra)
+    {
+        List<Component> lore = new ArrayList<>();
+        lore.add(Msg.get("admin.marker-lore-arena", Msg.ph("arena", arena.getId())));
+        if (extra != null) {lore.add(Msg.get("admin.marker-lore-extra", Msg.ph("extra", extra)));}
+        ItemStack item = Items.named(material,
+            Msg.get("admin.marker-name", Msg.ph("type", Msg.raw("marker-types." + type))), lore);
+        ItemMeta meta = item.getItemMeta();
+        var pdc = meta.getPersistentDataContainer();
+        pdc.set(Keys.MARKER_TYPE, PersistentDataType.STRING, type);
+        pdc.set(Keys.MARKER_ARENA, PersistentDataType.STRING, arena.getId());
+        if (extra != null) {pdc.set(Keys.MARKER_EXTRA, PersistentDataType.STRING, extra);}
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    /** Жезл ломаемых блоков арены (ПКМ помечает блок, что вернётся после матча). */
+    public static ItemStack breakWand(Arena arena)
+    {
+        ItemStack wand = Items.special(Material.IRON_AXE, Msg.get("breakable.wand-name"),
+            Msg.getList("breakable.wand-lore", Msg.ph("arena", arena.getId())), "breakwand");
+        ItemMeta meta = wand.getItemMeta();
+        meta.getPersistentDataContainer().set(Keys.MARKER_ARENA, PersistentDataType.STRING, arena.getId());
+        wand.setItemMeta(meta);
+        return wand;
+    }
 
     // ===== установка =====
 
