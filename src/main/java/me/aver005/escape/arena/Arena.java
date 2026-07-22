@@ -50,7 +50,7 @@ public class Arena
     private boolean dynamicChests = false; // немаркированный сундук при открытии становится игровым
     // контракты кладутся в сундуки независимо от лута (в бюджет категорий не идут)
     private int contractsMinPerArena = 0;
-    private int contractsMaxPerArena = 6;
+    private int contractsMaxPerArena = -1;   // -1 = без потолка на арену (раздачу диктует per-chest)
     private int contractsMinPerChest = 0;
     private int contractsMaxPerChest = 1;
     private Location lobby;
@@ -111,7 +111,8 @@ public class Arena
         arena.wearMaxPercent = cfg.getInt("wear-max-percent", 90);
         arena.dynamicChests = cfg.getBoolean("dynamic-chests", false);
         arena.contractsMinPerArena = Math.max(0, cfg.getInt("contract-min-per-arena", 0));
-        arena.contractsMaxPerArena = Math.max(arena.contractsMinPerArena, cfg.getInt("contract-max-per-arena", 6));
+        int cMaxArena = cfg.getInt("contract-max-per-arena", -1);   // -1 = без потолка (пер-сундук рулит)
+        arena.contractsMaxPerArena = cMaxArena < 0 ? -1 : Math.max(arena.contractsMinPerArena, cMaxArena);
         arena.contractsMinPerChest = Math.max(0, cfg.getInt("contract-min-per-chest", 0));
         arena.contractsMaxPerChest = Math.max(arena.contractsMinPerChest, cfg.getInt("contract-max-per-chest", 1));
         arena.lobby = cfg.getLocation("lobby");
@@ -339,7 +340,7 @@ public class Arena
     public int getContractsMinPerArena() {return contractsMinPerArena;}
     public void setContractsMinPerArena(int v) {this.contractsMinPerArena = Math.max(0, v);}
     public int getContractsMaxPerArena() {return contractsMaxPerArena;}
-    public void setContractsMaxPerArena(int v) {this.contractsMaxPerArena = Math.max(0, v);}
+    public void setContractsMaxPerArena(int v) {this.contractsMaxPerArena = v < 0 ? -1 : v;}
     public int getContractsMinPerChest() {return contractsMinPerChest;}
     public void setContractsMinPerChest(int v) {this.contractsMinPerChest = Math.max(0, v);}
     public int getContractsMaxPerChest() {return contractsMaxPerChest;}
