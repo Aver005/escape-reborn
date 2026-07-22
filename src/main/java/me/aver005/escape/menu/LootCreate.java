@@ -1,5 +1,8 @@
 package me.aver005.escape.menu;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import me.aver005.escape.arena.WeightedItem;
 import me.aver005.escape.loot.LootCategory;
 import me.aver005.escape.loot.LootCategoryRegistry;
@@ -10,23 +13,51 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * Логика трёх режимов создания категории лута (переиспользуема из GUI и команд).
- * Строит {@link LootCategory}, но НЕ сохраняет — сохранение (save) на вызывающей
- * стороне. Все предметы попадают в лут с весом 1.
+ * Логика трёх режимов создания/наполнения категории лута (переиспользуема из GUI
+ * и команд). Строит записи лута, но НЕ сохраняет — сохранение (save) на вызывающей
+ * стороне. Предметы из инвентаря/сундука попадают в лут с весом 1 (вес в GUI не
+ * редактируется); копия категории веса сохраняет.
  */
 public final class LootCreate
 {
     private LootCreate() {}
 
+    /** Записи лута (вес 1) из всех не-воздушных предметов инвентаря игрока. */
+    public static List<WeightedItem> lootFromInventory(Player p)
+    {
+        List<WeightedItem> out = new ArrayList<>();
+        for (ItemStack item : p.getInventory().getContents())
+        {
+            if (item == null || item.getType().isAir()) {continue;}
+            out.add(new WeightedItem(item.clone(), 1));
+        }
+        return out;
+    }
+
+    /**
+     * Записи лута (вес 1) из сундука, на который смотрит игрок (в пределах 6 блоков).
+     * null — перед игроком нет сундука (пустой список — сундук пуст).
+     */
+    public static List<WeightedItem> lootFromChest(Player p)
+    {
+        Block block = p.getTargetBlockExact(6);
+        if (block == null) {return null;}
+        BlockState state = block.getState();
+        if (!(state instanceof Chest chest)) {return null;}
+        List<WeightedItem> out = new ArrayList<>();
+        for (ItemStack item : chest.getInventory().getContents())
+        {
+            if (item == null || item.getType().isAir()) {continue;}
+            out.add(new WeightedItem(item.clone(), 1));
+        }
+        return out;
+    }
+
     /** Новая категория: лут = все не-воздушные предметы инвентаря игрока (вес 1). */
     public static LootCategory fromInventory(Player p, String id)
     {
         LootCategory cat = new LootCategory(id);
-        for (ItemStack item : p.getInventory().getContents())
-        {
-            if (item == null || item.getType().isAir()) {continue;}
-            cat.getLoot().add(new WeightedItem(item.clone(), 1));
-        }
+        cat.getLoot().addAll(lootFromInventory(p));
         return cat;
     }
 
@@ -36,16 +67,10 @@ public final class LootCreate
      */
     public static LootCategory fromTargetChest(Player p, String id)
     {
-        Block block = p.getTargetBlockExact(6);
-        if (block == null) {return null;}
-        BlockState state = block.getState();
-        if (!(state instanceof Chest chest)) {return null;}
+        List<WeightedItem> loot = lootFromChest(p);
+        if (loot == null) {return null;}
         LootCategory cat = new LootCategory(id);
-        for (ItemStack item : chest.getInventory().getContents())
-        {
-            if (item == null || item.getType().isAir()) {continue;}
-            cat.getLoot().add(new WeightedItem(item.clone(), 1));
-        }
+        cat.getLoot().addAll(loot);
         return cat;
     }
 

@@ -1,7 +1,12 @@
 # MAP — карта репозитория
 
-Last updated: 2026-07-21 — пакет админ-GUI и геймплей-правок (см.
-JOURNAL/2026-07-21 разделы 3-4). Новое: `menu/ScavengerEditorMenu`,
+Last updated: 2026-07-22 — «Правка 4»: наполнение/создание содержимого из 3
+источников (лут + жители). Новое: `menu/LootFillMenu`, `menu/LootFillSourceMenu`,
+`menu/TradeCreate` (helper), `menu/TraderListMenu`, `menu/TraderCreateMenu`,
+`menu/TraderCopySourceMenu`, `menu/TradeFillMenu`, `menu/TradeFillSourceMenu`.
+`TraderType.copyAs`, `TraderRegistry.all()/isEmpty()`. `/escape trades` без VID →
+список жителей. Без новых PDC-ключей. Ранее (2026-07-21) — пакет админ-GUI и
+геймплей-правок (см. JOURNAL/2026-07-21 разделы 3-4): `menu/ScavengerEditorMenu`,
 `menu/TradeListEditorMenu`, `menu/VillagerPointsMenu`; команды `scrapedit/trades/
 villagers/chesttag/traderquota/breakable`. Новые данные арены: `arena.yml` →
 `trader-quotas` (лимит жителей по типу), `locations.yml` → `breakables`
@@ -98,13 +103,21 @@ escape-reborn/
         │   ├── PlacesMenu.java        # «Отмеченные локации» (рычаги)
         │   ├── ShopMenu.java          # магазин торговца (покупка за золото)
         │   ├── TradeEditorMenu.java   # админ: добавить трейд (цена кнопками)
-        │   ├── LootEditorMenu.java    # админ: пул лута (пересборка на onClose)
+        │   ├── LootEditorMenu.java    # админ: список глоб. категорий лута (+«Создать»)
+        │   ├── LootFillMenu.java      # админ: дополнить/заменить лут категории из 3 источников
+        │   ├── LootFillSourceMenu.java# админ: выбор категории-источника для наполнения
         │   ├── KitSelectMenu.java     # выбор каста в лобби (касты + «Без касты»/«Случайная»)
         │   ├── KitEditorMenu.java     # админ: предметы каста (пересборка на onClose)
         │   ├── ChestSetupMenu.java    # мастер сундуков: пагинированный выбор точки (клик = прыжок)
         │   ├── ScavengerMenu.java     # Мусорщик: click-to-sell сломанного (цена x износ)
         │   ├── ScavengerEditorMenu.java # админ: GUI прайса Мусорщика (клик=цена, порог, «из руки»)
-        │   ├── TradeListEditorMenu.java # админ: GUI торгов жителя (клик=цена, Q=убрать, «добавить»)
+        │   ├── TradeListEditorMenu.java # админ: GUI торгов жителя (клик=цена, Q=убрать, «добавить», «Наполнение»)
+        │   ├── TradeFillMenu.java     # админ: дополнить/заменить товары жителя из 3 источников
+        │   ├── TradeFillSourceMenu.java # админ: выбор жителя-источника для наполнения
+        │   ├── TraderListMenu.java    # админ: глоб. список жителей + «Создать» (/escape trades без VID)
+        │   ├── TraderCreateMenu.java  # админ: создать жителя из инвентаря/сундука/копии
+        │   ├── TraderCopySourceMenu.java # админ: выбор жителя-источника для копии
+        │   ├── TradeCreate.java       # helper: сборка товаров жителя из инв/сундука (цена 1) + freshId
         │   ├── VillagerPointsMenu.java# админ: точки жителей — ЛКМ телепорт, ПКМ редактор торгов
         │   ├── RespawnUpgradeMenu.java# прокачка блока возрождения (ПКМ по блоку)
         │   ├── NpcMenu.java           # совмещённый NPC: выбор роли «Магазин / Темки / Мусорщик» (до 3)

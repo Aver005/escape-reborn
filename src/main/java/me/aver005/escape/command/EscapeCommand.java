@@ -22,6 +22,7 @@ import me.aver005.escape.menu.LootEditorMenu;
 import me.aver005.escape.menu.ScavengerEditorMenu;
 import me.aver005.escape.menu.TradeEditorMenu;
 import me.aver005.escape.menu.TradeListEditorMenu;
+import me.aver005.escape.menu.TraderListMenu;
 import me.aver005.escape.menu.VillagerPointsMenu;
 import me.aver005.escape.theme.Theme;
 import me.aver005.escape.theme.ThemeType;
@@ -196,6 +197,11 @@ public class EscapeCommand implements TabExecutor
             case "chestsetup" ->
             {
                 handleChestSetup(p, args);
+                return true;
+            }
+            case "trades" ->
+            {
+                handleTrades(p, args);
                 return true;
             }
             default -> {}
@@ -622,14 +628,6 @@ public class EscapeCommand implements TabExecutor
                 Msg.send(p, "admin.trade-menu-hint");
                 return true;
             }
-            case "trades" ->
-            {
-                TraderType trader = requireTrader(p, id);
-                if (trader == null) {return true;}
-                new TradeListEditorMenu(plugin, trader).open(p);
-                Msg.send(p, "admin.trades-editor-hint", Msg.ph("trader", trader.getId()));
-                return true;
-            }
             case "scrapedit" ->
             {
                 TraderType trader = requireTrader(p, id);
@@ -1044,6 +1042,19 @@ public class EscapeCommand implements TabExecutor
         if (arena == null) {return;}
         if (args.length >= 3 && args[2].equalsIgnoreCase("gui")) {plugin.chestSetup().openGui(p, arena);}
         else {plugin.chestSetup().start(p, arena);}
+    }
+
+    /**
+     * /escape trades [VID] — без VID открывает список жителей (создание из
+     * инвентаря/сундука/копии + редактор); с VID сразу открывает товары жителя.
+     */
+    private void handleTrades(Player p, String[] args)
+    {
+        if (args.length < 2) {new TraderListMenu(plugin).open(p); return;}
+        TraderType trader = requireTrader(p, args[1].toUpperCase(Locale.ROOT));
+        if (trader == null) {return;}
+        new TradeListEditorMenu(plugin, trader).open(p);
+        Msg.send(p, "admin.trades-editor-hint", Msg.ph("trader", trader.getId()));
     }
 
     /**

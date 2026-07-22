@@ -97,6 +97,18 @@ public class TraderType
         }
     }
 
+    /** Глубокая независимая копия под новым id (товары/темки/скрап независимы). */
+    public TraderType copyAs(String newId)
+    {
+        TraderType t = new TraderType(newId);
+        t.nameRaw = nameRaw;
+        for (Trade trade : trades) {t.trades.add(new Trade(trade.item().clone(), trade.price()));}
+        t.themes.addAll(themes);
+        t.scrap.putAll(scrap);
+        t.scrapMinWearPercent = scrapMinWearPercent;
+        return t;
+    }
+
     public String getId() {return id;}
     public String getNameRaw() {return nameRaw;}
     public void setNameRaw(String nameRaw) {this.nameRaw = nameRaw;}

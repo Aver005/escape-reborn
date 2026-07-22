@@ -32,6 +32,7 @@ public class LootCategoryMenu extends Menu
 {
     private static final int ITEM_START = 9;
     private static final int ITEMS_PER_PAGE = 36; // слоты 9..44
+    private static final int SLOT_FILL = 51;      // «Наполнение» в ряду управления
 
     private final EscapePlugin plugin;
     private final LootCategory cat;
@@ -98,6 +99,8 @@ public class LootCategoryMenu extends Menu
         renderControls(itemPage, maxItemPage + 1, true, Material.BLACK_STAINED_GLASS_PANE);
         // «вперёд» всегда: с последней страницы можно завести новую под новые предметы
         inventory.setItem(SLOT_NEXT, Items.named(Material.ARROW, Msg.get("menu.page-next")));
+        inventory.setItem(SLOT_FILL, Items.named(Material.HOPPER,
+            Msg.get("loot-category.btn-fill-name"), Msg.getList("loot-category.btn-fill-lore")));
     }
 
     private ItemStack settingButton(int slot)
@@ -185,6 +188,7 @@ public class LootCategoryMenu extends Menu
         if (raw == SLOT_PREV && itemPage > 0) {capture(); itemPage--; render(); return;}
         if (raw == SLOT_NEXT) {capture(); itemPage++; if (itemPage > maxItemPage) {maxItemPage = itemPage;} render(); return;}
         if (raw == SLOT_BACK) {new LootEditorMenu(plugin).open(p); return;}
+        if (raw == SLOT_FILL) {new LootFillMenu(plugin, cat).open(p); return;}
         if (raw >= 0 && raw <= 7) {adjust(raw, e); return;}
         if (raw == 8) {Msg.send(p, "loot-category.nameicon-hint", Msg.ph("id", cat.getId())); return;}
         // область предметов (9..44) свободна; ряд управления защищён isProtectedSlot

@@ -2,6 +2,7 @@ package me.aver005.escape.trader;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -50,6 +51,8 @@ public class TraderRegistry
     public boolean exists(String id) {return traders.containsKey(id);}
     public void add(TraderType trader) {traders.put(trader.getId(), trader);}
     public Set<String> ids() {return traders.keySet();}
+    public Collection<TraderType> all() {return traders.values();}
+    public boolean isEmpty() {return traders.isEmpty();}
 
     /** Поиск по отображаемому имени (для клика по жителю). */
     public TraderType byDisplayName(Component name)

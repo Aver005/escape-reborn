@@ -663,6 +663,11 @@ loot-category:
     - "<dark_gray>/escape loot name <id> <текст>"
     - "<dark_gray>/escape loot icon <id> <материал>"
   nameicon-hint: "<yellow>Имя/иконку меняйте командой: <gray>/escape loot name|icon <id> ..."
+  btn-fill-name: "<gold>Наполнение категории"
+  btn-fill-lore:
+    - "<gray>Дополнить или заменить лут"
+    - "<gray>из инвентаря / сундука / категории."
+    - "<dark_gray>вес предмета в GUI не меняется"
   saved: "<dark_green>Категория <aqua><id><dark_green> сохранена."
 
 loot-create:
@@ -684,6 +689,45 @@ loot-create:
   created: "<dark_green>Создана категория <aqua><id><dark_green>. Переименовать: <yellow>/escape loot name <id> <текст>"
   copy-title: "<dark_gray>Источник для копии"
   copy-pick: "<yellow>► ЛКМ — скопировать"
+
+loot-fill:
+  title: "<dark_gray>Наполнение: "
+  append-inventory-name: "<green>Дополнить из инвентаря"
+  append-inventory-lore:
+    - "<gray>Добавить все предметы инвентаря"
+    - "<gray>к текущему луту (вес 1)."
+  append-chest-name: "<green>Дополнить из сундука"
+  append-chest-lore:
+    - "<gray>Смотрите на сундук и нажмите."
+    - "<gray>Содержимое добавится к луту (вес 1)."
+  append-category-name: "<green>Дополнить из категории"
+  append-category-lore:
+    - "<gray>Выберите категорию — её лут"
+    - "<gray>добавится к текущему (вес сохранится)."
+  replace-inventory-name: "<red>Заменить из инвентаря"
+  replace-inventory-lore:
+    - "<gray>Стереть лут и заполнить"
+    - "<gray>предметами инвентаря (вес 1)."
+    - "<dark_gray>пустой инвентарь не стирает лут"
+  replace-chest-name: "<red>Заменить из сундука"
+  replace-chest-lore:
+    - "<gray>Смотрите на сундук и нажмите."
+    - "<gray>Лут будет заменён его содержимым."
+    - "<dark_gray>пустой/не сундук не стирает лут"
+  replace-category-name: "<red>Заменить из категории"
+  replace-category-lore:
+    - "<gray>Выберите категорию — её лут"
+    - "<gray>полностью заменит текущий."
+  empty-inventory: "<red>Инвентарь пуст — нечего добавить."
+  no-chest: "<red>Вы не смотрите на сундук."
+  empty-chest: "<red>Сундук пуст — нечего добавить."
+  empty-source: "<red>Категория <aqua><id><red> пуста — нечего взять."
+  appended: "<dark_green>Категория <aqua><id><dark_green>: добавлено <yellow><n><dark_green> предметов."
+  replaced: "<dark_green>Категория <aqua><id><dark_green>: лут заменён, теперь <yellow><n><dark_green> предметов."
+  source-title-append: "<dark_gray>Дополнить из категории"
+  source-title-replace: "<dark_gray>Заменить из категории"
+  source-pick-append: "<green>► ЛКМ — дополнить этой категорией"
+  source-pick-replace: "<red>► ЛКМ — заменить этой категорией"
 
 kit:
   # лобби-селектор и меню выбора
@@ -818,6 +862,10 @@ trade-list:
   add-lore:
     - "<gray>Открыть меню нового товара"
     - "<gray>(предмет из руки + цена)."
+  fill-name: "<gold>Наполнение товаров"
+  fill-lore:
+    - "<gray>Дополнить или заменить товары"
+    - "<gray>из инвентаря / сундука / жителя."
   entry-price: "<white>Цена: <yellow><price> <gold>золота"
   entry-lore:
     - "<yellow>ЛКМ +1 <gray>/ <yellow>ПКМ -1 <gray>(<yellow>Shift <gray>= ±10)"
@@ -827,6 +875,83 @@ trade-list:
     - "<gray>Нажмите «Добавить товар»,"
     - "<gray>чтобы завести первый."
   removed: "<yellow>Товар убран у жителя <aqua><trader><yellow>."
+
+trader-list:
+  title: "<dark_gray><b>Жители</b>"
+  create-name: "<green>Создать жителя"
+  create-lore:
+    - "<gray>Новый житель из инвентаря,"
+    - "<gray>сундука или копией другого."
+  lore-trades: "<gray>Товаров: <yellow><count>"
+  lore-roles: "<gray>Магазин <shop> <dark_gray>| <gray>Смотрящий <overseer> <dark_gray>| <gray>Мусорщик <scrap>"
+  lore-id: "<dark_gray>id: <gray><id>"
+  lore-edit: "<yellow>► ЛКМ — редактировать товары"
+  flag-yes: "<green>✔"
+  flag-no: "<dark_gray>✘"
+  empty-name: "<gray>Жителей нет"
+  empty-lore:
+    - "<gray>Нажмите «Создать жителя»,"
+    - "<gray>чтобы завести первого."
+
+trader-create:
+  title: "<dark_gray>Создать жителя"
+  from-inventory-name: "<green>Из инвентаря"
+  from-inventory-lore:
+    - "<gray>Товары = все предметы"
+    - "<gray>вашего инвентаря (цена 1)."
+  from-chest-name: "<green>Из сундука перед вами"
+  from-chest-lore:
+    - "<gray>Смотрите на сундук и нажмите."
+    - "<gray>Товары = содержимое сундука (цена 1)."
+  from-copy-name: "<green>Копия другого жителя"
+  from-copy-lore:
+    - "<gray>Выберите источник —"
+    - "<gray>будет создана независимая копия."
+  empty-inventory: "<red>Инвентарь пуст — нечего добавить."
+  no-target-chest: "<red>Вы не смотрите на сундук."
+  empty-chest: "<red>Сундук пуст — нечего добавить."
+  created: "<dark_green>Создан житель <aqua><id><dark_green>. Переименовать: <yellow>/escape villagername <id> <текст>"
+  copy-title: "<dark_gray>Источник для копии"
+  copy-pick: "<yellow>► ЛКМ — скопировать"
+
+trade-fill:
+  title: "<dark_gray>Наполнение товаров: "
+  append-inventory-name: "<green>Дополнить из инвентаря"
+  append-inventory-lore:
+    - "<gray>Добавить все предметы инвентаря"
+    - "<gray>к товарам (цена 1)."
+  append-chest-name: "<green>Дополнить из сундука"
+  append-chest-lore:
+    - "<gray>Смотрите на сундук и нажмите."
+    - "<gray>Содержимое добавится к товарам (цена 1)."
+  append-trader-name: "<green>Дополнить из жителя"
+  append-trader-lore:
+    - "<gray>Выберите жителя — его товары"
+    - "<gray>добавятся к текущим (цены сохранятся)."
+  replace-inventory-name: "<red>Заменить из инвентаря"
+  replace-inventory-lore:
+    - "<gray>Стереть товары и заполнить"
+    - "<gray>предметами инвентаря (цена 1)."
+    - "<dark_gray>пустой инвентарь не стирает товары"
+  replace-chest-name: "<red>Заменить из сундука"
+  replace-chest-lore:
+    - "<gray>Смотрите на сундук и нажмите."
+    - "<gray>Товары будут заменены содержимым."
+    - "<dark_gray>пустой/не сундук не стирает товары"
+  replace-trader-name: "<red>Заменить из жителя"
+  replace-trader-lore:
+    - "<gray>Выберите жителя — его товары"
+    - "<gray>полностью заменят текущие."
+  empty-inventory: "<red>Инвентарь пуст — нечего добавить."
+  no-chest: "<red>Вы не смотрите на сундук."
+  empty-chest: "<red>Сундук пуст — нечего добавить."
+  empty-source: "<red>У жителя <aqua><trader><red> нет товаров — нечего взять."
+  appended: "<dark_green>Житель <aqua><trader><dark_green>: добавлено <yellow><n><dark_green> товаров."
+  replaced: "<dark_green>Житель <aqua><trader><dark_green>: товары заменены, теперь <yellow><n><dark_green>."
+  source-title-append: "<dark_gray>Дополнить из жителя"
+  source-title-replace: "<dark_gray>Заменить из жителя"
+  source-pick-append: "<green>► ЛКМ — дополнить этим жителем"
+  source-pick-replace: "<red>► ЛКМ — заменить этим жителем"
 
 villagers:
   menu-title: "<dark_gray><b>Точки жителей:</b>"

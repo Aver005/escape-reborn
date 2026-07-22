@@ -33,6 +33,7 @@ public class TradeListEditorMenu extends Menu
     private static final int SLOT_PREV = 45;
     private static final int SLOT_INFO = 47;
     private static final int SLOT_ADD = 49;
+    private static final int SLOT_FILL = 51;
     private static final int SLOT_NEXT = 53;
 
     private final EscapePlugin plugin;
@@ -81,6 +82,8 @@ public class TradeListEditorMenu extends Menu
                 Msg.ph("n", trades.size()))));
         inventory.setItem(SLOT_ADD, Items.named(Material.EMERALD,
             Msg.get("trade-list.add-name"), Msg.getList("trade-list.add-lore")));
+        inventory.setItem(SLOT_FILL, Items.named(Material.HOPPER,
+            Msg.get("trade-list.fill-name"), Msg.getList("trade-list.fill-lore")));
         if (page > 0)
         {
             inventory.setItem(SLOT_PREV, Items.named(Material.ARROW, Msg.get("chestsetup.page-prev")));
@@ -119,6 +122,7 @@ public class TradeListEditorMenu extends Menu
         if (raw == SLOT_PREV && page > 0) {page--; render(); return;}
         if (raw == SLOT_NEXT) {page++; render(); return;}
         if (raw == SLOT_ADD) {new TradeEditorMenu(plugin, trader).open(p); return;}
+        if (raw == SLOT_FILL) {new TradeFillMenu(plugin, trader).open(p); return;}
 
         Integer idx = tradeIndexBySlot.get(raw);
         if (idx == null || idx < 0 || idx >= trader.getTrades().size()) {return;}
