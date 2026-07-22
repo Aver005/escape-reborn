@@ -1,5 +1,11 @@
 # MAP — карта репозитория
 
+Last updated: 2026-07-22 — «Правка 7»: разлив воды/лавы. Без новых файлов.
+Правки: `listener/GameListener` (+`onBucketEmpty`/`onBucketFill`/`liquidAllowed`),
+`listener/ProtectionListener` (+`onLiquidFlow` — BlockFromToEvent режется в мире
+арены), `resources/config.yml` (секция `liquids:`). Восстановление жидкости и
+заменённого растения — через существующий `editedBlocks`/cleanup. Ранее «Правка 6»:
+
 Last updated: 2026-07-22 — «Правка 6»: общий хаб настройки арены `/escape gui
 <ID>`. Новое: `menu/ArenaHubMenu`, `menu/ArenaSettingsMenu`, `menu/ArenaPointsMenu`,
 `menu/ArenaContractsMenu`, `menu/ArenaKitsMenu`, `menu/AnvilInputMenu` (ввод текста

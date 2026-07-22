@@ -10,6 +10,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockFadeEvent;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.block.LeavesDecayEvent;
@@ -77,6 +78,19 @@ public class ProtectionListener implements Listener
     @EventHandler(ignoreCancelled = true)
     public void onSpread(BlockSpreadEvent e)
     {
+        if (arenaInWorld(e.getBlock().getWorld()) != null) {e.setCancelled(true);}
+    }
+
+    /**
+     * Жидкости в мирах арен не растекаются: источник воды/лавы (разлитый игроком
+     * ведром или лежащий на карте) остаётся ровно одним блоком и не заливает
+     * соседние. Так вода-спасение при падении и лава для PvP не портят карту и не
+     * требуют отдельной чистки — под откат попадает только сам блок источника.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onLiquidFlow(BlockFromToEvent e)
+    {
+        if (!e.getBlock().isLiquid()) {return;}
         if (arenaInWorld(e.getBlock().getWorld()) != null) {e.setCancelled(true);}
     }
 

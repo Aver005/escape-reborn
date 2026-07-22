@@ -48,6 +48,8 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
+import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -155,6 +157,64 @@ public class GameListener implements Listener
         session.progressContracts(p, ContractType.BREAK, c -> type == Material.matchMaterial(c.getIdle()), 1);
         session.themes().progress(p, ThemeType.MINE, t -> type == Material.matchMaterial(t.getIdle()), 1);
         session.themes().progress(p, ThemeType.BREAK, t -> type == Material.matchMaterial(t.getIdle()), 1);
+    }
+
+    // ===== жидкости: разлить воду/лаву без последствий =====
+
+    /**
+     * Разлив ведром в матче: ставим ОДИН блок-источник воды/лавы. Прежний блок
+     * (воздух/растение) запоминаем ДО разлива — cleanup вернёт и его, и жидкость.
+     * Растекание глушит ProtectionListener.onLiquidFlow, поэтому источник остаётся
+     * одним блоком. Разрешены только вода и лава: рыбные вёдра плодят
+     * незарегистрированных сущностей, поэтому режем всё прочее.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onBucketEmpty(PlayerBucketEmptyEvent e)
+    {
+        Player p = e.getPlayer();
+        GameSession session = session(p);
+        if (session == null) {return;}
+        if (!session.isPlaying(p.getUniqueId()) || !liquidAllowed(e.getBucket()))
+        {
+            e.setCancelled(true);
+            return;
+        }
+        Block block = e.getBlock(); // блок, который станет жидкостью (учитывает замену растения)
+        session.rememberEditedBlock(block);
+        DebugLog.log(Cat.WORLD, "liquid-pour player=%s bucket=%s was=%s at=%s",
+            p.getName(), e.getBucket(), block.getType(), DebugLog.at(block.getLocation()));
+    }
+
+    /**
+     * Наполнение ведра в матче: игрок снова забирает разлитую (или лежащую на
+     * карте) жидкость. Источник станет воздухом — запоминаем его ДО изъятия, чтобы
+     * cleanup вернул исходное состояние (putIfAbsent сохранит самый первый вариант,
+     * так что вода-карты вернётся водой, а разлитая — тем, что было под ней).
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onBucketFill(PlayerBucketFillEvent e)
+    {
+        Player p = e.getPlayer();
+        GameSession session = session(p);
+        if (session == null) {return;}
+        if (!session.isPlaying(p.getUniqueId()) || !plugin.getConfig().getBoolean("liquids.enabled", true))
+        {
+            e.setCancelled(true);
+            return;
+        }
+        Block block = e.getBlock();
+        session.rememberEditedBlock(block);
+        DebugLog.log(Cat.WORLD, "liquid-scoop player=%s bucket=%s at=%s",
+            p.getName(), e.getItemStack() == null ? "?" : e.getItemStack().getType(), DebugLog.at(block.getLocation()));
+    }
+
+    /** Разлив включён и данный тип ведра (вода/лава) разрешён конфигом? */
+    private boolean liquidAllowed(Material bucket)
+    {
+        if (!plugin.getConfig().getBoolean("liquids.enabled", true)) {return false;}
+        if (bucket == Material.WATER_BUCKET) {return plugin.getConfig().getBoolean("liquids.allow-water", true);}
+        if (bucket == Material.LAVA_BUCKET) {return plugin.getConfig().getBoolean("liquids.allow-lava", true);}
+        return false;
     }
 
     // ===== бой =====
