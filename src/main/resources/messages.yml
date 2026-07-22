@@ -995,6 +995,10 @@ breakable:
   arena-busy: "<red>Арена <aqua><arena><red> сейчас в игре — пометка недоступна."
   wrong-world: "<red>Этот блок не в мире арены <aqua><arena><red>."
 
+chestface:
+  not-a-point: "<red>Смотрите на сундук-точку этой арены (/escape addchest) в упор."
+  set: "<dark_green>Сундук <gray>(<x>, <y>, <z>)<dark_green> развёрнут лицом к вам <gray>(<yellow><facing><gray>)."
+
 help:
   player:
     - "<gray>╔═════ <dark_green>Команды мини-режима <gray>═════►"

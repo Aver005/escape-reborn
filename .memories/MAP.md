@@ -1,5 +1,13 @@
 # MAP — карта репозитория
 
+Last updated: 2026-07-22 — «Правка 5»: ориентация сундуков. Новое поле
+`Arena.chestFacings` (Map<Location, BlockFace>) → опциональный `facing:` в записи
+точки `locations.yml`. Команда `/escape chestface <ID>` (EscapeCommand) —
+разворот сундука-точки лицом к смотрящему. Захват стороны — `SetupListener`
+(addchest/chesttag), применение — `SetupMarkers.placeChest` +
+`GameSession.placeChests`. Починка стыков решёток — `GameSession.fixConnectingNeighbors`
+(третий проход cleanup). Без новых файлов/PDC-ключей. Ранее «Правка 4»:
+
 Last updated: 2026-07-22 — «Правка 4»: наполнение/создание содержимого из 3
 источников (лут + жители). Новое: `menu/LootFillMenu`, `menu/LootFillSourceMenu`,
 `menu/TradeCreate` (helper), `menu/TraderListMenu`, `menu/TraderCreateMenu`,

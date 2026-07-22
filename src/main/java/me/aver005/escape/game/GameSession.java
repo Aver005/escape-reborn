@@ -40,8 +40,11 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.MultipleFacing;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
@@ -715,6 +718,12 @@ public class GameSession
             if (loc.getWorld() == null) {continue;}
             Block block = loc.getBlock();
             block.setType(Material.CHEST);
+            // сундук должен смотреть, как задумано (setType всегда даёт NORTH)
+            if (block.getBlockData() instanceof Directional dir)
+            {
+                BlockFace facing = arena.getChestFacing(loc);
+                if (dir.getFaces().contains(facing)) {dir.setFacing(facing); block.setBlockData(dir, false);}
+            }
             Location placed = block.getLocation();
             List<String> ids = new ArrayList<>(entry.getValue());
             activeChestCategories.put(placed, ids);
@@ -1930,8 +1939,15 @@ public class GameSession
         {
             block.setBlockData(block.getBlockData(), true);
         }
-        DebugLog.log(Cat.WORLD, "blocks-restored arena=%s restored=%d skipped-no-world=%d",
-            arena.getId(), restored, skipped);
+        // третий проход: УЦЕЛЕВШИЕ соседние решётки/панели/заборы/стены (их не
+        // ломали, значит их нет в editedBlocks) не пересчитали стык к сломанному
+        // блоку — ваниль разорвала их соединение, когда игрок выбил соседний
+        // прут. Пройдёмся по горизонтальным соседям восстановленных решёток и
+        // заставим уцелевших соседей пересчитать форму (физика тут — только
+        // перерасчёт стыка, блок на месте не «падает»).
+        int neighborsFixed = fixConnectingNeighbors(restoredBlocks);
+        DebugLog.log(Cat.WORLD, "blocks-restored arena=%s restored=%d skipped-no-world=%d neighbors-fixed=%d",
+            arena.getId(), restored, skipped, neighborsFixed);
         editedBlocks.clear();
         matchFires.clear();
         activeChests.clear();
@@ -2007,6 +2023,42 @@ public class GameSession
     private void dispose()
     {
         arena.setSession(null);
+    }
+
+    private static final BlockFace[] HORIZONTAL =
+        {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
+
+    /**
+     * Починить стык у уцелевших соседних решёток (панелей/заборов), примыкающих к
+     * только что восстановленным. Когда игрок выбил прут, ваниль разорвала стык
+     * соседнего уцелевшего прута; сам restore возвращает лишь выбитые блоки, а у
+     * соседа так и остаётся «обрубок». Повторная установка того же BlockData —
+     * no-op (движок пропускает неизменное состояние, соседу физика не приходит),
+     * поэтому чиним точечно: если восстановленный прут тянется в сторону соседа,
+     * а сосед — тоже решётка и в эту сторону не соединён, зеркалим соединение.
+     * Соседа, который сам восстанавливался (есть в editedBlocks), не трогаем — у
+     * него уже верная форма. Возвращает число поправленных соседей.
+     */
+    private int fixConnectingNeighbors(List<Block> restored)
+    {
+        int fixed = 0;
+        for (Block block : restored)
+        {
+            if (!(block.getBlockData() instanceof MultipleFacing aFace)) {continue;}
+            for (BlockFace side : HORIZONTAL)
+            {
+                if (!aFace.getAllowedFaces().contains(side) || !aFace.hasFace(side)) {continue;}
+                Block neighbor = block.getRelative(side);
+                if (editedBlocks.containsKey(neighbor.getLocation())) {continue;}
+                if (!(neighbor.getBlockData() instanceof MultipleFacing bFace)) {continue;}
+                BlockFace toward = side.getOppositeFace(); // от соседа к восстановленному пруту
+                if (!bFace.getAllowedFaces().contains(toward) || bFace.hasFace(toward)) {continue;}
+                bFace.setFace(toward, true);
+                neighbor.setBlockData(bFace, false); // точечная правка формы, физика не нужна
+                fixed++;
+            }
+        }
+        return fixed;
     }
 
     // ===== отладка (escape.admin.debug) =====

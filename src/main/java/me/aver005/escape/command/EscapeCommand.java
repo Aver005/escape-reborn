@@ -37,6 +37,9 @@ import org.bukkit.GameRule;
 import org.bukkit.GameRules;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.Directional;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -54,7 +57,7 @@ public class EscapeCommand implements TabExecutor
         "debuglog",
         "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup", "markers",
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager", "breakable",
-        "addcontract", "kit", "loot", "chestsetup",
+        "chestface", "addcontract", "kit", "loot", "chestsetup",
         "createcontract", "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice",
         "createtheme", "themetype", "themeidle", "themedesc", "themeamount", "themegold", "themereturn",
         "addtheme", "removetheme",
@@ -431,6 +434,31 @@ public class EscapeCommand implements TabExecutor
                 wand.setItemMeta(meta);
                 p.getInventory().addItem(wand);
                 Msg.send(p, "breakable.wand-given", Msg.ph("arena", id), Msg.ph("n", arena.getBreakables().size()));
+                return true;
+            }
+            case "chestface" ->
+            {
+                Arena arena = requireArenaGet(p, id);
+                if (arena == null) {return true;}
+                Block target = p.getTargetBlockExact(6);
+                if (target == null || !arena.getChestSpots().containsKey(target.getLocation()))
+                {
+                    Msg.send(p, "chestface.not-a-point");
+                    return true;
+                }
+                BlockFace facing = p.getFacing().getOppositeFace(); // сундук лицом к смотрящему
+                arena.getChestFacings().put(target.getLocation(), facing);
+                plugin.arenas().save(arena);
+                if (target.getBlockData() instanceof Directional dir && dir.getFaces().contains(facing))
+                {
+                    dir.setFacing(facing);
+                    target.setBlockData(dir, false);
+                }
+                DebugLog.log(Cat.ADMIN, "chestface admin=%s arena=%s at=%s facing=%s",
+                    p.getName(), arena.getId(), DebugLog.at(target.getLocation()), facing);
+                Msg.send(p, "chestface.set",
+                    Msg.ph("facing", facing.name()),
+                    Msg.ph("x", target.getX()), Msg.ph("y", target.getY()), Msg.ph("z", target.getZ()));
                 return true;
             }
             case "addcontract" ->
@@ -1301,7 +1329,7 @@ public class EscapeCommand implements TabExecutor
                 case "join", "remove", "enable", "disable", "check", "setlobby", "setname", "setdesc",
                      "setminplayers", "setmaxplayers", "set", "start", "worldsetup", "markers",
                      "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager",
-                     "addcontract", "villagers", "chesttag", "traderquota", "breakable" ->
+                     "addcontract", "villagers", "chesttag", "traderquota", "breakable", "chestface" ->
                     filter(new ArrayList<>(plugin.arenas().ids()), args[1], out);
                 case "stop" ->
                 {

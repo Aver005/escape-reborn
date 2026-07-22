@@ -19,6 +19,7 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.Directional;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -60,7 +61,15 @@ public class SetupListener implements Listener
         {
             case "spawn" -> arena.getSpawns().add(loc);
             case "finalspawn" -> arena.getFinalSpawns().add(loc);
-            case "chest" -> arena.getChestSpots().put(loc, new ArrayList<>());
+            case "chest" ->
+            {
+                arena.getChestSpots().put(loc, new ArrayList<>());
+                // запоминаем, как админ поставил сундук (в BlockPlaceEvent блок уже стоит)
+                if (e.getBlockPlaced().getBlockData() instanceof Directional dir)
+                {
+                    arena.getChestFacings().put(loc, dir.getFacing());
+                }
+            }
             case "table" -> arena.getTableSpots().add(loc);
             case "ore" -> {arena.getOreSpots().add(loc); placeReal = true;}
             case "lever" -> {arena.getLevers().put(loc, extra == null ? "?" : extra); placeReal = true;}
@@ -258,6 +267,11 @@ public class SetupListener implements Listener
         {
             Msg.send(p, "chesttag.not-a-point");
             return true;
+        }
+        // сундук-точка в мире — источник истины по стороне: синхронизируем
+        if (block.getBlockData() instanceof Directional dir)
+        {
+            arena.getChestFacings().put(point, dir.getFacing());
         }
         String catId = pdc.get(Keys.CATEGORY_ID, PersistentDataType.STRING);
         if (!plugin.loot().exists(catId)) {Msg.send(p, "chesttag.bad-category"); return true;}

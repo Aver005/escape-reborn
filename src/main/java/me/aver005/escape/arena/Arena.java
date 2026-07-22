@@ -13,6 +13,7 @@ import me.aver005.escape.kit.Kit;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -61,6 +62,7 @@ public class Arena
     private List<Location> spawns = new ArrayList<>();
     private List<Location> finalSpawns = new ArrayList<>();
     private final Map<Location, List<String>> chestSpots = new LinkedHashMap<>();   // точка -> id категорий (0..N)
+    private final Map<Location, BlockFace> chestFacings = new LinkedHashMap<>();     // точка -> сторона сундука (NORTH дефолт)
     private List<Location> tableSpots = new ArrayList<>();
     private List<Location> oreSpots = new ArrayList<>();
     private final Map<Location, String> levers = new LinkedHashMap<>();       // точка -> имя локации
@@ -122,7 +124,7 @@ public class Arena
         YamlConfiguration locs = YamlConfiguration.loadConfiguration(new File(folder, "locations.yml"));
         arena.spawns = readLocations(locs, "spawns");
         arena.finalSpawns = readLocations(locs, "final-spawns");
-        readChestSpots(locs, arena.chestSpots);
+        readChestSpots(locs, arena.chestSpots, arena.chestFacings);
         arena.tableSpots = readLocations(locs, "tables");
         arena.oreSpots = readLocations(locs, "ores");
         readNamedLocations(locs, "levers", "name", arena.levers);
@@ -241,13 +243,14 @@ public class Arena
 
     /**
      * Точки сундуков → список id категорий (0..N). Форматы (в порядке новизны):
-     *   НОВЫЙ    {location, categories: [id, ...]} — мультикатегорийная точка;
+     *   НОВЫЙ    {location, categories: [id, ...], facing: NORTH} — мульти-категории + сторона;
      *   СТАРЫЙ-1 {location, category: id}         — одиночная категория (список из 1);
      *   СТАРЫЙ-0 плоский Location                 — без категорий (пустой список).
+     * {@code facing} опционален (нет → сундук смотрит на север, как раньше).
      * Пере-сейв апгрейдит файл до нового формата.
      */
-    @SuppressWarnings("unchecked")
-    private static void readChestSpots(ConfigurationSection sec, Map<Location, List<String>> target)
+    private static void readChestSpots(ConfigurationSection sec, Map<Location, List<String>> target,
+        Map<Location, BlockFace> facings)
     {
         for (Object o : sec.getList("chests", List.of()))
         {
@@ -267,8 +270,18 @@ public class Arena
                     cats.add(String.valueOf(m.get("category")));
                 }
                 target.put(l, cats);
+                BlockFace face = parseFace(m.get("facing"));
+                if (face != null) {facings.put(l, face);}
             }
         }
+    }
+
+    /** Разбор имени стороны из yml; null при отсутствии/мусоре (→ дефолт NORTH). */
+    private static BlockFace parseFace(Object raw)
+    {
+        if (raw == null) {return null;}
+        try {return BlockFace.valueOf(String.valueOf(raw).toUpperCase(Locale.ROOT));}
+        catch (IllegalArgumentException ignored) {return null;}
     }
 
     private List<Map<String, Object>> writeChestSpots(Map<Location, List<String>> source)
@@ -276,7 +289,12 @@ public class Arena
         List<Map<String, Object>> out = new ArrayList<>();
         for (Map.Entry<Location, List<String>> entry : source.entrySet())
         {
-            out.add(Map.of("location", entry.getKey(), "categories", new ArrayList<>(entry.getValue())));
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("location", entry.getKey());
+            row.put("categories", new ArrayList<>(entry.getValue()));
+            BlockFace face = chestFacings.get(entry.getKey());
+            if (face != null) {row.put("facing", face.name());}
+            out.add(row);
         }
         return out;
     }
@@ -352,6 +370,9 @@ public class Arena
     public List<Location> getSpawns() {return spawns;}
     public List<Location> getFinalSpawns() {return finalSpawns;}
     public Map<Location, List<String>> getChestSpots() {return chestSpots;}
+    public Map<Location, BlockFace> getChestFacings() {return chestFacings;}
+    /** Сторона сундука точки; NORTH, если для точки ничего не сохранено. */
+    public BlockFace getChestFacing(Location loc) {return chestFacings.getOrDefault(loc, BlockFace.NORTH);}
     public List<Location> getTableSpots() {return tableSpots;}
     public List<Location> getOreSpots() {return oreSpots;}
     public Map<Location, String> getLevers() {return levers;}

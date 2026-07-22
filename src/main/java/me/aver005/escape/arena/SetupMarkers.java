@@ -7,6 +7,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.Bed;
 
 /**
@@ -34,7 +35,7 @@ public final class SetupMarkers
         for (Location loc : arena.getSpawns()) {count += placePillar(loc, SPAWN) ? 1 : 0;}
         for (Location loc : arena.getFinalSpawns()) {count += placePillar(loc, FINAL_SPAWN) ? 1 : 0;}
         for (Location loc : arena.getTraderSpots().keySet()) {count += placePillar(loc, TRADER) ? 1 : 0;}
-        for (Location loc : arena.getChestSpots().keySet()) {count += placeChest(loc) ? 1 : 0;}
+        for (Location loc : arena.getChestSpots().keySet()) {count += placeChest(loc, arena.getChestFacing(loc)) ? 1 : 0;}
         return count;
     }
 
@@ -46,7 +47,7 @@ public final class SetupMarkers
             case "spawn" -> placePillar(loc, SPAWN);
             case "finalspawn" -> placePillar(loc, FINAL_SPAWN);
             case "villager" -> placePillar(loc, TRADER);
-            case "chest" -> placeChest(loc);
+            case "chest" -> placeChest(loc, arena.getChestFacing(loc));
             default -> {}
         }
     }
@@ -59,7 +60,7 @@ public final class SetupMarkers
         return true;
     }
 
-    private static boolean placeChest(Location loc)
+    private static boolean placeChest(Location loc, BlockFace facing)
     {
         if (loc == null || loc.getWorld() == null) {return false;}
         Block block = loc.getBlock();
@@ -68,8 +69,20 @@ public final class SetupMarkers
             if (!isFree(block)) {return false;}
             block.setType(Material.CHEST);
         }
+        applyFacing(block, facing);
         clearChest(block);
         return true;
+    }
+
+    /** Развернуть сундук в сохранённую сторону (иначе setType всегда даёт NORTH). */
+    private static void applyFacing(Block block, BlockFace facing)
+    {
+        if (facing == null) {return;}
+        if (block.getBlockData() instanceof Directional dir && dir.getFaces().contains(facing))
+        {
+            dir.setFacing(facing);
+            block.setBlockData(dir, false);
+        }
     }
 
     /** Не затираем карту: маркер встаёт только в воздух/заменяемый блок. */
@@ -189,6 +202,7 @@ public final class SetupMarkers
             case "chest" ->
             {
                 arena.getChestSpots().remove(base);
+                arena.getChestFacings().remove(base);
                 clearChest(base.getBlock()); // содержимое точки настройки не выпадает
             }
             default -> {return null;}
