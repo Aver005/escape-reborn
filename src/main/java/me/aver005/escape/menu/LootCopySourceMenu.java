@@ -17,29 +17,19 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 /**
- * Верхнее меню лут-системы: список всех глобальных категорий (пагинация).
- * ЛКМ по категории — открыть её редактор ({@link LootCategoryMenu}).
- * Shift+ЛКМ — удалить (с подтверждением). Кнопка «создать» — мастер создания
- * ({@link LootCreateMenu}). Категория опознаётся по PDC {@link Keys#CATEGORY_ID}.
+ * Выбор категории-источника для режима «копия» ({@link LootCreateMenu}).
+ * ЛКМ по категории — создать её независимую копию под свободным id «<id>-copy…».
  */
-public class LootEditorMenu extends Menu
+public class LootCopySourceMenu extends Menu
 {
-    private static final int SLOT_CREATE = 48;
-
     private final EscapePlugin plugin;
     private int page;
 
-    public LootEditorMenu(EscapePlugin plugin)
+    public LootCopySourceMenu(EscapePlugin plugin)
     {
-        super(54, Msg.get("loot-editor.title"));
+        super(54, Msg.get("loot-create.copy-title"));
         this.plugin = plugin;
-    }
-
-    @Override
-    public void open(Player p)
-    {
         render();
-        super.open(p);
     }
 
     private List<LootCategory> categories()
@@ -60,9 +50,7 @@ public class LootEditorMenu extends Menu
             if (index >= cats.size()) {break;}
             inventory.setItem(i, icon(cats.get(index)));
         }
-        renderControls(page, pages, false, Material.BLACK_STAINED_GLASS_PANE);
-        inventory.setItem(SLOT_CREATE, Items.named(Material.NETHER_STAR,
-            Msg.get("loot-editor.create-name"), Msg.getList("loot-editor.create-lore")));
+        renderControls(page, pages, true, Material.BLACK_STAINED_GLASS_PANE);
     }
 
     private ItemStack icon(LootCategory cat)
@@ -71,28 +59,13 @@ public class LootEditorMenu extends Menu
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Items.flat(Msg.mm(cat.getNameRaw())));
         List<Component> lore = new ArrayList<>();
-        lore.add(Items.flat(Msg.get("loot-editor.lore-weight", Msg.ph("weight", cat.getWeight()))));
-        lore.add(Items.flat(Msg.get("loot-editor.lore-per-chest",
-            Msg.ph("min", fmt(cat.getMinPerChest())), Msg.ph("max", fmt(cat.getMaxPerChest())))));
-        lore.add(Items.flat(Msg.get("loot-editor.lore-per-arena",
-            Msg.ph("min", fmt(cat.getMinPerArena())), Msg.ph("max", fmt(cat.getMaxPerArena())))));
-        lore.add(Items.flat(Msg.get("loot-editor.lore-chests",
-            Msg.ph("min", fmt(cat.getMinChests())), Msg.ph("max", fmt(cat.getMaxChests())))));
-        lore.add(Items.flat(Msg.get("loot-editor.lore-refill", Msg.ph("seconds", cat.getRefillSeconds()))));
         lore.add(Items.flat(Msg.get("loot-editor.lore-items", Msg.ph("count", cat.getLoot().size()))));
         lore.add(Items.flat(Msg.get("loot-editor.lore-id", Msg.ph("id", cat.getId()))));
-        lore.add(Items.flat(Msg.get("loot-editor.lore-edit")));
-        lore.add(Items.flat(Msg.get("loot-editor.lore-delete")));
+        lore.add(Items.flat(Msg.get("loot-create.copy-pick")));
         meta.lore(lore);
         meta.getPersistentDataContainer().set(Keys.CATEGORY_ID, PersistentDataType.STRING, cat.getId());
         item.setItemMeta(meta);
         return item;
-    }
-
-    /** UNLIMITED показываем как «∞» (loot-editor.unlimited), иначе — число. */
-    private String fmt(int v)
-    {
-        return v == LootCategory.UNLIMITED ? Msg.raw("loot-editor.unlimited") : String.valueOf(v);
     }
 
     @Override
@@ -103,7 +76,7 @@ public class LootEditorMenu extends Menu
         int pages = pageCount(categories().size());
         if (raw == SLOT_PREV && page > 0) {page--; render(); return;}
         if (raw == SLOT_NEXT && page < pages - 1) {page++; render(); return;}
-        if (raw == SLOT_CREATE) {new LootCreateMenu(plugin).open(p); return;}
+        if (raw == SLOT_BACK) {new LootCreateMenu(plugin).open(p); return;}
         if (raw < 0 || raw >= PAGE_SIZE) {return;}
 
         ItemStack clicked = e.getCurrentItem();
@@ -111,9 +84,12 @@ public class LootEditorMenu extends Menu
         String id = clicked.getItemMeta().getPersistentDataContainer()
             .get(Keys.CATEGORY_ID, PersistentDataType.STRING);
         if (id == null) {return;}
-        LootCategory cat = plugin.loot().get(id);
-        if (cat == null) {render(); return;}
-        if (e.isShiftClick()) {new LootDeleteConfirmMenu(plugin, id).open(p); return;}
-        if (e.isLeftClick()) {new LootCategoryMenu(plugin, cat).open(p);}
+        LootCategory src = plugin.loot().get(id);
+        if (src == null) {render(); return;}
+        String newId = LootCreate.freshId(plugin.loot(), id + "-copy");
+        LootCategory copy = LootCreate.copyFrom(src, newId);
+        plugin.loot().save(copy);
+        Msg.send(p, "loot-create.created", Msg.ph("id", newId));
+        new LootEditorMenu(plugin).open(p);
     }
 }

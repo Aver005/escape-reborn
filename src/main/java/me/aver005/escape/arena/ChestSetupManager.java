@@ -2,11 +2,12 @@ package me.aver005.escape.arena;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.category.ChestCategory;
+import me.aver005.escape.loot.LootCategory;
 import me.aver005.escape.menu.ChestSetupMenu;
 import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.util.DebugLog;
@@ -15,6 +16,7 @@ import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Keys;
 import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -36,7 +38,9 @@ public class ChestSetupManager
 {
     public static final String WAND_TAG = "chestwand";
     public static final String EXIT_TAG = "chestwand-exit";
+    public static final String NEXT_TAG = "chestwand-next";
     private static final int EXIT_SLOT = 8;
+    private static final int NEXT_SLOT = 7;
 
     private final EscapePlugin plugin;
     private final Map<UUID, WizardState> active = new HashMap<>();
@@ -64,7 +68,7 @@ public class ChestSetupManager
             Msg.send(p, "chestsetup.arena-busy", Msg.ph("arena", arena.getId()));
             return;
         }
-        if (arena.getChestCategories().isEmpty())
+        if (plugin.loot().isEmpty())
         {
             Msg.send(p, "chestsetup.no-categories", Msg.ph("arena", arena.getId()));
             return;
@@ -89,22 +93,28 @@ public class ChestSetupManager
             new ArrayList<>(arena.getChestSpots().keySet()));
         active.put(p.getUniqueId(), state);
         DebugLog.log(Cat.ADMIN, "chestsetup-start admin=%s arena=%s points=%d categories=%d",
-            p.getName(), arena.getId(), state.size(), arena.getChestCategories().size());
+            p.getName(), arena.getId(), state.size(), plugin.loot().all().size());
         Msg.send(p, "chestsetup.started", Msg.ph("arena", arena.getId()), Msg.ph("n", state.size()));
         goTo(p, 0);
     }
 
     private void giveWands(Player p, Arena arena)
     {
-        // предмет выхода — на фикс. слот, потом жезлы (addItem его не займёт)
+        // спец-предметы на фикс. слоты, потом жезлы (addItem их не займёт)
         p.getInventory().setItem(EXIT_SLOT, Items.special(Material.BARRIER,
             Msg.get("chestsetup.exit-name"), Msg.getList("chestsetup.exit-lore"), EXIT_TAG));
-        for (ChestCategory cat : arena.getChestCategories())
+        p.getInventory().setItem(NEXT_SLOT, Items.special(Material.SPECTRAL_ARROW,
+            Msg.get("chestsetup.next-name"), Msg.getList("chestsetup.next-lore"), NEXT_TAG));
+        // жезлы — по одному на каждую ГЛОБАЛЬНУЮ категорию лута
+        for (LootCategory cat : plugin.loot().all())
         {
             ItemStack wand = Items.special(cat.getIcon(), Msg.mm(cat.getNameRaw()),
                 Msg.getList("chestsetup.wand-lore",
-                    Msg.ph("quota", cat.getQuota()),
-                    Msg.ph("min", cat.getLootMin()), Msg.ph("max", cat.getLootMax()),
+                    Msg.ph("weight", cat.getWeight()),
+                    Msg.ph("min-per-chest", lim(cat.getMinPerChest())),
+                    Msg.ph("max-per-chest", lim(cat.getMaxPerChest())),
+                    Msg.ph("min-chests", lim(cat.getMinChests())),
+                    Msg.ph("max-chests", lim(cat.getMaxChests())),
                     Msg.ph("refill", cat.getRefillSeconds())),
                 WAND_TAG);
             ItemMeta meta = wand.getItemMeta();
@@ -114,29 +124,48 @@ public class ChestSetupManager
         }
     }
 
-    /** ПКМ жезлом: назначить его категорию текущей точке и перейти к следующей. */
+    /** Значение лимита для лора: {@code -1} → символ «без ограничения», иначе число. */
+    private String lim(int v)
+    {
+        return v == LootCategory.UNLIMITED ? Msg.raw("chestsetup.unlimited") : String.valueOf(v);
+    }
+
+    /**
+     * ПКМ жезлом: ПЕРЕКЛЮЧИТЬ его категорию на текущей точке (мультивыбор).
+     * НЕ переходит к следующей точке — для этого есть отдельный предмет «дальше»
+     * ({@link #NEXT_TAG}) и метод {@link #next(Player)}.
+     */
     public void assign(Player p, String categoryId)
     {
         WizardState state = active.get(p.getUniqueId());
         if (state == null) {return;}
         Arena arena = state.getArena();
-        ChestCategory cat = arena.getChestCategory(categoryId);
+        LootCategory cat = plugin.loot().get(categoryId);
         if (cat == null) {Msg.send(p, "chestsetup.bad-category"); return;}
         Location point = state.current();
         if (point == null) {advance(p); return;}
 
-        arena.getChestSpots().put(point, cat.getId());
+        List<String> cats = arena.getChestSpots().computeIfAbsent(point, k -> new ArrayList<>());
+        boolean added;
+        if (cats.remove(cat.getId())) {added = false;}
+        else {cats.add(cat.getId()); added = true;}
         plugin.arenas().save(arena);
-        p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 1.4f);
-        p.sendActionBar(Msg.get("chestsetup.assigned",
+
+        String key = added ? "chestsetup.assigned" : "chestsetup.removed";
+        p.playSound(p.getLocation(), added ? Sound.BLOCK_NOTE_BLOCK_PLING : Sound.BLOCK_NOTE_BLOCK_BASS,
+            1f, added ? 1.4f : 0.7f);
+        p.sendActionBar(Msg.get(key,
             Msg.ph("index", state.getIndex() + 1), Msg.ph("total", state.size()),
-            Msg.phMm("category", cat.getNameRaw())));
-        DebugLog.log(Cat.ADMIN, "chestsetup-assign admin=%s arena=%s point=%s cat=%s",
-            p.getName(), arena.getId(), DebugLog.at(point), cat.getId());
-        advance(p);
+            Msg.phMm("category", cat.getNameRaw()), Msg.ph("count", cats.size())));
+        DebugLog.log(Cat.ADMIN, "chestsetup-toggle admin=%s arena=%s point=%s cat=%s added=%b count=%d",
+            p.getName(), arena.getId(), DebugLog.at(point), cat.getId(), added, cats.size());
     }
 
-    private void advance(Player p)
+    /** Явный переход к следующей точке (предмет «дальше»/финиш мастера). */
+    public void next(Player p) {advance(p);}
+
+    /** Переход к следующей точке; на последней — завершение мастера. */
+    public void advance(Player p)
     {
         WizardState state = active.get(p.getUniqueId());
         if (state == null) {return;}
@@ -162,11 +191,25 @@ public class ChestSetupManager
         SetupMarkers.placePoint(state.getArena(), point, "chest"); // гарантируем видимый сундук
         p.teleport(point.clone().add(0.5, 1.0, 0.5));
 
-        String catId = state.getArena().getChestSpots().get(point);
-        ChestCategory cat = state.getArena().getChestCategory(catId);
-        Component catName = cat != null ? Msg.mm(cat.getNameRaw()) : Msg.get("chestsetup.point-unset");
+        List<String> ids = state.getArena().getChestSpots().get(point);
         p.sendActionBar(Msg.get("chestsetup.progress",
-            Msg.ph("index", i + 1), Msg.ph("total", state.size()), Msg.phC("category", catName)));
+            Msg.ph("index", i + 1), Msg.ph("total", state.size()),
+            Msg.ph("count", ids == null ? 0 : ids.size()),
+            Msg.phC("categories", categoryList(ids))));
+    }
+
+    /** Список имён категорий точки через запятую или «без категории», если их нет. */
+    private Component categoryList(List<String> ids)
+    {
+        if (ids == null || ids.isEmpty()) {return Msg.get("chestsetup.point-unset");}
+        List<Component> names = new ArrayList<>();
+        for (String id : ids)
+        {
+            LootCategory cat = plugin.loot().get(id);
+            if (cat != null) {names.add(Msg.mm(cat.getNameRaw()));}
+        }
+        if (names.isEmpty()) {return Msg.get("chestsetup.point-unset");}
+        return Component.join(JoinConfiguration.separator(Component.text(", ")), names);
     }
 
     /** Прыжок к точке по номеру (из GUI). */

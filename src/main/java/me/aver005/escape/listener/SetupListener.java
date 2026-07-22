@@ -7,7 +7,7 @@ import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.ChestSetupManager;
 import me.aver005.escape.arena.SetupMarkers;
-import me.aver005.escape.category.ChestCategory;
+import me.aver005.escape.loot.LootCategory;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
 import me.aver005.escape.util.Items;
@@ -60,7 +60,7 @@ public class SetupListener implements Listener
         {
             case "spawn" -> arena.getSpawns().add(loc);
             case "finalspawn" -> arena.getFinalSpawns().add(loc);
-            case "chest" -> arena.getChestSpots().put(loc, ChestCategory.DEFAULT_ID);
+            case "chest" -> arena.getChestSpots().put(loc, new ArrayList<>());
             case "table" -> arena.getTableSpots().add(loc);
             case "ore" -> {arena.getOreSpots().add(loc); placeReal = true;}
             case "lever" -> {arena.getLevers().put(loc, extra == null ? "?" : extra); placeReal = true;}
@@ -126,6 +126,12 @@ public class SetupListener implements Listener
         {
             e.setCancelled(true);
             plugin.chestSetup().stop(p, false);
+            return;
+        }
+        if (ChestSetupManager.NEXT_TAG.equals(tag))
+        {
+            e.setCancelled(true);
+            plugin.chestSetup().next(p);
             return;
         }
         if (ChestSetupManager.WAND_TAG.equals(tag))
@@ -229,9 +235,10 @@ public class SetupListener implements Listener
     }
 
     /**
-     * Обработать отметчик категории в руке: если это сундук-точка арены — присвоить
-     * ей категорию отметчика. Возвращает true, если действие «поглощено» отметчиком
-     * (вызывающий должен отменить событие). Арену сохраняет сам.
+     * Обработать отметчик глобальной категории в руке: если это сундук-точка арены —
+     * переключить эту категорию в списке точки (нет — добавить, есть — убрать).
+     * Возвращает true, если действие «поглощено» отметчиком (вызывающий должен
+     * отменить событие). Арену сохраняет сам.
      */
     private boolean tryChestTag(Player p, Block block, Arena arena, ItemStack item)
     {
@@ -253,17 +260,26 @@ public class SetupListener implements Listener
             return true;
         }
         String catId = pdc.get(Keys.CATEGORY_ID, PersistentDataType.STRING);
-        ChestCategory cat = arena.getChestCategory(catId);
-        if (cat == null) {Msg.send(p, "chesttag.bad-category"); return true;}
+        if (!plugin.loot().exists(catId)) {Msg.send(p, "chesttag.bad-category"); return true;}
+        LootCategory cat = plugin.loot().get(catId);
 
-        arena.getChestSpots().put(point, cat.getId());
+        List<String> cats = arena.getChestSpots().get(point);
+        if (cats == null)
+        {
+            cats = new ArrayList<>();
+            arena.getChestSpots().put(point, cats);
+        }
+        boolean added;
+        if (cats.remove(cat.getId())) {added = false;}
+        else {cats.add(cat.getId()); added = true;}
         plugin.arenas().save(arena);
-        p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 1.4f);
-        DebugLog.log(Cat.ADMIN, "chesttag-assign admin=%s arena=%s point=%s cat=%s",
-            p.getName(), arena.getId(), DebugLog.at(point), cat.getId());
-        Msg.send(p, "chesttag.assigned",
+        p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, added ? 1.4f : 1.0f);
+        DebugLog.log(Cat.ADMIN, "chesttag-toggle admin=%s arena=%s point=%s cat=%s added=%b count=%d",
+            p.getName(), arena.getId(), DebugLog.at(point), cat.getId(), added, cats.size());
+        Msg.send(p, added ? "chesttag.added" : "chesttag.removed",
             Msg.phMm("category", cat.getNameRaw()),
-            Msg.ph("x", point.getBlockX()), Msg.ph("y", point.getBlockY()), Msg.ph("z", point.getBlockZ()));
+            Msg.ph("x", point.getBlockX()), Msg.ph("y", point.getBlockY()), Msg.ph("z", point.getBlockZ()),
+            Msg.ph("n", cats.size()));
         return true;
     }
 

@@ -1,16 +1,13 @@
 package me.aver005.escape.arena;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.category.ChestCategory;
 import me.aver005.escape.contract.Contract;
+import me.aver005.escape.loot.LootCategory;
 import me.aver005.escape.menu.ShopMenu;
 import me.aver005.escape.menu.ThemesMenu;
 import me.aver005.escape.theme.Theme;
@@ -69,14 +66,16 @@ public final class ArenaCheck
         }
 
         // ===== сундуки и лут =====
-        if (arena.getLoot().isEmpty())
+        // лут теперь глобальный: суммарное число позиций во всех категориях loot/*.yml
+        int lootTotal = 0;
+        for (LootCategory cat : plugin.loot().all()) {lootTotal += cat.getLoot().size();}
+        if (lootTotal == 0)
         {
-            out.add(crit(Msg.get("check.msg.loot-empty"), "/escape additem " + id + " 50"));
+            out.add(crit(Msg.get("check.msg.loot-empty"), "/escape loot"));
         }
-        else if (arena.getLoot().size() < 15)
+        else if (lootTotal < 15)
         {
-            out.add(warn(Msg.get("check.msg.loot-small", Msg.ph("n", arena.getLoot().size())),
-                "/escape additem " + id + " 50  |  /escape edititems " + id));
+            out.add(warn(Msg.get("check.msg.loot-small", Msg.ph("n", lootTotal)), "/escape loot"));
         }
         if (arena.getChestSpots().isEmpty() && !arena.isDynamicChests())
         {
@@ -87,50 +86,27 @@ public final class ArenaCheck
         {
             out.add(warn(Msg.get("check.msg.insight-undeliverable"), "/escape addchest " + id));
         }
-        if (arena.getChestCategories().isEmpty())
+
+        // точки сундуков ссылаются на ГЛОБАЛЬНЫЕ категории лута (0..N id на точку)
+        int orphanPoints = 0;   // точка ссылается на несуществующую категорию
+        int emptyPoints = 0;    // точка без категорий вообще -> сундук не появится
+        for (List<String> cats : arena.getChestSpots().values())
         {
-            // fallback-режим: одно случайное подмножество chest-count
-            if (!arena.isDynamicChests() && arena.getChestCount() > arena.getChestSpots().size()
-                && !arena.getChestSpots().isEmpty())
+            if (cats == null || cats.isEmpty()) {emptyPoints++; continue;}
+            for (String catId : cats)
             {
-                out.add(warn(Msg.get("check.msg.chest-count-high",
-                    Msg.ph("count", arena.getChestCount()), Msg.ph("spots", arena.getChestSpots().size())),
-                    "/escape set " + id + " chests " + arena.getChestSpots().size()));
+                if (!plugin.loot().exists(catId)) {orphanPoints++; break;}
             }
         }
-        else
+        if (orphanPoints > 0)
         {
-            // quota-режим: точки по категориям, сироты и перекос квот
-            Map<String, Integer> pointsByCat = new HashMap<>();
-            int orphanPoints = 0;
-            for (String catId : arena.getChestSpots().values())
-            {
-                if (arena.getChestCategory(catId) != null)
-                {
-                    pointsByCat.merge(catId.toLowerCase(Locale.ROOT), 1, Integer::sum);
-                }
-                else {orphanPoints++;}
-            }
-            if (orphanPoints > 0)
-            {
-                out.add(warn(Msg.get("check.msg.cat-orphan-points", Msg.ph("n", orphanPoints)),
-                    "/escape chestsetup " + id));
-            }
-            for (ChestCategory cat : arena.getChestCategories())
-            {
-                int pts = pointsByCat.getOrDefault(cat.getId().toLowerCase(Locale.ROOT), 0);
-                if (cat.getQuota() > 0 && pts == 0)
-                {
-                    out.add(warn(Msg.get("check.msg.cat-no-points", Msg.ph("cat", cat.getId())),
-                        "/escape chestsetup " + id));
-                }
-                else if (cat.getQuota() > pts)
-                {
-                    out.add(warn(Msg.get("check.msg.cat-quota-high",
-                        Msg.ph("cat", cat.getId()), Msg.ph("quota", cat.getQuota()), Msg.ph("spots", pts)),
-                        "/escape chestcat quota " + id + " " + cat.getId() + " " + pts));
-                }
-            }
+            out.add(warn(Msg.get("check.msg.cat-orphan-points", Msg.ph("n", orphanPoints)),
+                "/escape chesttag " + id));
+        }
+        if (emptyPoints > 0)
+        {
+            out.add(warn(Msg.get("check.msg.chest-points-empty", Msg.ph("n", emptyPoints)),
+                "/escape chesttag " + id));
         }
         if (arena.getTraderCount() > arena.getTraderSpots().size())
         {
@@ -256,27 +232,17 @@ public final class ArenaCheck
             Msg.ph("ores", arena.getOreSpots().size()),
             Msg.ph("levers", arena.getLevers().size()),
             Msg.ph("tables", arena.getTableSpots().size()))));
-        if (!arena.getChestCategories().isEmpty())
+        if (arena.isDynamicChests())
         {
-            Map<String, Integer> pts = new HashMap<>();
-            for (String catId : arena.getChestSpots().values())
-            {
-                if (arena.getChestCategory(catId) != null) {pts.merge(catId.toLowerCase(Locale.ROOT), 1, Integer::sum);}
-            }
-            int perMatch = 0;
-            for (ChestCategory cat : arena.getChestCategories())
-            {
-                perMatch += Math.min(cat.getQuota(), pts.getOrDefault(cat.getId().toLowerCase(Locale.ROOT), 0));
-            }
-            out.add(good(Msg.get("check.msg.summary-chests-quota",
-                Msg.ph("spots", arena.getChestSpots().size()),
-                Msg.ph("cats", arena.getChestCategories().size()),
-                Msg.ph("count", perMatch))));
+            out.add(good(Msg.get("check.msg.summary-chests-dynamic",
+                Msg.ph("spots", arena.getChestSpots().size()))));
         }
         else
         {
-            out.add(good(Msg.get(arena.isDynamicChests() ? "check.msg.summary-chests-dynamic" : "check.msg.summary-chests-static",
-                Msg.ph("spots", arena.getChestSpots().size()), Msg.ph("count", arena.getChestCount()))));
+            out.add(good(Msg.get("check.msg.summary-chests-static",
+                Msg.ph("spots", arena.getChestSpots().size()),
+                Msg.ph("cats", plugin.loot().ids().size()),
+                Msg.ph("empty", emptyPoints))));
         }
         out.add(good(Msg.get("check.msg.summary-npc",
             Msg.ph("spots", arena.getTraderSpots().size()),
@@ -284,7 +250,7 @@ public final class ArenaCheck
             Msg.ph("overseers", overseers))));
         out.add(good(Msg.get("check.msg.summary-content",
             Msg.ph("contracts", contractsOk),
-            Msg.ph("loot", arena.getLoot().size()))));
+            Msg.ph("loot", lootTotal))));
         return out;
     }
 

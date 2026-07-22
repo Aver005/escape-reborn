@@ -424,7 +424,7 @@ public class GameListener implements Listener
         if (!(e.getInventory().getHolder() instanceof Chest chest)) {return;}
 
         session.refreshFindContracts(p);
-        session.scheduleRefillIfEmpty(chest.getBlock());
+        session.scheduleRefill(chest.getBlock());
     }
 
     @EventHandler(ignoreCancelled = true)

@@ -77,7 +77,6 @@ public class ArenaManager
         if (cfg == null) {return;}
         arena.setMinPlayers(cfg.getInt("min-players", 2));
         arena.setMaxPlayers(cfg.getInt("max-players", 12));
-        arena.setChestCount(cfg.getInt("chest-count", 75));
         arena.setTraderCount(cfg.getInt("trader-count", 32));
         arena.setTableCount(cfg.getInt("table-count", 5));
         arena.setDurationSeconds(cfg.getInt("duration-seconds", 1200));

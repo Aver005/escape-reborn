@@ -9,7 +9,7 @@ import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.ChestSetupManager;
 import me.aver005.escape.arena.WizardState;
-import me.aver005.escape.category.ChestCategory;
+import me.aver005.escape.loot.LootCategory;
 import me.aver005.escape.util.Items;
 import me.aver005.escape.util.Msg;
 import net.kyori.adventure.text.Component;
@@ -29,6 +29,7 @@ public class ChestSetupMenu extends Menu
     private static final int SLOT_INFO = 49;
     private static final int SLOT_NEXT = 53;
 
+    private final EscapePlugin plugin;
     private final ChestSetupManager manager;
     private final WizardState state;
     private final Map<Integer, Integer> pointBySlot = new HashMap<>();
@@ -37,6 +38,7 @@ public class ChestSetupMenu extends Menu
     public ChestSetupMenu(EscapePlugin plugin, ChestSetupManager manager, WizardState state)
     {
         super(54, Msg.get("chestsetup.menu-title"));
+        this.plugin = plugin;
         this.manager = manager;
         this.state = state;
         render();
@@ -58,16 +60,33 @@ public class ChestSetupMenu extends Menu
             int idx = from + slot;
             if (idx >= order.size()) {break;}
             Location point = order.get(idx);
-            String catId = arena.getChestSpots().get(point);
-            ChestCategory cat = arena.getChestCategory(catId);
-            Material icon = cat != null ? cat.getIcon() : Material.CHEST;
+            List<String> ids = arena.getChestSpots().get(point);
+            List<LootCategory> cats = new ArrayList<>();
+            if (ids != null)
+            {
+                for (String id : ids)
+                {
+                    LootCategory c = plugin.loot().get(id);
+                    if (c != null) {cats.add(c);}
+                }
+            }
+            Material icon = cats.isEmpty() ? Material.CHEST : cats.get(0).getIcon();
             Component name = Msg.get("chestsetup.point-name",
                 Msg.ph("index", idx + 1),
                 Msg.ph("x", point.getBlockX()), Msg.ph("y", point.getBlockY()), Msg.ph("z", point.getBlockZ()));
             List<Component> lore = new ArrayList<>();
-            lore.add(cat != null
-                ? Msg.get("chestsetup.point-category", Msg.phMm("category", cat.getNameRaw()))
-                : Msg.get("chestsetup.point-orphan", Msg.ph("id", String.valueOf(catId))));
+            if (cats.isEmpty())
+            {
+                lore.add(Msg.get("chestsetup.point-unset"));
+            }
+            else
+            {
+                lore.add(Msg.get("chestsetup.point-count", Msg.ph("count", cats.size())));
+                for (LootCategory c : cats)
+                {
+                    lore.add(Msg.get("chestsetup.point-category", Msg.phMm("category", c.getNameRaw())));
+                }
+            }
             lore.addAll(Msg.getList("chestsetup.point-lore"));
             inventory.setItem(slot, Items.named(icon, name, lore));
             pointBySlot.put(slot, idx);

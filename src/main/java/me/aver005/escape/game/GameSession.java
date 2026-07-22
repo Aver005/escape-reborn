@@ -17,12 +17,12 @@ import java.util.function.Predicate;
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.SetupMarkers;
-import me.aver005.escape.arena.WeightedItem;
-import me.aver005.escape.category.ChestCategory;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractPapers;
 import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.kit.Kit;
+import me.aver005.escape.loot.LootCategory;
+import me.aver005.escape.loot.LootCategoryRegistry;
 import me.aver005.escape.modifier.Modifier;
 import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.theme.ThemeType;
@@ -87,8 +87,10 @@ public class GameSession
     private final Set<Location> matchFires = new HashSet<>();   // огонь, зажжённый игроками (гаснет по таймеру)
     private final Set<Location> activeChests = new HashSet<>();
     private final Map<Location, UUID> chestStands = new HashMap<>();
-    /** Игровой сундук -> id его категории (лут и рефилл; пусто в legacy-режиме). */
+    /** Игровой сундук -> id его категории (лут и рефилл). */
     private final Map<Location, String> activeChestCategory = new HashMap<>();
+    /** Категория -> сколько слотов её лута уже разложено по арене (бюджет max-per-arena). */
+    private final Map<String, Integer> categoryArenaSlots = new HashMap<>();
     /** Исходное содержимое динамических сундуков (вернуть после матча). */
     private final Map<Location, ItemStack[]> dynamicChestOriginals = new HashMap<>();
     private final List<Location> traderLocations = new ArrayList<>();
@@ -509,6 +511,7 @@ public class GameSession
         SetupMarkers.clearForMatch(arena);
 
         placeChests();
+        placeContracts();
         spawnTraders();
         placeOres();
         placeTables();
@@ -555,9 +558,9 @@ public class GameSession
 
         // «Молния прозрения»: 1 на матч + 1 за каждую пару игроков
         respawnBlocks.distributeInsight(activeChests, playing.size());
-        DebugLog.log(Cat.SESSION, "start-done arena=%s playing=%d chests=%d traders=%d loot-pool=%d contracts=%d",
+        DebugLog.log(Cat.SESSION, "start-done arena=%s playing=%d chests=%d traders=%d loot-cats=%d contracts=%d",
             arena.getId(), playing.size(), activeChests.size(), traderLocations.size(),
-            arena.getLoot().size(), arena.getContractIds().size());
+            plugin.loot().all().size(), arena.getContractIds().size());
 
         timerBar = BossBar.bossBar(
             Component.empty(), 1f,
@@ -608,67 +611,182 @@ public class GameSession
         return arena.getKit(choice);
     }
 
+    /**
+     * Трёхфазное распределение сундуков по категориям. Точка сундука несёт список
+     * id категорий; используемые = существующие в plugin.loot(). Каждая точка
+     * получает НЕ БОЛЕЕ одной категории (и только из своего списка), пустой список
+     * или неудача распределения = сундука нет (точка остаётся воздухом).
+     */
     private void placeChests()
     {
         activeChestCategory.clear();
-        if (arena.getChestCategories().isEmpty()) {placeChestsLegacy(); return;}
+        categoryArenaSlots.clear();
 
-        // квоты по категориям: из точек каждой категории случайно ставим min(quota, точек)
-        int total = 0;
-        for (ChestCategory cat : arena.getChestCategories())
+        LootCategoryRegistry registry = plugin.loot();
+        double mult = modMult("chest-count-mult");
+
+        // используемые категории каждой точки (фильтр по существованию, без дублей)
+        Map<Location, List<String>> usable = new LinkedHashMap<>();
+        for (Map.Entry<Location, List<String>> entry : arena.getChestSpots().entrySet())
         {
-            List<Location> points = new ArrayList<>();
-            for (Map.Entry<Location, String> entry : arena.getChestSpots().entrySet())
+            Location loc = entry.getKey();
+            if (loc.getWorld() == null) {continue;}
+            List<String> ids = new ArrayList<>();
+            for (String id : entry.getValue())
             {
-                if (cat.getId().equalsIgnoreCase(entry.getValue())) {points.add(entry.getKey());}
+                if (registry.exists(id) && !ids.contains(id)) {ids.add(id);}
             }
-            Collections.shuffle(points, RANDOM);
-            int want = Math.max(0, (int) Math.round(cat.getQuota() * modMult("chest-count-mult")));
-            int count = Math.min(want, points.size());
-            for (int i = 0; i < count; i++)
-            {
-                Location loc = points.get(i);
-                if (loc.getWorld() == null) {continue;}
-                Block block = loc.getBlock();
-                editedBlocks.putIfAbsent(loc, block.getBlockData().clone());
-                block.setType(Material.CHEST);
-                Location placed = block.getLocation();
-                activeChestCategory.put(placed, cat.getId());
-                if (block.getState() instanceof Chest chest) {generateChestLoot(chest);}
-                activeChests.add(placed);
-                spawnChestStand(placed);
-                total++;
-            }
-            DebugLog.log(Cat.WORLD, "chests-cat arena=%s cat=%s placed=%d quota=%d points=%d",
-                arena.getId(), cat.getId(), count, cat.getQuota(), points.size());
+            if (!ids.isEmpty()) {usable.put(loc, ids);}
         }
-        DebugLog.log(Cat.WORLD, "chests-placed arena=%s mode=quota total=%d categories=%d spots=%d",
-            arena.getId(), total, arena.getChestCategories().size(), arena.getChestSpots().size());
-    }
 
-    /** Без категорий у арены — прежнее поведение: одно случайное подмножество chest-count. */
-    private void placeChestsLegacy()
-    {
-        List<Location> pool = new ArrayList<>(arena.getChestSpots().keySet());
-        Collections.shuffle(pool, RANDOM);
-        int wanted = Math.max(1, (int) Math.round(arena.getChestCount() * modMult("chest-count-mult")));
-        int count = Math.min(wanted, pool.size());
-        for (int i = 0; i < count; i++)
+        // все категории, встречающиеся у точек, + их масштабированные лимиты сундуков
+        Set<String> catIds = new LinkedHashSet<>();
+        for (List<String> ids : usable.values()) {catIds.addAll(ids);}
+        List<LootCategory> cats = new ArrayList<>();
+        Map<String, Integer> effMin = new HashMap<>();          // отсутствует = 0
+        Map<String, Integer> effMax = new HashMap<>();          // отсутствует = UNLIMITED
+        for (String id : catIds)
         {
-            Location loc = pool.get(i);
+            LootCategory c = registry.get(id);
+            if (c == null) {continue;}
+            cats.add(c);
+            if (c.getMinChests() != LootCategory.UNLIMITED)
+            {
+                effMin.put(id, Math.max(0, (int) Math.round(c.getMinChests() * mult)));
+            }
+            if (c.getMaxChests() != LootCategory.UNLIMITED)
+            {
+                effMax.put(id, Math.max(0, (int) Math.round(c.getMaxChests() * mult)));
+            }
+        }
+
+        Map<Location, String> assignment = new HashMap<>();
+        Set<Location> free = new LinkedHashSet<>(usable.keySet());
+        Map<String, Integer> assignedCount = new HashMap<>();
+
+        // Фаза 1: минимумы, категории по весу DESC — резервируют свой минимум сундуков
+        List<LootCategory> byWeightDesc = new ArrayList<>(cats);
+        byWeightDesc.sort((a, b) -> Integer.compare(b.getWeight(), a.getWeight()));
+        for (LootCategory c : byWeightDesc)
+        {
+            int min = effMin.getOrDefault(c.getId(), 0);
+            if (min <= 0) {continue;}
+            Integer max = effMax.get(c.getId());
+            List<Location> candidates = new ArrayList<>();
+            for (Location loc : free)
+            {
+                if (usable.get(loc).contains(c.getId())) {candidates.add(loc);}
+            }
+            Collections.shuffle(candidates, RANDOM);
+            int placed = 0;
+            for (Location loc : candidates)
+            {
+                if (placed >= min) {break;}
+                if (max != null && assignedCount.getOrDefault(c.getId(), 0) >= max) {break;}
+                assignment.put(loc, c.getId());
+                free.remove(loc);
+                assignedCount.merge(c.getId(), 1, Integer::sum);
+                placed++;
+            }
+            if (placed < min)
+            {
+                DebugLog.log(Cat.WORLD, "chests-min-short arena=%s cat=%s wanted=%d got=%d",
+                    arena.getId(), c.getId(), min, placed);
+            }
+        }
+
+        // Фаза 2: добор конечных категорий (max != UNLIMITED) до max, взвешенно
+        List<Location> freeList = new ArrayList<>(free);
+        Collections.shuffle(freeList, RANDOM);
+        for (Location loc : freeList)
+        {
+            List<LootCategory> options = new ArrayList<>();
+            for (String id : usable.get(loc))
+            {
+                Integer max = effMax.get(id);
+                if (max == null) {continue;} // безлимитные — фаза 3
+                if (assignedCount.getOrDefault(id, 0) < max)
+                {
+                    LootCategory c = registry.get(id);
+                    if (c != null) {options.add(c);}
+                }
+            }
+            LootCategory chosen = weightedPickCategory(options);
+            if (chosen == null) {continue;}
+            assignment.put(loc, chosen.getId());
+            free.remove(loc);
+            assignedCount.merge(chosen.getId(), 1, Integer::sum);
+        }
+
+        // Фаза 3: наполнители (max == UNLIMITED) забирают все оставшиеся свои точки
+        freeList = new ArrayList<>(free);
+        Collections.shuffle(freeList, RANDOM);
+        for (Location loc : freeList)
+        {
+            List<LootCategory> options = new ArrayList<>();
+            for (String id : usable.get(loc))
+            {
+                if (effMax.containsKey(id)) {continue;} // конечные — фаза 2
+                LootCategory c = registry.get(id);
+                if (c != null) {options.add(c);}
+            }
+            LootCategory chosen = weightedPickCategory(options);
+            if (chosen == null) {continue;}
+            assignment.put(loc, chosen.getId());
+            free.remove(loc);
+            assignedCount.merge(chosen.getId(), 1, Integer::sum);
+        }
+
+        // Материализация: КАЖДАЯ точка сундука сначала в воздух (cleanup вернёт),
+        // затем назначенные точки становятся сундуками и наполняются
+        for (Location loc : arena.getChestSpots().keySet())
+        {
             if (loc.getWorld() == null) {continue;}
             Block block = loc.getBlock();
             editedBlocks.putIfAbsent(loc, block.getBlockData().clone());
-            block.setType(Material.CHEST);
-            if (block.getState() instanceof Chest chest)
-            {
-                generateChestLoot(chest);
-            }
-            activeChests.add(block.getLocation());
-            spawnChestStand(block.getLocation());
+            block.setType(Material.AIR);
         }
-        DebugLog.log(Cat.WORLD, "chests-placed arena=%s mode=legacy placed=%d wanted=%d spots=%d",
-            arena.getId(), activeChests.size(), arena.getChestCount(), pool.size());
+
+        Map<String, Integer> placedPerCat = new LinkedHashMap<>();
+        for (Map.Entry<Location, String> entry : assignment.entrySet())
+        {
+            Location loc = entry.getKey();
+            if (loc.getWorld() == null) {continue;}
+            String catId = entry.getValue();
+            Block block = loc.getBlock();
+            block.setType(Material.CHEST);
+            Location placed = block.getLocation();
+            activeChestCategory.put(placed, catId);
+            LootCategory cat = registry.get(catId);
+            if (cat != null && block.getState() instanceof Chest chest) {fillChestInitial(chest, cat);}
+            activeChests.add(placed);
+            spawnChestStand(placed);
+            placedPerCat.merge(catId, 1, Integer::sum);
+        }
+
+        StringBuilder perCat = new StringBuilder();
+        for (Map.Entry<String, Integer> e : placedPerCat.entrySet())
+        {
+            if (perCat.length() > 0) {perCat.append(',');}
+            perCat.append(e.getKey()).append('=').append(e.getValue());
+        }
+        DebugLog.log(Cat.WORLD, "chests-placed arena=%s total=%d spots=%d per-cat=[%s]",
+            arena.getId(), activeChests.size(), arena.getChestSpots().size(), perCat.toString());
+    }
+
+    /** Взвешенно-случайная категория из списка (по weight). null — список пуст. */
+    private LootCategory weightedPickCategory(List<LootCategory> options)
+    {
+        if (options.isEmpty()) {return null;}
+        int total = 0;
+        for (LootCategory c : options) {total += c.getWeight();}
+        int roll = RANDOM.nextInt(total);
+        for (LootCategory c : options)
+        {
+            roll -= c.getWeight();
+            if (roll < 0) {return c;}
+        }
+        return options.get(options.size() - 1);
     }
 
     private void spawnChestStand(Location chestLoc)
@@ -707,62 +825,157 @@ public class GameSession
         }
         dynamicChestOriginals.put(loc, originals);
 
-        generateChestLoot(chest);
+        // категория динамического сундука — самая весомая с лутом (для рефилла тоже)
+        LootCategory cat = plugin.loot().highestWeightWithLoot();
+        chest.getInventory().clear();
+        if (cat != null)
+        {
+            activeChestCategory.put(loc, cat.getId());
+            fillChestRefill(chest, cat);
+        }
         activeChests.add(loc);
         spawnChestStand(loc);
-        DebugLog.log(Cat.CHEST, "dynamic-register arena=%s at=%s saved-slots=%d active=%d",
-            arena.getId(), DebugLog.at(loc), originals.length, activeChests.size());
+        DebugLog.log(Cat.CHEST, "dynamic-register arena=%s at=%s cat=%s saved-slots=%d active=%d",
+            arena.getId(), DebugLog.at(loc), cat == null ? "-" : cat.getId(), originals.length, activeChests.size());
         return true;
     }
 
-    public void generateChestLoot(Chest chest)
+    /**
+     * Стартовое наполнение сундука по его категории с бюджетом на арену.
+     * Очищает сундук, катает {@code rollSlotCount} слотов. max-per-arena МЯГКИЙ:
+     * per-chest минимум ({@code effMinPerChest}) кладётся всегда, а сверх него
+     * добор прекращается, как только бюджет категории на арену исчерпан.
+     * Категория без лута -> сундук остаётся пустым. Контракты сюда НЕ кладутся.
+     */
+    private void fillChestInitial(Chest chest, LootCategory cat)
     {
         chest.getInventory().clear();
+        if (!cat.hasLoot()) {return;}
+
+        int slots = cat.rollSlotCount(RANDOM);
+        if (slots <= 0) {return;}
+        int minPerChest = cat.effMinPerChest();
+        int maxPerArena = cat.getMaxPerArena();
+
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < 27; i++) {order.add(i);}
+        Collections.shuffle(order, RANDOM);
+
+        int placed = 0;
+        for (int i = 0; i < order.size() && placed < slots; i++)
+        {
+            int used = categoryArenaSlots.getOrDefault(cat.getId(), 0);
+            if (placed >= minPerChest && maxPerArena != LootCategory.UNLIMITED && used >= maxPerArena) {break;}
+            ItemStack item = cat.pickItem(RANDOM);
+            if (item == null) {continue;}
+            chest.getInventory().setItem(order.get(i), applyWear(item));
+            categoryArenaSlots.merge(cat.getId(), 1, Integer::sum);
+            placed++;
+        }
+    }
+
+    /**
+     * Аддитивная догрузка сундука по категории: только в свободные слоты, БЕЗ
+     * очистки и БЕЗ учёта бюджета арены (рефилл, «ключик», динамические сундуки).
+     */
+    private void fillChestRefill(Chest chest, LootCategory cat)
+    {
+        if (!cat.hasLoot()) {return;}
+        int slots = cat.rollSlotCount(RANDOM);
+        if (slots <= 0) {return;}
+
+        ItemStack[] contents = chest.getInventory().getContents();
+        List<Integer> freeSlots = new ArrayList<>();
+        for (int i = 0; i < 27 && i < contents.length; i++)
+        {
+            if (contents[i] == null || contents[i].getType().isAir()) {freeSlots.add(i);}
+        }
+        Collections.shuffle(freeSlots, RANDOM);
+        int count = Math.min(slots, freeSlots.size());
+        for (int i = 0; i < count; i++)
+        {
+            ItemStack item = cat.pickItem(RANDOM);
+            if (item == null) {continue;}
+            chest.getInventory().setItem(freeSlots.get(i), applyWear(item));
+        }
+    }
+
+    /**
+     * Контракты — отдельно от лута, один раз после placeChests(). N = случайно в
+     * [min-per-arena, max-per-arena], зажато в chests * max-per-chest. Раздача:
+     * сначала каждому сундуку до min-per-chest, затем добор до max-per-chest.
+     * Контракты кладутся в свободные слоты и НЕ учитываются в categoryArenaSlots.
+     */
+    private void placeContracts()
+    {
         List<Contract> available = new ArrayList<>();
         for (String cid : arena.getContractIds())
         {
             Contract c = plugin.contracts().get(cid);
             if (c != null && c.isComplete()) {available.add(c);}
         }
+        if (available.isEmpty() || activeChests.isEmpty()) {return;}
 
-        // число заполненных слотов: по категории сундука, иначе ванильные 2-4
-        // (динамические и legacy-сундуки не имеют категории -> прежнее поведение)
-        ChestCategory category = arena.getChestCategory(activeChestCategory.get(chest.getBlock().getLocation()));
-        int items = category != null ? category.rollItemCount(RANDOM) : 2 + RANDOM.nextInt(3);
-        Set<Integer> usedSlots = new HashSet<>();
-        for (int i = 0; i < items; i++)
+        int minArena = arena.getContractsMinPerArena();
+        int maxArena = arena.getContractsMaxPerArena();
+        int minPerChest = arena.getContractsMinPerChest();
+        int maxPerChest = arena.getContractsMaxPerChest();
+
+        int total = maxArena <= minArena ? minArena : minArena + RANDOM.nextInt(maxArena - minArena + 1);
+        total = Math.min(total, activeChests.size() * maxPerChest);
+        if (total <= 0) {return;}
+
+        List<Location> chests = new ArrayList<>(activeChests);
+        Collections.shuffle(chests, RANDOM);
+        Map<Location, Integer> perChest = new HashMap<>();
+        int placed = 0;
+
+        // минимум на каждый сундук
+        for (Location loc : chests)
         {
-            int slot;
-            do {slot = RANDOM.nextInt(27);} while (usedSlots.contains(slot));
-            usedSlots.add(slot);
-
-            ItemStack item;
-            if (!available.isEmpty() && RANDOM.nextInt(4) == 0)
+            if (placed >= total) {break;}
+            for (int i = 0; i < minPerChest && placed < total; i++)
             {
-                item = ContractPapers.create(available.get(RANDOM.nextInt(available.size())));
+                if (!placeOneContract(loc, available)) {break;}
+                perChest.merge(loc, 1, Integer::sum);
+                placed++;
             }
-            else
-            {
-                item = pickLoot();
-                if (item == null) {continue;}
-            }
-            chest.getInventory().setItem(slot, item);
         }
+        // добор до максимума, пока есть прогресс и свободные слоты
+        boolean progress = true;
+        while (placed < total && progress)
+        {
+            progress = false;
+            Collections.shuffle(chests, RANDOM);
+            for (Location loc : chests)
+            {
+                if (placed >= total) {break;}
+                if (perChest.getOrDefault(loc, 0) >= maxPerChest) {continue;}
+                if (!placeOneContract(loc, available)) {continue;}
+                perChest.merge(loc, 1, Integer::sum);
+                placed++;
+                progress = true;
+            }
+        }
+        if (placed < total)
+        {
+            DebugLog.log(Cat.CHEST, "contracts-short arena=%s placed=%d wanted=%d chests=%d no-free-slots",
+                arena.getId(), placed, total, activeChests.size());
+        }
+        DebugLog.log(Cat.CHEST, "contracts-placed arena=%s placed=%d wanted=%d chests=%d avail=%d",
+            arena.getId(), placed, total, activeChests.size(), available.size());
     }
 
-    private ItemStack pickLoot()
+    /** Положить один контракт в свободный слот сундука. false — сундук недоступен или полон. */
+    private boolean placeOneContract(Location loc, List<Contract> available)
     {
-        List<WeightedItem> loot = arena.getLoot();
-        if (loot.isEmpty()) {return null;}
-        int total = 0;
-        for (WeightedItem entry : loot) {total += entry.weight();}
-        int roll = RANDOM.nextInt(total);
-        for (WeightedItem entry : loot)
-        {
-            roll -= entry.weight();
-            if (roll < 0) {return applyWear(entry.item().clone());}
-        }
-        return applyWear(loot.get(loot.size() - 1).item().clone());
+        if (loc.getWorld() == null) {return false;}
+        if (!(loc.getBlock().getState() instanceof Chest chest)) {return false;}
+        int free = chest.getInventory().firstEmpty();
+        if (free < 0 || free >= 27) {return false;}
+        Contract c = available.get(RANDOM.nextInt(available.size()));
+        chest.getInventory().setItem(free, ContractPapers.create(c));
+        return true;
     }
 
     /**
@@ -1086,11 +1299,19 @@ public class GameSession
         }
     }
 
-    /** BRIBE: случайный предмет из пула лута арены. false — пул пуст. */
+    /** BRIBE: случайный предмет из взвешенно выбранной категории лута. false — лута нет. */
     public boolean giveRandomLoot(Player p)
     {
-        ItemStack item = pickLoot();
+        List<LootCategory> options = new ArrayList<>();
+        for (LootCategory c : plugin.loot().all())
+        {
+            if (c.hasLoot()) {options.add(c);}
+        }
+        LootCategory cat = weightedPickCategory(options);
+        if (cat == null) {return false;}
+        ItemStack item = cat.pickItem(RANDOM);
         if (item == null) {return false;}
+        item = applyWear(item);
         var leftovers = p.getInventory().addItem(item);
         for (ItemStack rest : leftovers.values())
         {
@@ -1255,39 +1476,43 @@ public class GameSession
 
     // ===== рефилл сундуков =====
 
-    public void scheduleRefillIfEmpty(Block block)
+    /**
+     * По закрытию сундука: если из него что-то взяли (есть свободный слот), у его
+     * категории задан рефилл (refill-seconds &gt; 0) и нет запланированной задачи —
+     * планируем аддитивную догрузку через max(5, refill-seconds * refill-mult).
+     */
+    public void scheduleRefill(Block block)
     {
         Location loc = block.getLocation();
         if (!activeChests.contains(loc) || refillTasks.containsKey(loc)) {return;}
         if (!(block.getState() instanceof Chest chest)) {return;}
-        if (!chest.getInventory().isEmpty()) {return;}
+        // ничего не взяли (сундук всё ещё полон) — рефилл не нужен
+        if (chest.getInventory().firstEmpty() < 0) {return;}
 
-        ArmorStand stand = standAt(loc);
-        if (stand != null)
+        String catId = activeChestCategory.get(loc);
+        LootCategory cat = catId == null ? null : plugin.loot().get(catId);
+        if (cat == null || cat.getRefillSeconds() <= 0) {return;}
+
+        if (chest.getInventory().isEmpty())
         {
-            stand.customName(Items.flat(Msg.get("chest.empty-name")));
-            stand.setCustomNameVisible(true);
+            ArmorStand stand = standAt(loc);
+            if (stand != null)
+            {
+                stand.customName(Items.flat(Msg.get("chest.empty-name")));
+                stand.setCustomNameVisible(true);
+            }
         }
 
-        // время рефилла: по категории сундука, иначе из config; 0 у категории = без рефилла
-        ChestCategory category = arena.getChestCategory(activeChestCategory.get(loc));
-        int base = category != null ? category.getRefillSeconds()
-            : plugin.getConfig().getInt("chest-refill-seconds", 180);
-        if (category != null && base <= 0)
-        {
-            DebugLog.log(Cat.CHEST, "refill-skip arena=%s at=%s cat=%s no-refill",
-                arena.getId(), DebugLog.at(loc), category.getId());
-            return; // категория без рефилла: сундук остаётся пустым до конца матча
-        }
-        int delay = Math.max(5, (int) Math.round(base * modMult("refill-mult")));
-        DebugLog.log(Cat.CHEST, "refill-scheduled arena=%s at=%s in=%ds", arena.getId(), DebugLog.at(loc), delay);
+        int delay = Math.max(5, (int) Math.round(cat.getRefillSeconds() * modMult("refill-mult")));
+        DebugLog.log(Cat.CHEST, "refill-scheduled arena=%s at=%s cat=%s in=%ds",
+            arena.getId(), DebugLog.at(loc), cat.getId(), delay);
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () ->
         {
             refillTasks.remove(loc);
             if (phase != Phase.RUNNING) {return;}
             if (loc.getBlock().getState() instanceof Chest target)
             {
-                generateChestLoot(target);
+                fillChestRefill(target, cat);
                 DebugLog.log(Cat.CHEST, "refill-done arena=%s at=%s", arena.getId(), DebugLog.at(loc));
                 ArmorStand as = standAt(loc);
                 if (as != null)
@@ -1313,9 +1538,11 @@ public class GameSession
 
         BukkitTask pending = refillTasks.remove(loc);
         if (pending != null) {pending.cancel();}
-        generateChestLoot(chest);
-        DebugLog.log(Cat.CHEST, "refill-forced arena=%s at=%s had-pending=%b",
-            arena.getId(), DebugLog.at(loc), pending != null);
+        String catId = activeChestCategory.get(loc);
+        LootCategory cat = catId == null ? null : plugin.loot().get(catId);
+        if (cat != null) {fillChestRefill(chest, cat);}
+        DebugLog.log(Cat.CHEST, "refill-forced arena=%s at=%s cat=%s had-pending=%b",
+            arena.getId(), DebugLog.at(loc), cat == null ? "-" : catId, pending != null);
 
         ArmorStand stand = standAt(loc);
         if (stand != null)
@@ -1719,6 +1946,7 @@ public class GameSession
         matchFires.clear();
         activeChests.clear();
         activeChestCategory.clear();
+        categoryArenaSlots.clear();
         chestStands.clear();
         traderLocations.clear();
 

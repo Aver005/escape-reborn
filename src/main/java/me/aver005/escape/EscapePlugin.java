@@ -4,10 +4,11 @@ import java.sql.SQLException;
 
 import me.aver005.escape.arena.ArenaManager;
 import me.aver005.escape.arena.ChestSetupManager;
-import me.aver005.escape.category.CategoryRegistry;
 import me.aver005.escape.command.EscapeCommand;
 import me.aver005.escape.contract.ContractRegistry;
 import me.aver005.escape.kit.KitRegistry;
+import me.aver005.escape.loot.LootCategoryRegistry;
+import me.aver005.escape.loot.LootMigration;
 import me.aver005.escape.modifier.ModifierRegistry;
 import me.aver005.escape.theme.ThemeRegistry;
 import me.aver005.escape.listener.ChatListener;
@@ -33,7 +34,7 @@ public final class EscapePlugin extends JavaPlugin
     private TraderRegistry traderRegistry;
     private KitRegistry kitRegistry;
     private ModifierRegistry modifierRegistry;
-    private CategoryRegistry categoryRegistry;
+    private LootCategoryRegistry lootRegistry;
     private ChestSetupManager chestSetup;
     private StatsRepository statsRepository;
 
@@ -51,7 +52,7 @@ public final class EscapePlugin extends JavaPlugin
         traderRegistry = new TraderRegistry(this);
         kitRegistry = new KitRegistry(this);
         modifierRegistry = new ModifierRegistry(this);
-        categoryRegistry = new CategoryRegistry(this);
+        lootRegistry = new LootCategoryRegistry(this);
         chestSetup = new ChestSetupManager(this);
         statsRepository = new StatsRepository(this);
 
@@ -60,11 +61,13 @@ public final class EscapePlugin extends JavaPlugin
 
         kitRegistry.load();
         modifierRegistry.load();
-        categoryRegistry.load();
+        lootRegistry.load();
         arenaManager.loadAll();
         contractRegistry.load();
         themeRegistry.load();
         traderRegistry.load();
+        // одноразовая миграция старых пулов/пер-ареновых категорий в глобальные loot/*.yml
+        LootMigration.run(this);
 
         var pm = getServer().getPluginManager();
         pm.registerEvents(new MenuListener(), this);
@@ -112,7 +115,7 @@ public final class EscapePlugin extends JavaPlugin
         DebugLog.reload();
         kitRegistry.load();
         modifierRegistry.load();
-        categoryRegistry.load();
+        lootRegistry.load();
         arenaManager.loadAll();
         contractRegistry.load();
         themeRegistry.load();
@@ -125,7 +128,7 @@ public final class EscapePlugin extends JavaPlugin
     public TraderRegistry traders() {return traderRegistry;}
     public KitRegistry kits() {return kitRegistry;}
     public ModifierRegistry modifiers() {return modifierRegistry;}
-    public CategoryRegistry categories() {return categoryRegistry;}
+    public LootCategoryRegistry loot() {return lootRegistry;}
     public ChestSetupManager chestSetup() {return chestSetup;}
     public StatsRepository stats() {return statsRepository;}
 }

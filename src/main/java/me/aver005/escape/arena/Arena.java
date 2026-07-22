@@ -8,20 +8,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import me.aver005.escape.category.ChestCategory;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.kit.Kit;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.inventory.ItemStack;
 
 /**
  * Арена: настройки + сконфигурированные точки.
- * Хранится в папке arenas/<id>/ тремя файлами: arena.yml, locations.yml, loot.yml.
+ * Хранится в папке arenas/<id>/: arena.yml, locations.yml, kits.yml.
+ * Лут больше НЕ хранится на арене — он в глобальных категориях (loot/*.yml);
+ * точка сундука несёт список id категорий (0..N).
  */
 public class Arena
 {
@@ -34,7 +33,6 @@ public class Arena
     private boolean enabled = false;
     private int minPlayers = 2;
     private int maxPlayers = 12;
-    private int chestCount = 75;
     private int traderCount = 32;
     private int tableCount = 5;
     private int durationSeconds = 1200;
@@ -50,6 +48,11 @@ public class Arena
     private int wearMinPercent = 40;  // случайный износ лута с прочностью, %
     private int wearMaxPercent = 90;  // 0 = износ выключен
     private boolean dynamicChests = false; // немаркированный сундук при открытии становится игровым
+    // контракты кладутся в сундуки независимо от лута (в бюджет категорий не идут)
+    private int contractsMinPerArena = 0;
+    private int contractsMaxPerArena = 6;
+    private int contractsMinPerChest = 0;
+    private int contractsMaxPerChest = 1;
     private Location lobby;
     private List<String> contractIds = new ArrayList<>();
     private List<String> deadMessages = new ArrayList<>();
@@ -57,22 +60,16 @@ public class Arena
     // locations.yml
     private List<Location> spawns = new ArrayList<>();
     private List<Location> finalSpawns = new ArrayList<>();
-    private final Map<Location, String> chestSpots = new LinkedHashMap<>();   // точка -> id категории
+    private final Map<Location, List<String>> chestSpots = new LinkedHashMap<>();   // точка -> id категорий (0..N)
     private List<Location> tableSpots = new ArrayList<>();
     private List<Location> oreSpots = new ArrayList<>();
     private final Map<Location, String> levers = new LinkedHashMap<>();       // точка -> имя локации
     private final Map<Location, String> traderSpots = new LinkedHashMap<>();  // точка -> тип торговца
     private List<Location> breakables = new ArrayList<>();                    // отмеченные ломаемые блоки (вернутся после матча)
 
-    // loot.yml
-    private final List<WeightedItem> loot = new ArrayList<>();
-
     // kits.yml — стартовые наборы («касты»), копии глобальных шаблонов
     private final List<Kit> kits = new ArrayList<>();
     private String defaultKit = "random";  // выбор по умолчанию: random | none | <id каста>
-
-    // chest-categories.yml — категории сундуков (квоты/лут/рефилл), копии глобальных шаблонов
-    private final List<ChestCategory> chestCategories = new ArrayList<>();
 
     // arena.yml — лимит числа жителей ПО ТИПУ (typeId -> макс. за матч); нет записи = все точки типа
     private final Map<String, Integer> traderQuotas = new LinkedHashMap<>();
@@ -98,7 +95,6 @@ public class Arena
         arena.enabled = cfg.getBoolean("enabled", false);
         arena.minPlayers = cfg.getInt("min-players", 2);
         arena.maxPlayers = cfg.getInt("max-players", 12);
-        arena.chestCount = cfg.getInt("chest-count", 75);
         arena.traderCount = cfg.getInt("trader-count", 32);
         arena.tableCount = cfg.getInt("table-count", 5);
         arena.durationSeconds = cfg.getInt("duration-seconds", 1200);
@@ -114,6 +110,10 @@ public class Arena
         arena.wearMinPercent = cfg.getInt("wear-min-percent", 40);
         arena.wearMaxPercent = cfg.getInt("wear-max-percent", 90);
         arena.dynamicChests = cfg.getBoolean("dynamic-chests", false);
+        arena.contractsMinPerArena = Math.max(0, cfg.getInt("contract-min-per-arena", 0));
+        arena.contractsMaxPerArena = Math.max(arena.contractsMinPerArena, cfg.getInt("contract-max-per-arena", 6));
+        arena.contractsMinPerChest = Math.max(0, cfg.getInt("contract-min-per-chest", 0));
+        arena.contractsMaxPerChest = Math.max(arena.contractsMinPerChest, cfg.getInt("contract-max-per-chest", 1));
         arena.lobby = cfg.getLocation("lobby");
         arena.contractIds = new ArrayList<>(cfg.getStringList("contracts"));
         arena.deadMessages = new ArrayList<>(cfg.getStringList("dead-messages"));
@@ -128,25 +128,6 @@ public class Arena
         readNamedLocations(locs, "traders", "type", arena.traderSpots);
         arena.breakables = readLocations(locs, "breakables");
 
-        YamlConfiguration lootCfg = YamlConfiguration.loadConfiguration(new File(folder, "loot.yml"));
-        for (Map<?, ?> entry : lootCfg.getMapList("items"))
-        {
-            // простой рукописный формат: {type: STONE_SWORD, weight: 20, amount: 1}
-            // + potion/effects/enchants/name (см. Items.fromSpec)
-            ItemStack item;
-            if (entry.get("type") instanceof String)
-            {
-                item = me.aver005.escape.util.Items.fromSpec(entry);
-            }
-            else
-            {
-                item = readItem(entry.get("item"));
-            }
-            Object weight = entry.get("weight");
-            if (item == null) {continue;}
-            arena.loot.add(new WeightedItem(item, weight instanceof Number n ? Math.max(1, n.intValue()) : 1));
-        }
-
         YamlConfiguration kitsCfg = YamlConfiguration.loadConfiguration(new File(folder, "kits.yml"));
         arena.defaultKit = kitsCfg.getString("default-kit", "random");
         ConfigurationSection kitsRoot = kitsCfg.getConfigurationSection("kits");
@@ -156,17 +137,6 @@ public class Arena
             {
                 ConfigurationSection ks = kitsRoot.getConfigurationSection(kid);
                 if (ks != null) {arena.kits.add(Kit.load(kid, ks));}
-            }
-        }
-
-        YamlConfiguration catCfg = YamlConfiguration.loadConfiguration(new File(folder, "chest-categories.yml"));
-        ConfigurationSection catRoot = catCfg.getConfigurationSection("categories");
-        if (catRoot != null)
-        {
-            for (String cid : catRoot.getKeys(false))
-            {
-                ConfigurationSection cs = catRoot.getConfigurationSection(cid);
-                if (cs != null) {arena.chestCategories.add(ChestCategory.load(cid, cs));}
             }
         }
 
@@ -191,7 +161,6 @@ public class Arena
         cfg.set("enabled", enabled);
         cfg.set("min-players", minPlayers);
         cfg.set("max-players", maxPlayers);
-        cfg.set("chest-count", chestCount);
         cfg.set("trader-count", traderCount);
         cfg.set("table-count", tableCount);
         cfg.set("duration-seconds", durationSeconds);
@@ -207,6 +176,10 @@ public class Arena
         cfg.set("wear-min-percent", wearMinPercent);
         cfg.set("wear-max-percent", wearMaxPercent);
         cfg.set("dynamic-chests", dynamicChests);
+        cfg.set("contract-min-per-arena", contractsMinPerArena);
+        cfg.set("contract-max-per-arena", contractsMaxPerArena);
+        cfg.set("contract-min-per-chest", contractsMinPerChest);
+        cfg.set("contract-max-per-chest", contractsMaxPerChest);
         cfg.set("lobby", lobby);
         cfg.set("contracts", contractIds);
         cfg.set("dead-messages", deadMessages);
@@ -219,20 +192,12 @@ public class Arena
         YamlConfiguration locs = new YamlConfiguration();
         locs.set("spawns", spawns);
         locs.set("final-spawns", finalSpawns);
-        locs.set("chests", writeNamedLocations(chestSpots, "category"));
+        locs.set("chests", writeChestSpots(chestSpots));
         locs.set("tables", tableSpots);
         locs.set("ores", oreSpots);
         locs.set("levers", writeNamedLocations(levers, "name"));
         locs.set("traders", writeNamedLocations(traderSpots, "type"));
         locs.set("breakables", breakables);
-
-        YamlConfiguration lootCfg = new YamlConfiguration();
-        List<Map<String, Object>> items = new ArrayList<>();
-        for (WeightedItem entry : loot)
-        {
-            items.add(Map.of("item", entry.item().serialize(), "weight", entry.weight()));
-        }
-        lootCfg.set("items", items);
 
         YamlConfiguration kitsCfg = new YamlConfiguration();
         kitsCfg.set("default-kit", defaultKit);
@@ -241,19 +206,11 @@ public class Arena
             kit.save(kitsCfg.createSection("kits." + kit.getId()));
         }
 
-        YamlConfiguration catCfg = new YamlConfiguration();
-        for (ChestCategory cat : chestCategories)
-        {
-            cat.save(catCfg.createSection("categories." + cat.getId()));
-        }
-
         try
         {
             cfg.save(new File(folder, "arena.yml"));
             locs.save(new File(folder, "locations.yml"));
-            lootCfg.save(new File(folder, "loot.yml"));
             kitsCfg.save(new File(folder, "kits.yml"));
-            catCfg.save(new File(folder, "chest-categories.yml"));
         }
         catch (IOException e)
         {
@@ -282,24 +239,45 @@ public class Arena
     }
 
     /**
-     * Точки сундуков: НОВЫЙ формат — список {location, category}, СТАРЫЙ — плоский
-     * список Location (тогда категория = default). Так старые арены не теряют точки
-     * при первой загрузке новой версии; пере-сейв апгрейдит файл до нового формата.
+     * Точки сундуков → список id категорий (0..N). Форматы (в порядке новизны):
+     *   НОВЫЙ    {location, categories: [id, ...]} — мультикатегорийная точка;
+     *   СТАРЫЙ-1 {location, category: id}         — одиночная категория (список из 1);
+     *   СТАРЫЙ-0 плоский Location                 — без категорий (пустой список).
+     * Пере-сейв апгрейдит файл до нового формата.
      */
-    private static void readChestSpots(ConfigurationSection sec, Map<Location, String> target)
+    @SuppressWarnings("unchecked")
+    private static void readChestSpots(ConfigurationSection sec, Map<Location, List<String>> target)
     {
         for (Object o : sec.getList("chests", List.of()))
         {
             if (o instanceof Location l)
             {
-                target.put(l, ChestCategory.DEFAULT_ID);
+                target.put(l, new ArrayList<>());
             }
             else if (o instanceof Map<?, ?> m && m.get("location") instanceof Location l)
             {
-                Object cat = m.get("category");
-                target.put(l, cat != null ? String.valueOf(cat) : ChestCategory.DEFAULT_ID);
+                List<String> cats = new ArrayList<>();
+                if (m.get("categories") instanceof List<?> list)
+                {
+                    for (Object c : list) {if (c != null) {cats.add(String.valueOf(c));}}
+                }
+                else if (m.get("category") != null)
+                {
+                    cats.add(String.valueOf(m.get("category")));
+                }
+                target.put(l, cats);
             }
         }
+    }
+
+    private List<Map<String, Object>> writeChestSpots(Map<Location, List<String>> source)
+    {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map.Entry<Location, List<String>> entry : source.entrySet())
+        {
+            out.add(Map.of("location", entry.getKey(), "categories", new ArrayList<>(entry.getValue())));
+        }
+        return out;
     }
 
     private List<Map<String, Object>> writeNamedLocations(Map<Location, String> source, String valueKey)
@@ -310,14 +288,6 @@ public class Arena
             out.add(Map.of("location", entry.getKey(), valueKey, entry.getValue()));
         }
         return out;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static ItemStack readItem(Object raw)
-    {
-        if (raw instanceof ItemStack is) {return is;}
-        if (raw instanceof Map<?, ?> map) {return ItemStack.deserialize((Map<String, Object>) map);}
-        return null;
     }
 
     // ===== accessors =====
@@ -336,8 +306,6 @@ public class Arena
     public void setMinPlayers(int v) {this.minPlayers = v;}
     public int getMaxPlayers() {return maxPlayers;}
     public void setMaxPlayers(int v) {this.maxPlayers = v;}
-    public int getChestCount() {return chestCount;}
-    public void setChestCount(int v) {this.chestCount = v;}
     public int getTraderCount() {return traderCount;}
     public void setTraderCount(int v) {this.traderCount = v;}
     public int getTableCount() {return tableCount;}
@@ -368,20 +336,27 @@ public class Arena
     public void setWearMaxPercent(int v) {this.wearMaxPercent = v;}
     public boolean isDynamicChests() {return dynamicChests;}
     public void setDynamicChests(boolean v) {this.dynamicChests = v;}
+    public int getContractsMinPerArena() {return contractsMinPerArena;}
+    public void setContractsMinPerArena(int v) {this.contractsMinPerArena = Math.max(0, v);}
+    public int getContractsMaxPerArena() {return contractsMaxPerArena;}
+    public void setContractsMaxPerArena(int v) {this.contractsMaxPerArena = Math.max(0, v);}
+    public int getContractsMinPerChest() {return contractsMinPerChest;}
+    public void setContractsMinPerChest(int v) {this.contractsMinPerChest = Math.max(0, v);}
+    public int getContractsMaxPerChest() {return contractsMaxPerChest;}
+    public void setContractsMaxPerChest(int v) {this.contractsMaxPerChest = Math.max(0, v);}
     public Location getLobby() {return lobby;}
     public void setLobby(Location v) {this.lobby = v;}
     public List<String> getContractIds() {return contractIds;}
     public List<String> getDeadMessages() {return deadMessages;}
     public List<Location> getSpawns() {return spawns;}
     public List<Location> getFinalSpawns() {return finalSpawns;}
-    public Map<Location, String> getChestSpots() {return chestSpots;}
+    public Map<Location, List<String>> getChestSpots() {return chestSpots;}
     public List<Location> getTableSpots() {return tableSpots;}
     public List<Location> getOreSpots() {return oreSpots;}
     public Map<Location, String> getLevers() {return levers;}
     public Map<Location, String> getTraderSpots() {return traderSpots;}
     public Map<String, Integer> getTraderQuotas() {return traderQuotas;}
     public List<Location> getBreakables() {return breakables;}
-    public List<WeightedItem> getLoot() {return loot;}
     public List<Kit> getKits() {return kits;}
     public String getDefaultKit() {return defaultKit;}
     public void setDefaultKit(String v) {this.defaultKit = v;}
@@ -402,26 +377,6 @@ public class Arena
     public boolean removeKit(String id)
     {
         return kits.removeIf(kit -> kit.getId().equalsIgnoreCase(id));
-    }
-
-    public List<ChestCategory> getChestCategories() {return chestCategories;}
-
-    /** Категория сундука арены по id (без учёта регистра) или null. */
-    public ChestCategory getChestCategory(String id)
-    {
-        if (id == null) {return null;}
-        for (ChestCategory cat : chestCategories)
-        {
-            if (cat.getId().equalsIgnoreCase(id)) {return cat;}
-        }
-        return null;
-    }
-
-    public void addChestCategory(ChestCategory cat) {chestCategories.add(cat);}
-
-    public boolean removeChestCategory(String id)
-    {
-        return chestCategories.removeIf(cat -> cat.getId().equalsIgnoreCase(id));
     }
 
     public GameSession getSession() {return session;}
