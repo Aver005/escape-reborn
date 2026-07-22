@@ -49,10 +49,10 @@ public class Arena
     private int wearMaxPercent = 90;  // 0 = износ выключен
     private boolean dynamicChests = false; // немаркированный сундук при открытии становится игровым
     // контракты кладутся в сундуки независимо от лута (в бюджет категорий не идут)
-    private int contractsMinPerArena = 0;
-    private int contractsMaxPerArena = -1;   // -1 = без потолка на арену (раздачу диктует per-chest)
-    private int contractsMinPerChest = 0;
-    private int contractsMaxPerChest = 1;
+    private int contractsMinPerArena = 4;
+    private int contractsMaxPerArena = 16;   // -1 = без потолка (заполнить до chests*max-per-chest)
+    private int contractsMinPerChest = 0;    // не используется в раздаче (оставлен для совместимости)
+    private int contractsMaxPerChest = 3;    // потолок контрактов в одном сундуке
     private Location lobby;
     private List<String> contractIds = new ArrayList<>();
     private List<String> deadMessages = new ArrayList<>();
@@ -110,11 +110,11 @@ public class Arena
         arena.wearMinPercent = cfg.getInt("wear-min-percent", 40);
         arena.wearMaxPercent = cfg.getInt("wear-max-percent", 90);
         arena.dynamicChests = cfg.getBoolean("dynamic-chests", false);
-        arena.contractsMinPerArena = Math.max(0, cfg.getInt("contract-min-per-arena", 0));
-        int cMaxArena = cfg.getInt("contract-max-per-arena", -1);   // -1 = без потолка (пер-сундук рулит)
+        arena.contractsMinPerArena = Math.max(0, cfg.getInt("contract-min-per-arena", 4));
+        int cMaxArena = cfg.getInt("contract-max-per-arena", 16);   // -1 = без потолка (заполнить до предела)
         arena.contractsMaxPerArena = cMaxArena < 0 ? -1 : Math.max(arena.contractsMinPerArena, cMaxArena);
         arena.contractsMinPerChest = Math.max(0, cfg.getInt("contract-min-per-chest", 0));
-        arena.contractsMaxPerChest = Math.max(arena.contractsMinPerChest, cfg.getInt("contract-max-per-chest", 1));
+        arena.contractsMaxPerChest = Math.max(1, cfg.getInt("contract-max-per-chest", 3));
         arena.lobby = cfg.getLocation("lobby");
         arena.contractIds = new ArrayList<>(cfg.getStringList("contracts"));
         arena.deadMessages = new ArrayList<>(cfg.getStringList("dead-messages"));

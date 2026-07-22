@@ -877,79 +877,86 @@ public class GameSession
         }
     }
 
-    /**
-     * Контракты — отдельно от лута, один раз после placeChests(). N = случайно в
-     * [min-per-arena, max-per-arena], зажато в chests * max-per-chest. Раздача:
-     * сначала каждому сундуку до min-per-chest, затем добор до max-per-chest.
-     * Контракты кладутся в свободные слоты и НЕ учитываются в categoryArenaSlots.
-     */
-    private void placeContracts()
+    /** Валидные контракты арены (тип задан, amount &gt; 0). */
+    private List<Contract> availableContracts()
     {
-        List<Contract> available = new ArrayList<>();
+        List<Contract> out = new ArrayList<>();
         for (String cid : arena.getContractIds())
         {
             Contract c = plugin.contracts().get(cid);
-            if (c != null && c.isComplete()) {available.add(c);}
+            if (c != null && c.isComplete()) {out.add(c);}
         }
-        if (available.isEmpty() || activeChests.isEmpty()) {return;}
-
-        int minArena = arena.getContractsMinPerArena();
-        int maxArena = arena.getContractsMaxPerArena();          // -1 = без потолка
-        int minPerChest = Math.max(0, arena.getContractsMinPerChest());
-        int maxPerChest = Math.max(minPerChest, arena.getContractsMaxPerChest());
-
-        List<Location> chests = new ArrayList<>(activeChests);
-        Collections.shuffle(chests, RANDOM);
-        Map<Location, Integer> perChest = new HashMap<>();
-        int placed = 0;
-
-        // ОСНОВА — ПЕР-СУНДУК: каждый сундук катает [min,max]-per-chest; потолок на
-        // арену МЯГКИЙ (-1 = без потолка, тогда плотность целиком задаёт per-chest)
-        for (Location loc : chests)
-        {
-            if (maxArena >= 0 && placed >= maxArena) {break;}
-            int want = maxPerChest <= minPerChest ? minPerChest
-                : minPerChest + RANDOM.nextInt(maxPerChest - minPerChest + 1);
-            for (int i = 0; i < want; i++)
-            {
-                if (maxArena >= 0 && placed >= maxArena) {break;}
-                if (!placeOneContract(loc, available)) {break;}
-                perChest.merge(loc, 1, Integer::sum);
-                placed++;
-            }
-        }
-
-        // Пол на арену: если недобрали min-per-arena — добиваем по свободным сундукам
-        int floor = Math.max(0, minArena);
-        if (maxArena >= 0) {floor = Math.min(floor, maxArena);}
-        boolean progress = true;
-        while (placed < floor && progress)
-        {
-            progress = false;
-            Collections.shuffle(chests, RANDOM);
-            for (Location loc : chests)
-            {
-                if (placed >= floor) {break;}
-                if (perChest.getOrDefault(loc, 0) >= maxPerChest) {continue;}
-                if (!placeOneContract(loc, available)) {continue;}
-                perChest.merge(loc, 1, Integer::sum);
-                placed++;
-                progress = true;
-            }
-        }
-        DebugLog.log(Cat.CHEST, "contracts-placed arena=%s placed=%d chests=%d in-chests=%d avail=%d max-arena=%d per-chest=%d-%d",
-            arena.getId(), placed, activeChests.size(), perChest.size(), available.size(), maxArena, minPerChest, maxPerChest);
+        return out;
     }
 
-    /** Положить один контракт в свободный слот сундука. false — сундук недоступен или полон. */
+    /**
+     * Контракты — отдельно от лута, один раз после placeChests(). Катаем случайное
+     * ЧИСЛО на матч (total в [min-per-arena, max-per-arena]; max=-1 => заполняем до
+     * предела chests*max-per-chest) и раскидываем по СЛУЧАЙНЫМ сундукам в СЛУЧАЙНЫЕ
+     * слоты. Сундук, набравший max-per-chest (или без свободных слотов), выбывает из
+     * выборки. В categoryArenaSlots контракты не учитываются.
+     */
+    private void placeContracts()
+    {
+        List<Contract> available = availableContracts();
+        if (available.isEmpty() || activeChests.isEmpty()) {return;}
+
+        int minArena = Math.max(0, arena.getContractsMinPerArena());
+        int maxArena = arena.getContractsMaxPerArena();          // -1 = без потолка
+        int maxPerChest = Math.max(1, arena.getContractsMaxPerChest());
+
+        int total = maxArena < 0 ? activeChests.size() * maxPerChest
+            : (maxArena <= minArena ? minArena : minArena + RANDOM.nextInt(maxArena - minArena + 1));
+        if (total <= 0) {return;}
+
+        List<Location> pool = new ArrayList<>(activeChests);   // сундуки-кандидаты
+        Map<Location, Integer> perChest = new HashMap<>();
+        int placed = 0;
+        while (placed < total && !pool.isEmpty())
+        {
+            int idx = RANDOM.nextInt(pool.size());
+            Location loc = pool.get(idx);
+            if (!placeOneContract(loc, available))
+            {
+                pool.remove(idx);                              // нет свободных слотов -> из выборки
+                continue;
+            }
+            placed++;
+            int n = perChest.merge(loc, 1, Integer::sum);
+            if (n >= maxPerChest) {pool.remove(idx);}          // набрал max-per-chest -> из выборки
+        }
+        DebugLog.log(Cat.CHEST, "contracts-placed arena=%s placed=%d total=%d chests=%d in-chests=%d avail=%d",
+            arena.getId(), placed, total, activeChests.size(), perChest.size(), available.size());
+    }
+
+    /** Рефилл: с шансом 1/4 добросить один контракт в этот сундук (в случайный свободный слот). */
+    private void maybeRefillContract(Chest chest)
+    {
+        if (RANDOM.nextInt(4) != 0) {return;}
+        List<Contract> available = availableContracts();
+        if (!available.isEmpty()) {placeContractInChest(chest, available);}
+    }
+
+    /** Положить один контракт в СЛУЧАЙНЫЙ свободный слот сундука. false — свободных слотов нет. */
     private boolean placeOneContract(Location loc, List<Contract> available)
     {
         if (loc.getWorld() == null) {return false;}
         if (!(loc.getBlock().getState() instanceof Chest chest)) {return false;}
-        int free = chest.getInventory().firstEmpty();
-        if (free < 0) {return false;}
+        return placeContractInChest(chest, available);
+    }
+
+    private boolean placeContractInChest(Chest chest, List<Contract> available)
+    {
+        ItemStack[] contents = chest.getInventory().getContents();
+        List<Integer> free = new ArrayList<>();
+        for (int i = 0; i < contents.length; i++)
+        {
+            if (contents[i] == null || contents[i].getType().isAir()) {free.add(i);}
+        }
+        if (free.isEmpty()) {return false;}
+        int slot = free.get(RANDOM.nextInt(free.size()));
         Contract c = available.get(RANDOM.nextInt(available.size()));
-        chest.getInventory().setItem(free, ContractPapers.create(c));
+        chest.getInventory().setItem(slot, ContractPapers.create(c));
         return true;
     }
 
@@ -1495,6 +1502,7 @@ public class GameSession
             if (loc.getBlock().getState() instanceof Chest target)
             {
                 fillChestRefill(target, categoriesFor(activeChestCategories.get(loc)));
+                maybeRefillContract(target);
                 DebugLog.log(Cat.CHEST, "refill-done arena=%s at=%s", arena.getId(), DebugLog.at(loc));
                 ArmorStand as = standAt(loc);
                 if (as != null)
@@ -1522,6 +1530,7 @@ public class GameSession
         if (pending != null) {pending.cancel();}
         List<LootCategory> cats = categoriesFor(activeChestCategories.get(loc));
         fillChestRefill(chest, cats);
+        maybeRefillContract(chest);
         DebugLog.log(Cat.CHEST, "refill-forced arena=%s at=%s cats=%d had-pending=%b",
             arena.getId(), DebugLog.at(loc), cats.size(), pending != null);
 
