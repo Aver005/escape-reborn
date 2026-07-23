@@ -1,4 +1,5 @@
 package me.aver005.escape.arena;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,9 +13,9 @@ import me.aver005.escape.menu.ChestSetupMenu;
 import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import org.bukkit.Bukkit;
@@ -118,7 +119,7 @@ public class ChestSetupManager
                     Msg.ph("refill", cat.getRefillSeconds())),
                 WAND_TAG);
             ItemMeta meta = wand.getItemMeta();
-            meta.getPersistentDataContainer().set(Keys.CATEGORY_ID, PersistentDataType.STRING, cat.getId());
+            meta.getPersistentDataContainer().set(EscapeKeys.CATEGORY_ID, PersistentDataType.STRING, cat.getId());
             wand.setItemMeta(meta);
             p.getInventory().addItem(wand);
         }

@@ -3,9 +3,9 @@ package me.aver005.escape.arena;
 import java.util.ArrayList;
 import java.util.List;
 
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.Material;

@@ -12,7 +12,7 @@ import me.aver005.escape.menu.ShopMenu;
 import me.aver005.escape.menu.ThemesMenu;
 import me.aver005.escape.theme.Theme;
 import me.aver005.escape.trader.TraderType;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;

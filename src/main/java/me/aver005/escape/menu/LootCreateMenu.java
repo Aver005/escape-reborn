@@ -1,9 +1,10 @@
 package me.aver005.escape.menu;
+import ru.kiviuly.mg.api.menu.Menu;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.loot.LootCategory;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;

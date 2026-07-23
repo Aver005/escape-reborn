@@ -4,7 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;

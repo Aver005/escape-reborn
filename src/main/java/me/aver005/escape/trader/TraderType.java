@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -45,7 +45,7 @@ public class TraderType
             {
                 // рукописный формат: {type: BREAD, amount: 3, price: 2}
                 // + potion/effects/enchants/name (см. Items.fromSpec)
-                item = me.aver005.escape.util.Items.fromSpec(entry);
+                item = ru.kiviuly.mg.api.util.Items.fromSpec(entry);
             }
             else if (rawItem instanceof ItemStack is) {item = is;}
             else if (rawItem instanceof Map<?, ?> map) {item = ItemStack.deserialize((Map<String, Object>) map);}

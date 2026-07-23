@@ -1,6 +1,6 @@
 package me.aver005.escape.game;
 
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Item;

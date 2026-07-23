@@ -1,4 +1,5 @@
 package me.aver005.escape.command;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -30,9 +31,9 @@ import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.GameRule;
 import org.bukkit.GameRules;
@@ -690,7 +691,7 @@ public class EscapeCommand implements TabExecutor
                     ItemMeta meta = tag.getItemMeta();
                     var pdc = meta.getPersistentDataContainer();
                     pdc.set(Keys.MARKER_ARENA, PersistentDataType.STRING, arena.getId());
-                    pdc.set(Keys.CATEGORY_ID, PersistentDataType.STRING, cat.getId());
+                    pdc.set(EscapeKeys.CATEGORY_ID, PersistentDataType.STRING, cat.getId());
                     tag.setItemMeta(meta);
                     p.getInventory().addItem(tag);
                 }

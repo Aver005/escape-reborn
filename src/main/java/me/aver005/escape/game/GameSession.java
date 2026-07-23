@@ -1,4 +1,5 @@
 package me.aver005.escape.game;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,9 +29,9 @@ import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
@@ -1053,7 +1054,7 @@ public class GameSession
             v.setCanPickupItems(false);
             v.customName(type.displayName());
             v.setCustomNameVisible(true);
-            v.getPersistentDataContainer().set(Keys.TRADER_TYPE,
+            v.getPersistentDataContainer().set(EscapeKeys.TRADER_TYPE,
                 PersistentDataType.STRING, type.getId());
         });
         spawnedEntities.add(villager.getUniqueId());

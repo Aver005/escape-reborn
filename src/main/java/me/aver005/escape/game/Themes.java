@@ -1,4 +1,5 @@
 package me.aver005.escape.game;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.Random;
 import java.util.UUID;
@@ -10,9 +11,9 @@ import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -263,7 +264,7 @@ public class Themes
 
             // взявшему темку — закрыть её (награда достаётся доставившему)
             String ownerRaw = item.getItemMeta().getPersistentDataContainer()
-                .get(Keys.THEME_OWNER, PersistentDataType.STRING);
+                .get(EscapeKeys.THEME_OWNER, PersistentDataType.STRING);
             if (ownerRaw != null)
             {
                 MatchPlayer owner = session.matchData(UUID.fromString(ownerRaw));
@@ -316,8 +317,8 @@ public class Themes
                 target != null ? target.displayName() : Component.empty())),
             "theme_package");
         ItemMeta meta = item.getItemMeta();
-        meta.getPersistentDataContainer().set(Keys.THEME_ID, PersistentDataType.STRING, theme.getId());
-        meta.getPersistentDataContainer().set(Keys.THEME_OWNER, PersistentDataType.STRING,
+        meta.getPersistentDataContainer().set(EscapeKeys.THEME_ID, PersistentDataType.STRING, theme.getId());
+        meta.getPersistentDataContainer().set(EscapeKeys.THEME_OWNER, PersistentDataType.STRING,
             owner.getUniqueId().toString());
         item.setItemMeta(meta);
         return item;
@@ -326,7 +327,7 @@ public class Themes
     private String packageThemeId(ItemStack item)
     {
         if (item == null || !item.hasItemMeta()) {return null;}
-        return item.getItemMeta().getPersistentDataContainer().get(Keys.THEME_ID, PersistentDataType.STRING);
+        return item.getItemMeta().getPersistentDataContainer().get(EscapeKeys.THEME_ID, PersistentDataType.STRING);
     }
 
     public ItemStack createMagicKey()

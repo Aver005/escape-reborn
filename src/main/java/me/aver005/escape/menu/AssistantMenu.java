@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+import ru.kiviuly.mg.api.menu.Menu;
+import me.aver005.escape.util.EscapeItems;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,8 +8,8 @@ import java.util.UUID;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.game.GameSession;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -78,7 +80,7 @@ public class AssistantMenu extends Menu
     private void sendCoords(Player p, String headerKey, Location loc)
     {
         Msg.send(p, "assistant.used-header", Msg.phC("ability", Msg.get(headerKey)));
-        if (Items.pointAssistantCompass(p, loc))
+        if (EscapeItems.pointAssistantCompass(p, loc))
         {
             Msg.send(p, "assistant.compass-points");
         }

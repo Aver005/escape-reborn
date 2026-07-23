@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Random;
 
 import me.aver005.escape.arena.WeightedItem;
-import me.aver005.escape.util.Items;
+import ru.kiviuly.mg.api.util.Items;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;

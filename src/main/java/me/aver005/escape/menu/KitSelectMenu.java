@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+import ru.kiviuly.mg.api.menu.Menu;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,9 +10,9 @@ import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.kit.Kit;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
@@ -93,7 +95,7 @@ public class KitSelectMenu extends Menu
     {
         ItemStack item = Items.named(mat, name, lore);
         ItemMeta meta = item.getItemMeta();
-        meta.getPersistentDataContainer().set(Keys.KIT_ID, PersistentDataType.STRING, kitId);
+        meta.getPersistentDataContainer().set(EscapeKeys.KIT_ID, PersistentDataType.STRING, kitId);
         if (selected) {meta.setEnchantmentGlintOverride(true);}
         item.setItemMeta(meta);
         return item;
@@ -107,7 +109,7 @@ public class KitSelectMenu extends Menu
         ItemStack clicked = e.getCurrentItem();
         if (clicked == null || !clicked.hasItemMeta()) {return;}
         String tag = clicked.getItemMeta().getPersistentDataContainer()
-            .get(Keys.KIT_ID, PersistentDataType.STRING);
+            .get(EscapeKeys.KIT_ID, PersistentDataType.STRING);
         if (tag == null) {return;}
 
         switch (tag)

@@ -1,4 +1,5 @@
 package me.aver005.escape.listener;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,9 +11,9 @@ import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.loot.LootCategory;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -147,7 +148,7 @@ public class SetupListener implements Listener
         {
             e.setCancelled(true);
             String catId = e.getItem().getItemMeta().getPersistentDataContainer()
-                .get(Keys.CATEGORY_ID, PersistentDataType.STRING);
+                .get(EscapeKeys.CATEGORY_ID, PersistentDataType.STRING);
             plugin.chestSetup().assign(p, catId);
         }
     }
@@ -273,7 +274,7 @@ public class SetupListener implements Listener
         {
             arena.getChestFacings().put(point, dir.getFacing());
         }
-        String catId = pdc.get(Keys.CATEGORY_ID, PersistentDataType.STRING);
+        String catId = pdc.get(EscapeKeys.CATEGORY_ID, PersistentDataType.STRING);
         if (!plugin.loot().exists(catId)) {Msg.send(p, "chesttag.bad-category"); return true;}
         LootCategory cat = plugin.loot().get(catId);
 

@@ -1,10 +1,11 @@
 package me.aver005.escape.contract;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.List;
 
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -20,7 +21,7 @@ public final class ContractPapers
         ItemStack paper = Items.named(Material.PAPER, Msg.get("contract.item-name"));
         ItemMeta meta = paper.getItemMeta();
         // случайный nonce, чтобы бумаги не складывались в стак (у каждой свой прогресс)
-        meta.getPersistentDataContainer().set(Keys.PAPER_NONCE, PersistentDataType.INTEGER,
+        meta.getPersistentDataContainer().set(EscapeKeys.PAPER_NONCE, PersistentDataType.INTEGER,
             java.util.concurrent.ThreadLocalRandom.current().nextInt());
         paper.setItemMeta(meta);
         write(paper, contract, 0);
@@ -30,13 +31,13 @@ public final class ContractPapers
     public static String contractIdOf(ItemStack item)
     {
         if (item == null || item.getType() != Material.PAPER || !item.hasItemMeta()) {return null;}
-        return item.getItemMeta().getPersistentDataContainer().get(Keys.CONTRACT_ID, PersistentDataType.STRING);
+        return item.getItemMeta().getPersistentDataContainer().get(EscapeKeys.CONTRACT_ID, PersistentDataType.STRING);
     }
 
     public static int progressOf(ItemStack item)
     {
         if (item == null || !item.hasItemMeta()) {return 0;}
-        Integer progress = item.getItemMeta().getPersistentDataContainer().get(Keys.CONTRACT_PROGRESS, PersistentDataType.INTEGER);
+        Integer progress = item.getItemMeta().getPersistentDataContainer().get(EscapeKeys.CONTRACT_PROGRESS, PersistentDataType.INTEGER);
         return progress == null ? 0 : progress;
     }
 
@@ -44,8 +45,8 @@ public final class ContractPapers
     public static void write(ItemStack item, Contract contract, int progress)
     {
         ItemMeta meta = item.getItemMeta();
-        meta.getPersistentDataContainer().set(Keys.CONTRACT_ID, PersistentDataType.STRING, contract.getId());
-        meta.getPersistentDataContainer().set(Keys.CONTRACT_PROGRESS, PersistentDataType.INTEGER, progress);
+        meta.getPersistentDataContainer().set(EscapeKeys.CONTRACT_ID, PersistentDataType.STRING, contract.getId());
+        meta.getPersistentDataContainer().set(EscapeKeys.CONTRACT_PROGRESS, PersistentDataType.INTEGER, progress);
         meta.displayName(Items.flat(Msg.get("contract.item-name")));
         meta.lore(List.of(
             Items.flat(Msg.get("contract.item-lore-desc", Msg.phMm("description", contract.getDescription()))),

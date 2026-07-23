@@ -1,12 +1,14 @@
 package me.aver005.escape.menu;
+import ru.kiviuly.mg.api.menu.Menu;
+import me.aver005.escape.util.EscapeItems;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.game.GameSession;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -47,7 +49,7 @@ public class PlacesMenu extends Menu
         String name = session.getArena().getLevers().get(loc);
         Msg.send(p, "assistant.used-header",
             Msg.phC("ability", Msg.get("assistant.place-item-name", Msg.ph("place", name))));
-        if (Items.pointAssistantCompass(p, loc))
+        if (EscapeItems.pointAssistantCompass(p, loc))
         {
             Msg.send(p, "assistant.compass-points");
         }

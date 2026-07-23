@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+import ru.kiviuly.mg.api.menu.Menu;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,9 +10,9 @@ import me.aver005.escape.arena.WeightedItem;
 import me.aver005.escape.loot.LootCategory;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -76,7 +78,7 @@ public class LootFillSourceMenu extends Menu
         lore.add(Items.flat(Msg.get("loot-editor.lore-id", Msg.ph("id", cat.getId()))));
         lore.add(Items.flat(Msg.get(replace ? "loot-fill.source-pick-replace" : "loot-fill.source-pick-append")));
         meta.lore(lore);
-        meta.getPersistentDataContainer().set(Keys.CATEGORY_ID, PersistentDataType.STRING, cat.getId());
+        meta.getPersistentDataContainer().set(EscapeKeys.CATEGORY_ID, PersistentDataType.STRING, cat.getId());
         item.setItemMeta(meta);
         return item;
     }
@@ -95,7 +97,7 @@ public class LootFillSourceMenu extends Menu
         ItemStack clicked = e.getCurrentItem();
         if (clicked == null || !clicked.hasItemMeta()) {return;}
         String id = clicked.getItemMeta().getPersistentDataContainer()
-            .get(Keys.CATEGORY_ID, PersistentDataType.STRING);
+            .get(EscapeKeys.CATEGORY_ID, PersistentDataType.STRING);
         if (id == null) {return;}
         LootCategory src = plugin.loot().get(id);
         if (src == null) {render(); return;}

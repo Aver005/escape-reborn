@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+import ru.kiviuly.mg.api.menu.Menu;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,9 +10,9 @@ import me.aver005.escape.game.GameSession;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -108,7 +110,7 @@ public class ScavengerMenu extends Menu
         lore.add(Items.flat(Msg.get("scavenger.price-lore", Msg.ph("price", price), Msg.ph("wear", wearPercent(source)))));
         lore.add(Items.flat(Msg.get("scavenger.sell-hint")));
         meta.lore(lore);
-        meta.getPersistentDataContainer().set(Keys.SCRAP_SLOT, PersistentDataType.INTEGER, slot);
+        meta.getPersistentDataContainer().set(EscapeKeys.SCRAP_SLOT, PersistentDataType.INTEGER, slot);
         display.setItemMeta(meta);
         return display;
     }
@@ -131,7 +133,7 @@ public class ScavengerMenu extends Menu
         }
         ItemStack clicked = e.getCurrentItem();
         if (clicked == null || !clicked.hasItemMeta()) {return;}
-        Integer slot = clicked.getItemMeta().getPersistentDataContainer().get(Keys.SCRAP_SLOT, PersistentDataType.INTEGER);
+        Integer slot = clicked.getItemMeta().getPersistentDataContainer().get(EscapeKeys.SCRAP_SLOT, PersistentDataType.INTEGER);
         if (slot == null) {return;}
         sellSlot(p, slot);
         render(p);
@@ -203,7 +205,7 @@ public class ScavengerMenu extends Menu
     {
         if (!item.hasItemMeta()) {return false;}
         var pdc = item.getItemMeta().getPersistentDataContainer();
-        return pdc.has(Keys.SPECIAL_ITEM) || pdc.has(Keys.CONTRACT_ID)
-            || pdc.has(Keys.THEME_ID) || pdc.has(Keys.RESPAWN_OWNER) || pdc.has(Keys.MARKER_TYPE);
+        return pdc.has(Keys.SPECIAL_ITEM) || pdc.has(EscapeKeys.CONTRACT_ID)
+            || pdc.has(EscapeKeys.THEME_ID) || pdc.has(EscapeKeys.RESPAWN_OWNER) || pdc.has(Keys.MARKER_TYPE);
     }
 }

@@ -1,4 +1,5 @@
 package me.aver005.escape;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.sql.SQLException;
 
@@ -14,15 +15,14 @@ import me.aver005.escape.theme.ThemeRegistry;
 import me.aver005.escape.listener.ChatListener;
 import me.aver005.escape.listener.GameListener;
 import me.aver005.escape.listener.MechanicsListener;
-import me.aver005.escape.listener.MenuListener;
 import me.aver005.escape.listener.ProtectionListener;
 import me.aver005.escape.listener.SetupListener;
 import me.aver005.escape.stats.StatsRepository;
 import me.aver005.escape.trader.TraderRegistry;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /** Escape — тюремный last man standing. Возрождение оригинала 2020/2021. */
@@ -42,9 +42,11 @@ public final class EscapePlugin extends JavaPlugin
     public void onEnable()
     {
         saveDefaultConfig();
-        Keys.init(this);
-        Msg.init(this);
-        DebugLog.init(this);
+        // Общий тулкит (Keys/Msg/DebugLog) инициализирует ядро MgCore — здесь только
+        // свои игровые ключи и подмешивание собственного messages.yml в общий каталог.
+        EscapeKeys.init(this);
+        Msg.merge(this);
+        DebugLog.init(this); // свой диагностический лог (игровые категории Cat)
 
         arenaManager = new ArenaManager(this);
         contractRegistry = new ContractRegistry(this);
@@ -70,7 +72,8 @@ public final class EscapePlugin extends JavaPlugin
         LootMigration.run(this);
 
         var pm = getServer().getPluginManager();
-        pm.registerEvents(new MenuListener(), this);
+        // MenuListener не регистрируем: меню наследуют общий mg-api Menu, клики
+        // маршрутизирует MenuListener ядра (иначе обработка была бы двойной).
         pm.registerEvents(new SetupListener(this), this);
         pm.registerEvents(new GameListener(this), this);
         pm.registerEvents(new MechanicsListener(this), this);

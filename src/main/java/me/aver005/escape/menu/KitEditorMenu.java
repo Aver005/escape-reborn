@@ -6,7 +6,7 @@ import java.util.List;
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.kit.Kit;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;

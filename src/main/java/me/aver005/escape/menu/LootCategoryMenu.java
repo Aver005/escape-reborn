@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+import ru.kiviuly.mg.api.menu.Menu;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,9 +10,9 @@ import java.util.Map;
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.WeightedItem;
 import me.aver005.escape.loot.LootCategory;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -80,7 +82,7 @@ public class LootCategoryMenu extends Menu
             List<Component> lore = meta.hasLore() ? new ArrayList<>(meta.lore()) : new ArrayList<>();
             lore.add(Items.flat(Msg.get("loot-editor.weight-lore", Msg.ph("weight", entry.weight()))));
             meta.lore(lore);
-            meta.getPersistentDataContainer().set(Keys.LOOT_INDEX, PersistentDataType.INTEGER, i);
+            meta.getPersistentDataContainer().set(EscapeKeys.LOOT_INDEX, PersistentDataType.INTEGER, i);
             display.setItemMeta(meta);
             out.add(display);
         }
@@ -204,7 +206,7 @@ public class LootCategoryMenu extends Menu
             for (ItemStack item : itemPages.getOrDefault(pg, List.of()))
             {
                 Integer index = item.hasItemMeta()
-                    ? item.getItemMeta().getPersistentDataContainer().get(Keys.LOOT_INDEX, PersistentDataType.INTEGER)
+                    ? item.getItemMeta().getPersistentDataContainer().get(EscapeKeys.LOOT_INDEX, PersistentDataType.INTEGER)
                     : null;
                 if (index != null && index >= 0 && index < original.size())
                 {

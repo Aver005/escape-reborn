@@ -1,4 +1,5 @@
 package me.aver005.escape.game;
+import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,9 +12,9 @@ import java.util.UUID;
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
@@ -87,7 +88,7 @@ public class RespawnBlocks
         for (var line : Msg.getList("respawn-block.item-lore-hint")) {lore.add(line);}
         ItemStack item = Items.special(rb.tier.material(), Msg.get("respawn-block.item-name"), lore, "respawn_block");
         ItemMeta meta = item.getItemMeta();
-        meta.getPersistentDataContainer().set(Keys.RESPAWN_OWNER, PersistentDataType.STRING, rb.owner.toString());
+        meta.getPersistentDataContainer().set(EscapeKeys.RESPAWN_OWNER, PersistentDataType.STRING, rb.owner.toString());
         item.setItemMeta(meta);
         return item;
     }
@@ -95,7 +96,7 @@ public class RespawnBlocks
     public static UUID itemOwner(ItemStack item)
     {
         if (item == null || !item.hasItemMeta()) {return null;}
-        String raw = item.getItemMeta().getPersistentDataContainer().get(Keys.RESPAWN_OWNER, PersistentDataType.STRING);
+        String raw = item.getItemMeta().getPersistentDataContainer().get(EscapeKeys.RESPAWN_OWNER, PersistentDataType.STRING);
         try {return raw == null ? null : UUID.fromString(raw);}
         catch (IllegalArgumentException e) {return null;}
     }

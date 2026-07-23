@@ -9,7 +9,7 @@ import java.util.Map;
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.arena.Arena;
 import me.aver005.escape.arena.WeightedItem;
-import me.aver005.escape.util.Items;
+import ru.kiviuly.mg.api.util.Items;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;

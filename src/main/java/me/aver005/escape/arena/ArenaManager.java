@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.game.GameSession;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.entity.Player;
 
 /** Реестр арен (arenas/<id>/) и привязка игрок -> активная сессия. */

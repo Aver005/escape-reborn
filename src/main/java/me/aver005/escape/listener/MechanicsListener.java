@@ -4,7 +4,7 @@ import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
 import org.bukkit.enchantments.Enchantment;

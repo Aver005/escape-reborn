@@ -1,4 +1,5 @@
 package me.aver005.escape.listener;
+import me.aver005.escape.util.EscapeKeys;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.contract.ContractType;
@@ -6,7 +7,7 @@ import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.game.GameSession;
 import me.aver005.escape.menu.AssistantMenu;
 import me.aver005.escape.menu.KitSelectMenu;
-import me.aver005.escape.menu.Menu;
+import ru.kiviuly.mg.api.menu.Menu;
 import me.aver005.escape.menu.NpcMenu;
 import me.aver005.escape.menu.RespawnUpgradeMenu;
 import me.aver005.escape.menu.ScavengerMenu;
@@ -17,9 +18,9 @@ import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
-import me.aver005.escape.util.Items;
-import me.aver005.escape.util.Keys;
-import me.aver005.escape.util.Msg;
+import ru.kiviuly.mg.api.util.Items;
+import ru.kiviuly.mg.api.util.Keys;
+import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -431,7 +432,7 @@ public class GameListener implements Listener
         if (!(e.getRightClicked() instanceof Villager villager)) {return;}
 
         String typeId = villager.getPersistentDataContainer()
-            .get(Keys.TRADER_TYPE, PersistentDataType.STRING);
+            .get(EscapeKeys.TRADER_TYPE, PersistentDataType.STRING);
         TraderType trader = typeId != null ? plugin.traders().get(typeId) : null;
         if (trader == null && villager.customName() != null)
         {
