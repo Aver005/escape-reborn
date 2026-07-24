@@ -31,7 +31,6 @@ import me.aver005.escape.kit.Kit;
 import me.aver005.escape.loot.LootCategory;
 import me.aver005.escape.loot.LootCategoryRegistry;
 import me.aver005.escape.modifier.Modifier;
-import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
@@ -310,16 +309,18 @@ public class EscapeRules
         if (!isPlaying(id)) {return;}
         DebugLog.log(Cat.PLAYER, "eliminate-offline arena=%s player=%s announce=%b alive=%d",
             arena.getId(), name, announce, match.aliveCount());
-        gameChat.remove(id);
         plugin.stats().add(id, name, "loses", 1);
         respawnBlocks.onOwnerEliminated(id);
-        plugin.arenas().unbind(id);
 
         if (announce)
         {
             gameChat.systemKey("offline-guard.eliminated", Msg.ph("player", name));
             spectatorChat.systemKey("offline-guard.eliminated", Msg.ph("player", name));
         }
+
+        // Ядро: alive=false + хук onEliminated (перевод чата) + checkResult. Игрок оффлайн —
+        // остаётся в ростере спектатором; cleanup в конце матча вернёт снапшот при след. входе.
+        match.eliminate(id);
 
         if (match.aliveCount() > 1)
         {
@@ -1379,6 +1380,12 @@ public class EscapeRules
         UUID id = p.getUniqueId();
         if (!isPlaying(id)) {return;}
 
+        // Смерть от урона: выронить лут и восстановить HP. Раньше это делал слушатель урона
+        // Escape, но ядро гасит летальный урон и зовёт нас через хук onLethalDamage — поэтому
+        // сброс/лечение переехали сюда (иначе лут не падал бы, а HP оставался низким).
+        dropInventory(p, p.getLocation());
+        p.setHealth(20.0);
+
         DebugLog.log(Cat.PLAYER, "death arena=%s player=%s at=%s alive=%d", arena.getId(), p.getName(),
             DebugLog.at(p.getLocation()), match.aliveCount());
         creditKillAndAnnounce(p);
@@ -1455,14 +1462,10 @@ public class EscapeRules
         UUID id = p.getUniqueId();
         DebugLog.log(Cat.PLAYER, "eliminate arena=%s player=%s quit=%b alive=%d",
             arena.getId(), p.getName(), quit, match.aliveCount());
-        gameChat.remove(id);
         plugin.stats().add(id, p.getName(), "loses", 1);
         respawnBlocks.onOwnerEliminated(id);
-
-        if (!quit)
-        {
-            spectatorChat.add(id);   // перевод в спектейт делает ядро
-        }
+        // Ядро: alive=false + спектейт + хук onEliminated (перевод чата) + checkResult (конец матча).
+        match.eliminate(id);
 
         if (match.aliveCount() > 1)
         {
@@ -1770,7 +1773,8 @@ public class EscapeRules
         EscapePlayerData mvp = null;
         for (EscapePlayerData data : matchData.values())
         {
-            plugin.stats().recordGameKills(data.uuid, data.name, data.kills);
+            plugin.stats().set(data.uuid, data.name, "last_game_kills", data.kills);
+            plugin.stats().max(data.uuid, data.name, "best_game_kills", data.kills);
             if (data.kills > 0 && (mvp == null || data.kills > mvp.kills)) {mvp = data;}
         }
         if (mvp != null) {plugin.stats().add(mvp.uuid, mvp.name, "mvp_games", 1);}

@@ -54,13 +54,18 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
-/** /escape — все команды игрока и админа. */
-public class EscapeCommand implements TabExecutor
+/**
+ * Игро-специфичные подкоманды /escape. Не сам executor: команду ведёт платформенная
+ * {@code MinigameCommand} (через {@code core.commandFor}), а сюда {@link me.aver005.escape.game.EscapeGame}
+ * делегирует игро-специфику через {@code onCommand}/{@code tabComplete}. Общий каркас
+ * (join/leave/stats/help/list/reload/save/create/remove/setlobby/start/stop) ведёт движок.
+ */
+public class EscapeCommand
 {
     private static final List<String> PLAYER_SUBS = List.of("join", "leave", "stats", "info", "help");
     private static final List<String> ADMIN_SUBS = List.of(
         "save", "reload", "list", "stop", "start", "create", "remove", "enable", "disable", "check", "debug",
-        "debuglog", "gui",
+        "esclog", "gui",
         "setlobby", "setname", "setdesc", "setminplayers", "setmaxplayers", "set", "worldsetup", "markers",
         "addspawn", "addfinalspawn", "addchest", "addtable", "addore", "addlever", "addvillager", "breakable",
         "chestface", "addcontract", "kit", "loot", "chestsetup",
@@ -79,144 +84,36 @@ public class EscapeCommand implements TabExecutor
 
     public EscapeCommand(EscapePlugin plugin) {this.plugin = plugin;}
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
+    /**
+     * Игро-специфичная подкоманда /escape. Движок ({@code MinigameCommand}) уже проверил
+     * права админа и сам ведёт общий каркас (join/leave/stats/help/list/reload/save/debuglog).
+     * Возвращаем {@code true}, если обработали; {@code false} — доведёт движок.
+     */
+    public boolean handle(Player p, String sub, String[] args)
     {
-        if (!(sender instanceof Player p)) {sender.sendMessage("Только для игроков"); return true;}
-
-        if (args.length == 0) {new ArenaSelectMenu(plugin).open(p); return true;}
-        String sub = args[0].toLowerCase(Locale.ROOT);
-
         if (DebugLog.on())
         {
-            DebugLog.log(Cat.ADMIN, "command %s: /%s %s", p.getName(), label, String.join(" ", args));
+            DebugLog.log(Cat.ADMIN, "command %s: /escape %s", p.getName(), String.join(" ", args));
         }
 
         switch (sub)
         {
-            case "help" -> {sendHelp(p); return true;}
             case "info" ->
             {
                 for (Component line : Msg.getList("info")) {p.sendMessage(line);}
                 return true;
             }
-            case "stats" ->
-            {
-                String target = args.length >= 2 ? args[1] : p.getName();
-                plugin.stats().findByName(target, row ->
-                {
-                    if (row == null) {Msg.send(p, "stats.not-found"); return;}
-                    Msg.send(p, "stats.header", Msg.ph("player", row.name()));
-                    Msg.send(p, "stats.line-wins", Msg.ph("n", row.wins()));
-                    Msg.send(p, "stats.line-loses", Msg.ph("n", row.loses()));
-                    Msg.send(p, "stats.line-kills", Msg.ph("n", row.kills()));
-                    Msg.send(p, "stats.line-deaths", Msg.ph("n", row.deaths()));
-                    Msg.send(p, "stats.line-games", Msg.ph("n", row.gamesPlayed()));
-                    Msg.send(p, "stats.line-mvp", Msg.ph("n", row.mvpGames()));
-                    Msg.send(p, "stats.line-quests", Msg.ph("n", row.questsCompleted()));
-                    Msg.send(p, "stats.line-trades", Msg.ph("n", row.tradesCompleted()));
-                    Msg.send(p, "stats.line-ores", Msg.ph("n", row.oresMined()));
-                    Msg.send(p, "stats.line-best-kills", Msg.ph("n", row.bestGameKills()));
-                    Msg.send(p, "stats.line-last-kills", Msg.ph("n", row.lastGameKills()));
-                });
-                return true;
-            }
-            case "leave" ->
-            {
-                EscapeRules session = plugin.arenas().sessionOf(p);
-                if (session == null) {Msg.send(p, "errors.not-in-game"); return true;}
-                plugin.arenas().leave(p); Msg.send(p, "lobby.left-match");
-                return true;
-            }
-            case "join" ->
-            {
-                if (args.length < 2) {new ArenaSelectMenu(plugin).open(p); return true;}
-                Arena arena = plugin.arenas().get(args[1]);
-                if (arena == null) {Msg.send(p, "errors.arena-not-exists"); return true;}
-                plugin.arenas().join(p, arena);
-                return true;
-            }
+            case "debug" -> {handleDebug(p, args); return true;}
+            case "kit" -> {handleKit(p, args); return true;}
+            case "loot" -> {handleLoot(p, args); return true;}
+            case "chestsetup" -> {handleChestSetup(p, args); return true;}
+            case "trades" -> {handleTrades(p, args); return true;}
+            case "esclog" -> {handleDebugLog(p, args); return true;} // свой лог escape (ядровый — /escape debuglog)
             default -> {}
         }
 
-        if (!p.hasPermission("escape.admin")) {sendHelp(p); return true;}
-
-        switch (sub)
-        {
-            case "save" ->
-            {
-                plugin.saveEverything();
-                Msg.send(p, "admin.saved");
-                return true;
-            }
-            case "reload" ->
-            {
-                plugin.arenas().stopAll();
-                plugin.reloadEverything();
-                Msg.send(p, "admin.reloaded");
-                return true;
-            }
-            case "list" ->
-            {
-                Msg.send(p, "admin.list-header");
-                for (Arena arena : plugin.arenas().all())
-                {
-                    EscapeRules session = plugin.arenas().sessionOf(arena);
-                    String statusKey;
-                    int current = 0;
-                    if (!arena.isEnabled()) {statusKey = "admin.list-status-disabled";}
-                    else if (session == null) {statusKey = "admin.list-status-idle";}
-                    else
-                    {
-                        switch (session.getPhase())
-                        {
-                            case RUNNING, ENDING -> {statusKey = "admin.list-status-running"; current = session.aliveCount();}
-                            case COUNTDOWN -> {statusKey = "admin.list-status-countdown"; current = session.lobbySize();}
-                            default -> {statusKey = "admin.list-status-idle"; current = session.lobbySize();}
-                        }
-                    }
-                    Msg.send(p, "admin.list-entry",
-                        Msg.ph("arena", arena.getId()),
-                        Msg.phC("status", Msg.get(statusKey)),
-                        Msg.ph("current", current),
-                        Msg.ph("max", arena.getMaxPlayers()));
-                }
-                return true;
-            }
-            case "debug" ->
-            {
-                handleDebug(p, args);
-                return true;
-            }
-            case "debuglog" ->
-            {
-                handleDebugLog(p, args);
-                return true;
-            }
-            case "kit" ->
-            {
-                handleKit(p, args);
-                return true;
-            }
-            case "loot" ->
-            {
-                handleLoot(p, args);
-                return true;
-            }
-            case "chestsetup" ->
-            {
-                handleChestSetup(p, args);
-                return true;
-            }
-            case "trades" ->
-            {
-                handleTrades(p, args);
-                return true;
-            }
-            default -> {}
-        }
-
-        if (args.length < 2) {Msg.send(p, "errors.not-enough-args"); return true;}
+        // остальные escape-подкоманды адресуют арену/сущность по id (args[1]); без него — движку
+        if (args.length < 2) {return false;}
         String id = args[1].toUpperCase(Locale.ROOT);
 
         switch (sub)
@@ -780,11 +677,7 @@ public class EscapeCommand implements TabExecutor
                 }
                 return true;
             }
-            default ->
-            {
-                Msg.send(p, "errors.unknown-subcommand");
-                return true;
-            }
+            default -> {return false;} // не наша подкоманда — доведёт движок
         }
     }
 
@@ -1143,9 +1036,7 @@ public class EscapeCommand implements TabExecutor
             case "death" ->
             {
                 if (!session.isPlaying(p.getUniqueId())) {Msg.send(p, "debug.not-playing"); return;}
-                session.dropInventory(p, p.getLocation());
-                p.setHealth(20.0);
-                session.handleDeath(p);
+                session.handleDeath(p); // сброс инвентаря и HP теперь внутри handleDeath
                 Msg.send(p, "debug.death-done");
             }
             case "kill" ->
@@ -1157,9 +1048,7 @@ public class EscapeCommand implements TabExecutor
                     Msg.send(p, "debug.player-not-found", Msg.ph("player", args[2]));
                     return;
                 }
-                session.dropInventory(target, target.getLocation());
-                target.setHealth(20.0);
-                session.handleDeath(target);
+                session.handleDeath(target); // сброс инвентаря и HP теперь внутри handleDeath
                 Msg.send(p, "debug.kill-done", Msg.ph("player", target.getName()));
             }
             case "refill" ->
@@ -1298,21 +1187,19 @@ public class EscapeCommand implements TabExecutor
 
     // ===== tab =====
 
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args)
+    /** Таб-подсказки игро-специфичных подкоманд (движок домешивает к своим, только админам). */
+    public List<String> tab(Player p, String[] args)
     {
-        if (!(sender instanceof Player p)) {return List.of();}
         List<String> out = new ArrayList<>();
 
         if (args.length == 1)
         {
             List<String> subs = new ArrayList<>(PLAYER_SUBS);
-            if (p.hasPermission("escape.admin")) {subs.addAll(ADMIN_SUBS);}
+            subs.addAll(ADMIN_SUBS);
             filter(subs, args[0], out);
             return out;
         }
 
-        if (!p.hasPermission("escape.admin")) {return out;}
         String sub = args[0].toLowerCase(Locale.ROOT);
 
         if (sub.equals("kit")) {return kitTab(args, out);}
@@ -1342,7 +1229,7 @@ public class EscapeCommand implements TabExecutor
                 case "debug" -> filter(new ArrayList<>(List.of(
                     "death", "kill", "refill", "contract", "theme", "event",
                     "glow", "final", "finish", "gold", "key", "insight")), args[1], out);
-                case "debuglog" -> filter(new ArrayList<>(List.of(
+                case "esclog" -> filter(new ArrayList<>(List.of(
                     "on", "off", "save", "clear", "status")), args[1], out);
                 case "contracttype", "contractidle", "contractdesc", "contractamount", "contractprice" ->
                     filter(new ArrayList<>(plugin.contracts().ids()), args[1], out);

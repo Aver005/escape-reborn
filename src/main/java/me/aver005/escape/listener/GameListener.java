@@ -15,7 +15,6 @@ import me.aver005.escape.menu.RespawnUpgradeMenu;
 import me.aver005.escape.menu.ScavengerMenu;
 import me.aver005.escape.menu.ShopMenu;
 import me.aver005.escape.menu.ThemesMenu;
-import me.aver005.escape.player.PlayerSnapshot;
 import me.aver005.escape.theme.ThemeType;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.DebugLog;
@@ -270,26 +269,11 @@ public class GameListener implements Listener
         victim.knockback(0.4, dx, dz);
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
-    public void onDamage(EntityDamageEvent e)
-    {
-        if (!(e.getEntity() instanceof Player p)) {return;}
-        EscapeRules session = session(p);
-        if (session == null) {return;}
-
-        if (session.isLobbyMember(p.getUniqueId())) {e.setCancelled(true); return;}
-        if (!session.isPlaying(p.getUniqueId())) {return;}
-
-        if (e.getFinalDamage() >= p.getHealth())
-        {
-            DebugLog.log(Cat.COMBAT, "lethal-damage player=%s cause=%s damage=%.1f hp=%.1f",
-                p.getName(), e.getCause(), e.getFinalDamage(), p.getHealth());
-            e.setCancelled(true);
-            session.dropInventory(p, p.getLocation());
-            p.setHealth(20.0);
-            session.handleDeath(p);
-        }
-    }
+    // Урон и смерть ведёт ЯДРО (EntityDamageEvent на NORMAL): неуязвимость в лобби и
+    // спектейте, летальный урон → хук onLethalDamage → handleDeath (сброс инвентаря и HP
+    // теперь там). Свой обработчик убран: он стоял на HIGH с ignoreCancelled и всё равно не
+    // срабатывал — ядро гасило событие раньше. Бой между игроками (счёт/кровавая луна/
+    // разминка) остаётся в onDamageByEntity выше.
 
     // ===== предметы и взаимодействия =====
 

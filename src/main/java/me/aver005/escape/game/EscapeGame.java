@@ -9,6 +9,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import me.aver005.escape.EscapePlugin;
+import me.aver005.escape.command.EscapeCommand;
+import me.aver005.escape.menu.ArenaSelectMenu;
 import ru.kiviuly.mg.api.MgCore;
 import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.arena.EscapeArena;
@@ -18,6 +20,7 @@ import ru.kiviuly.mg.api.game.MatchPlayer;
 import ru.kiviuly.mg.api.game.MatchResult;
 import ru.kiviuly.mg.api.game.Minigame;
 import ru.kiviuly.mg.api.game.MinigameDescriptor;
+import ru.kiviuly.mg.api.stats.StatsService;
 import ru.kiviuly.mg.api.util.Msg;
 
 /**
@@ -25,7 +28,7 @@ import ru.kiviuly.mg.api.util.Msg;
  *
  * <p>Каркас (лобби, отсчёт, фазы, ростер, снапшоты игроков, откат мира, HUD,
  * статистика) ведёт ядро и зовёт хуки. Сами правила Escape живут в
- * {@link EscapeRules} — по объекту на матч, хранится в {@link EscapeState}.</p>
+ * {@link EscapeRules} — по объекту на матч (хранится в матче через {@code DataKey}).</p>
  *
  * <p>Класс без состояния: одна инстанция на плагин, матчей может идти несколько.</p>
  */
@@ -35,11 +38,14 @@ public final class EscapeGame extends Minigame
     public static final String ID = "escape";
 
     private final EscapePlugin plugin;
+    /** Обработчик игро-специфичных подкоманд /escape (движок зовёт через onCommand/tabComplete). */
+    private final EscapeCommand commands;
 
     public EscapeGame(EscapePlugin plugin, MgCore core)
     {
         super(core, plugin);
         this.plugin = plugin;
+        this.commands = new EscapeCommand(plugin);
     }
 
     @Override
@@ -73,9 +79,9 @@ public final class EscapeGame extends Minigame
     @Override
     public String displayName() {return Msg.raw("game.display-name");}
 
-    /** Короткий узел прав: esc.admin (плюс общий mg.admin из ядра). */
+    /** Узел прав игры: escape.admin (плюс общий mg.admin из ядра). Совпадает с plugin.yml. */
     @Override
-    public String adminPermission() {return "esc.admin";}
+    public String adminPermission() {return "escape.admin";}
 
     @Override
     public MinigameDescriptor descriptor()
@@ -83,6 +89,10 @@ public final class EscapeGame extends Minigame
         return new MinigameDescriptor(id(), Component.text("Escape"),
             new ItemStack(Material.IRON_BARS), 2, 12, false);
     }
+
+    /** Escape ведёт свою статистику сам (свои счётчики) — движок не авто-пишет recordMatch. */
+    @Override
+    public boolean recordsOwnStats() {return true;}
 
     /** Правила матча живут в самом матче: по объекту на матч. */
     private static final DataKey<EscapeRules> RULES = DataKey.of("escape-rules", EscapeRules.class);
@@ -133,6 +143,62 @@ public final class EscapeGame extends Minigame
     @Override
     public List<Component> scoreboardLines(Match m, Player viewer) {return rules(m).scoreboardLines(viewer);}
 
+    /** /escape reload: перечитать escape-контент (киты/лут/контракты/темы/торговцы + arenaConfigs). */
     @Override
-    public void onReload() {plugin.arenaConfigs().clear();}
+    public void onReload() {plugin.reloadEverything();}
+
+    /** /mg remove <арена escape>: подчистить игро-специфичный конфиг арены. */
+    @Override
+    public void onArenaRemoved(String arenaId) {plugin.arenaConfigs().remove(arenaId);}
+
+    /** Вход запрещён, пока идёт мастер разметки сундуков (свой или на этой арене). */
+    @Override
+    public boolean canJoin(Arena arena, Player p)
+    {
+        if (plugin.chestSetup().isActive(p) || plugin.chestSetup().isArenaBusy(arena))
+        {
+            Msg.send(p, "chestsetup.busy-join");
+            return false;
+        }
+        return true;
+    }
+
+    /** /escape без аргументов — своё меню выбора арен Escape (вместо ядрового). */
+    @Override
+    public boolean onEmptyCommand(Player p) {new ArenaSelectMenu(plugin).open(p); return true;}
+
+    // ===== оффлайн-стражи: игрок остаётся в матче при дисконнекте, возвращается при возврате =====
+
+    /** Дисконнект в идущем матче (вне финальной битвы) — оставить оффлайн под стражем. */
+    @Override
+    public boolean keepOnDisconnect(Match m, Player p) {return !rules(m).isFinalBattle();}
+
+    @Override
+    public void onPlayerDisconnect(Match m, Player p) {rules(m).offlineGuards().beginGuard(p);}
+
+    @Override
+    public void onPlayerReconnect(Match m, Player p) {rules(m).offlineGuards().handleRejoin(p);}
+
+    // ===== команды (движок -> игро-специфичные подкоманды /escape) =====
+
+    @Override
+    public boolean onCommand(Player p, String sub, String[] args) {return commands.handle(p, sub, args);}
+
+    @Override
+    public List<String> tabComplete(Player p, String[] args) {return commands.tab(p, args);}
+
+    /** Игро-специфичные строки /escape stats под базовыми (свои именованные счётчики). */
+    @Override
+    public List<Component> statsLines(Player viewer, StatsService.Row row)
+    {
+        return List.of(
+            Msg.get("stats.line-deaths", Msg.ph("n", row.counter("deaths"))),
+            Msg.get("stats.line-games", Msg.ph("n", row.counter("games_played"))),
+            Msg.get("stats.line-mvp", Msg.ph("n", row.counter("mvp_games"))),
+            Msg.get("stats.line-quests", Msg.ph("n", row.counter("quests_completed"))),
+            Msg.get("stats.line-trades", Msg.ph("n", row.counter("trades_completed"))),
+            Msg.get("stats.line-ores", Msg.ph("n", row.counter("ores_mined"))),
+            Msg.get("stats.line-best-kills", Msg.ph("n", row.counter("best_game_kills"))),
+            Msg.get("stats.line-last-kills", Msg.ph("n", row.counter("last_game_kills"))));
+    }
 }

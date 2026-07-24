@@ -1,8 +1,6 @@
 package me.aver005.escape;
 import me.aver005.escape.util.EscapeKeys;
 
-import java.sql.SQLException;
-
 import me.aver005.escape.arena.ArenaManager;
 import me.aver005.escape.arena.EscapeArenaConfig;
 import me.aver005.escape.arena.EscapeArenaConfigs;
@@ -23,7 +21,7 @@ import me.aver005.escape.listener.ChatListener;
 import me.aver005.escape.listener.GameListener;
 import me.aver005.escape.listener.MechanicsListener;
 import me.aver005.escape.listener.SetupListener;
-import me.aver005.escape.stats.StatsRepository;
+import ru.kiviuly.mg.api.stats.StatsService;
 import me.aver005.escape.trader.TraderRegistry;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
@@ -42,7 +40,6 @@ public final class EscapePlugin extends JavaPlugin
     private ModifierRegistry modifierRegistry;
     private LootCategoryRegistry lootRegistry;
     private ChestSetupManager chestSetup;
-    private StatsRepository statsRepository;
     private EscapeArenaConfigs arenaConfigs;
     private MgCore core;
     private EscapeGame game;
@@ -74,10 +71,6 @@ public final class EscapePlugin extends JavaPlugin
         modifierRegistry = new ModifierRegistry(this);
         lootRegistry = new LootCategoryRegistry(this);
         chestSetup = new ChestSetupManager(this);
-        statsRepository = new StatsRepository(this);
-
-        try {statsRepository.open();}
-        catch (SQLException e) {getLogger().severe("Failed to open stats.db: " + e.getMessage());}
 
         arenaConfigs.clear();
         kitRegistry.load();
@@ -123,7 +116,6 @@ public final class EscapePlugin extends JavaPlugin
         if (chestSetup != null) {chestSetup.stopAll();}
         if (arenaManager != null) {arenaManager.stopAll();}
         saveEverything();
-        if (statsRepository != null) {statsRepository.close();}
     }
 
     public void saveEverything()
@@ -181,5 +173,6 @@ public final class EscapePlugin extends JavaPlugin
     public ModifierRegistry modifiers() {return modifierRegistry;}
     public LootCategoryRegistry loot() {return lootRegistry;}
     public ChestSetupManager chestSetup() {return chestSetup;}
-    public StatsRepository stats() {return statsRepository;}
+    /** Статистика — общий сервис ядра (escape пишет свои именованные счётчики). */
+    public StatsService stats() {return core.stats();}
 }
