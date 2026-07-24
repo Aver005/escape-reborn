@@ -4,6 +4,12 @@ import me.aver005.escape.util.EscapeKeys;
 import java.sql.SQLException;
 
 import me.aver005.escape.arena.ArenaManager;
+import me.aver005.escape.arena.EscapeArenaConfig;
+import me.aver005.escape.arena.EscapeArenaConfigs;
+import me.aver005.escape.kit.Kit;
+import ru.kiviuly.mg.api.arena.Arena;
+import java.util.ArrayList;
+import java.util.List;
 import me.aver005.escape.arena.ChestSetupManager;
 import me.aver005.escape.command.EscapeCommand;
 import me.aver005.escape.contract.ContractRegistry;
@@ -37,6 +43,7 @@ public final class EscapePlugin extends JavaPlugin
     private LootCategoryRegistry lootRegistry;
     private ChestSetupManager chestSetup;
     private StatsRepository statsRepository;
+    private EscapeArenaConfigs arenaConfigs;
 
     @Override
     public void onEnable()
@@ -48,6 +55,7 @@ public final class EscapePlugin extends JavaPlugin
         Msg.merge(this);
         DebugLog.init(this); // свой диагностический лог (игровые категории Cat)
 
+        arenaConfigs = new EscapeArenaConfigs(this);
         arenaManager = new ArenaManager(this);
         contractRegistry = new ContractRegistry(this);
         themeRegistry = new ThemeRegistry(this);
@@ -61,6 +69,7 @@ public final class EscapePlugin extends JavaPlugin
         try {statsRepository.open();}
         catch (SQLException e) {getLogger().severe("Failed to open stats.db: " + e.getMessage());}
 
+        arenaConfigs.clear();
         kitRegistry.load();
         modifierRegistry.load();
         lootRegistry.load();
@@ -116,6 +125,7 @@ public final class EscapePlugin extends JavaPlugin
         reloadConfig();
         Msg.reload();
         DebugLog.reload();
+        arenaConfigs.clear();
         kitRegistry.load();
         modifierRegistry.load();
         lootRegistry.load();
@@ -123,6 +133,27 @@ public final class EscapePlugin extends JavaPlugin
         contractRegistry.load();
         themeRegistry.load();
         traderRegistry.load();
+    }
+
+    public EscapeArenaConfigs arenaConfigs() {return arenaConfigs;}
+
+    /** Киты, разрешённые на арене: глобальный реестр, отфильтрованный списком арены. */
+    public List<Kit> kitsFor(Arena arena)
+    {
+        EscapeArenaConfig cfg = arenaConfigs.of(arena);
+        List<Kit> out = new ArrayList<>();
+        for (String id : kitRegistry.ids())
+        {
+            if (cfg.allowsKit(id)) {out.add(kitRegistry.get(id));}
+        }
+        return out;
+    }
+
+    /** Кит по id, если он разрешён на этой арене (иначе null). */
+    public Kit kitFor(Arena arena, String id)
+    {
+        if (id == null) {return null;}
+        return arenaConfigs.of(arena).allowsKit(id) ? kitRegistry.get(id) : null;
     }
 
     public ArenaManager arenas() {return arenaManager;}

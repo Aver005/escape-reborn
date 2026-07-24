@@ -1,7 +1,7 @@
 package me.aver005.escape.listener;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
 import ru.kiviuly.mg.api.util.Msg;
@@ -54,7 +54,7 @@ public class MechanicsListener implements Listener
         if (!(projectile.getShooter() instanceof Player shooter)) {return;}
         if (victim.equals(shooter)) {return;}
 
-        GameSession session = plugin.arenas().sessionOf(shooter);
+        EscapeRules session = plugin.arenas().sessionOf(shooter);
         if (session == null || session != plugin.arenas().sessionOf(victim)) {return;}
 
         DebugLog.log(Cat.MECH, "projectile shooter=%s victim=%s type=%s damage=%.1f victim-hp=%.1f",
@@ -80,7 +80,7 @@ public class MechanicsListener implements Listener
         if (!(e.getCaught() instanceof Player target)) {return;}
 
         Player fisher = e.getPlayer();
-        GameSession session = plugin.arenas().sessionOf(fisher);
+        EscapeRules session = plugin.arenas().sessionOf(fisher);
         if (session == null || session != plugin.arenas().sessionOf(target)) {return;}
         if (!session.isPlaying(fisher.getUniqueId()) || !session.isPlaying(target.getUniqueId())) {return;}
 

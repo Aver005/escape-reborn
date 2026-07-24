@@ -1,5 +1,7 @@
 package me.aver005.escape.loot;
 
+import me.aver005.escape.arena.EscapeArena;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -7,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.arena.WeightedItem;
 import ru.kiviuly.mg.api.util.Items;
 import org.bukkit.Location;
@@ -179,7 +181,7 @@ public final class LootMigration
      */
     private static void remapChestSpots(Arena arena, String defaultId)
     {
-        for (Map.Entry<Location, List<String>> spot : arena.getChestSpots().entrySet())
+        for (Map.Entry<Location, List<String>> spot : EscapeArena.chestSpots(arena).entrySet())
         {
             List<String> mapped = new ArrayList<>();
             List<String> old = spot.getValue();

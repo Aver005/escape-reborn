@@ -1,11 +1,13 @@
 package me.aver005.escape.menu;
+
+import me.aver005.escape.arena.EscapeArena;
 import ru.kiviuly.mg.api.menu.Menu;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import ru.kiviuly.mg.api.util.Items;
 import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
@@ -110,12 +112,12 @@ public class ArenaHubMenu extends Menu
         lore.add(Items.flat(Msg.get("arena-hub.status-players",
             Msg.ph("min", arena.getMinPlayers()), Msg.ph("max", arena.getMaxPlayers()))));
         lore.add(Items.flat(Msg.get("arena-hub.status-session",
-            Msg.ph("value", Msg.raw(arena.getSession() != null ? "arena-hub.status-running" : "arena-hub.status-idle")))));
+            Msg.ph("value", Msg.raw(plugin.arenas().sessionOf(arena) != null ? "arena-hub.status-running" : "arena-hub.status-idle")))));
         lore.add(Items.flat(Msg.get("arena-hub.status-points",
             Msg.ph("spawns", arena.getSpawns().size()),
-            Msg.ph("chests", arena.getChestSpots().size()),
-            Msg.ph("traders", arena.getTraderSpots().size()),
-            Msg.ph("kits", arena.getKits().size()))));
+            Msg.ph("chests", EscapeArena.chestSpots(arena).size()),
+            Msg.ph("traders", EscapeArena.traderSpots(arena).size()),
+            Msg.ph("kits", plugin.kitsFor(arena).size()))));
         return Items.named(Material.WRITTEN_BOOK, Items.flat(Msg.mm(arena.getDisplayNameRaw())), lore);
     }
 

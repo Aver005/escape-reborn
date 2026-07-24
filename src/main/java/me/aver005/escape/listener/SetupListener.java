@@ -1,11 +1,13 @@
 package me.aver005.escape.listener;
+
+import me.aver005.escape.arena.EscapeArena;
 import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.arena.ChestSetupManager;
 import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.loot.LootCategory;
@@ -61,20 +63,20 @@ public class SetupListener implements Listener
         switch (type)
         {
             case "spawn" -> arena.getSpawns().add(loc);
-            case "finalspawn" -> arena.getFinalSpawns().add(loc);
+            case "finalspawn" -> EscapeArena.finalSpawns(arena).add(loc);
             case "chest" ->
             {
-                arena.getChestSpots().put(loc, new ArrayList<>());
+                EscapeArena.chestSpots(arena).put(loc, new ArrayList<>());
                 // запоминаем, как админ поставил сундук (в BlockPlaceEvent блок уже стоит)
                 if (e.getBlockPlaced().getBlockData() instanceof Directional dir)
                 {
-                    arena.getChestFacings().put(loc, dir.getFacing());
+                    EscapeArena.chestFacings(arena).put(loc, dir.getFacing());
                 }
             }
-            case "table" -> arena.getTableSpots().add(loc);
-            case "ore" -> {arena.getOreSpots().add(loc); placeReal = true;}
-            case "lever" -> {arena.getLevers().put(loc, extra == null ? "?" : extra); placeReal = true;}
-            case "villager" -> arena.getTraderSpots().put(loc, extra == null ? "?" : extra);
+            case "table" -> EscapeArena.tableSpots(arena).add(loc);
+            case "ore" -> {EscapeArena.oreSpots(arena).add(loc); placeReal = true;}
+            case "lever" -> {EscapeArena.levers(arena).put(loc, extra == null ? "?" : extra); placeReal = true;}
+            case "villager" -> EscapeArena.traderSpots(arena).put(loc, extra == null ? "?" : extra);
             default -> {return;}
         }
         if (!placeReal) {e.setCancelled(true);}
@@ -97,7 +99,7 @@ public class SetupListener implements Listener
         if (plugin.arenas().sessionOf(p) != null) {return;} // участников матча ведёт GameListener
 
         Arena arena = arenaInWorld(e.getBlock().getWorld());
-        if (arena == null || arena.getSession() != null) {return;}
+        if (arena == null || plugin.arenas().sessionOf(arena) != null) {return;}
 
         // отметчик категории в руке: ломание сундука-точки = присвоить категорию, а не удалить точку
         if (tryChestTag(p, e.getBlock(), arena, p.getInventory().getItemInMainHand()))
@@ -180,7 +182,7 @@ public class SetupListener implements Listener
         Player p = e.getPlayer();
         if (plugin.arenas().sessionOf(p) != null) {return;}
         Arena arena = arenaInWorld(block.getWorld());
-        if (arena == null || arena.getSession() != null) {return;}
+        if (arena == null || plugin.arenas().sessionOf(arena) != null) {return;}
         e.setCancelled(true); // не открываем сундук / не ставим блок
         tryChestTag(p, block, arena, e.getItem());
     }
@@ -204,7 +206,7 @@ public class SetupListener implements Listener
             .get(Keys.MARKER_ARENA, PersistentDataType.STRING);
         Arena arena = plugin.arenas().get(tagArena);
         if (arena == null) {Msg.send(p, "errors.arena-not-exists"); return;}
-        if (arena.getSession() != null) {Msg.send(p, "breakable.arena-busy", Msg.ph("arena", arena.getId())); return;}
+        if (plugin.arenas().sessionOf(arena) != null) {Msg.send(p, "breakable.arena-busy", Msg.ph("arena", arena.getId())); return;}
         if (!block.getWorld().getName().equals(arena.getWorldName()))
         {
             Msg.send(p, "breakable.wrong-world", Msg.ph("arena", arena.getId()));
@@ -221,27 +223,27 @@ public class SetupListener implements Listener
         Block partner = SetupMarkers.structurePartner(block);
         if (partner != null) {locs.add(partner.getLocation());}
 
-        boolean marked = arena.getBreakables().contains(block.getLocation());
+        boolean marked = EscapeArena.breakables(arena).contains(block.getLocation());
         if (marked)
         {
-            arena.getBreakables().removeAll(locs);
+            EscapeArena.breakables(arena).removeAll(locs);
             p.playSound(p.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 0.6f, 1.0f);
         }
         else
         {
             for (Location l : locs)
             {
-                if (!arena.getBreakables().contains(l)) {arena.getBreakables().add(l);}
+                if (!EscapeArena.breakables(arena).contains(l)) {EscapeArena.breakables(arena).add(l);}
             }
             p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.6f);
         }
         plugin.arenas().save(arena);
         DebugLog.log(Cat.ADMIN, "breakable-toggle admin=%s arena=%s at=%s marked=%b total=%d",
-            p.getName(), arena.getId(), DebugLog.at(block.getLocation()), !marked, arena.getBreakables().size());
+            p.getName(), arena.getId(), DebugLog.at(block.getLocation()), !marked, EscapeArena.breakables(arena).size());
         Msg.send(p, marked ? "breakable.unmarked" : "breakable.marked",
             Msg.ph("block", block.getType().name()),
             Msg.ph("x", block.getX()), Msg.ph("y", block.getY()), Msg.ph("z", block.getZ()),
-            Msg.ph("n", arena.getBreakables().size()));
+            Msg.ph("n", EscapeArena.breakables(arena).size()));
     }
 
     /**
@@ -264,7 +266,7 @@ public class SetupListener implements Listener
             return true;
         }
         Location point = block.getLocation();
-        if (!arena.getChestSpots().containsKey(point))
+        if (!EscapeArena.chestSpots(arena).containsKey(point))
         {
             Msg.send(p, "chesttag.not-a-point");
             return true;
@@ -272,17 +274,17 @@ public class SetupListener implements Listener
         // сундук-точка в мире — источник истины по стороне: синхронизируем
         if (block.getBlockData() instanceof Directional dir)
         {
-            arena.getChestFacings().put(point, dir.getFacing());
+            EscapeArena.chestFacings(arena).put(point, dir.getFacing());
         }
         String catId = pdc.get(EscapeKeys.CATEGORY_ID, PersistentDataType.STRING);
         if (!plugin.loot().exists(catId)) {Msg.send(p, "chesttag.bad-category"); return true;}
         LootCategory cat = plugin.loot().get(catId);
 
-        List<String> cats = arena.getChestSpots().get(point);
+        List<String> cats = EscapeArena.chestSpots(arena).get(point);
         if (cats == null)
         {
             cats = new ArrayList<>();
-            arena.getChestSpots().put(point, cats);
+            EscapeArena.chestSpots(arena).put(point, cats);
         }
         boolean added;
         if (cats.remove(cat.getId())) {added = false;}

@@ -43,14 +43,14 @@ public class RespawnBlocks
     private static final Random RANDOM = new Random();
 
     private final EscapePlugin plugin;
-    private final GameSession session;
+    private final EscapeRules session;
 
     private final Map<UUID, RespawnBlock> byOwner = new HashMap<>();
     private final Map<Location, UUID> ownerByLocation = new HashMap<>();
     /** Ожидающие возрождения: игрок (в спектаторах) -> отложенная задача. */
     private final Map<UUID, BukkitTask> pendingRespawns = new HashMap<>();
 
-    public RespawnBlocks(EscapePlugin plugin, GameSession session)
+    public RespawnBlocks(EscapePlugin plugin, EscapeRules session)
     {
         this.plugin = plugin;
         this.session = session;

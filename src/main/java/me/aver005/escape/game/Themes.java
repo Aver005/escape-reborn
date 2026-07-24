@@ -37,9 +37,9 @@ public class Themes
     private static final Random RANDOM = new Random();
 
     private final EscapePlugin plugin;
-    private final GameSession session;
+    private final EscapeRules session;
 
-    public Themes(EscapePlugin plugin, GameSession session)
+    public Themes(EscapePlugin plugin, EscapeRules session)
     {
         this.plugin = plugin;
         this.session = session;
@@ -47,7 +47,7 @@ public class Themes
 
     public Theme activeOf(Player p)
     {
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         return data == null || data.themeId == null ? null : plugin.themes().get(data.themeId);
     }
 
@@ -56,14 +56,14 @@ public class Themes
     /** Секунды кулдауна на новую темку (0 — можно брать). */
     public long cooldownLeft(Player p)
     {
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         if (data == null) {return 0;}
         return Math.max(0, (data.themeCooldownUntil - System.currentTimeMillis() + 999) / 1000);
     }
 
     public boolean take(Player p, Theme theme, Villager issuer)
     {
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         if (data == null || !theme.isComplete())
         {
             DebugLog.log(Cat.THEME, "take-deny player=%s theme=%s reason=%s",
@@ -110,7 +110,7 @@ public class Themes
 
     public void abandon(Player p)
     {
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         if (data == null || data.themeId == null) {return;}
         String themeId = data.themeId;
         clearActive(data);
@@ -130,7 +130,7 @@ public class Themes
         Msg.send(p, "theme.dropped", Msg.ph("seconds", cooldown));
     }
 
-    private void clearActive(MatchPlayer data)
+    private void clearActive(EscapePlayerData data)
     {
         data.themeId = null;
         data.themeProgress = 0;
@@ -141,7 +141,7 @@ public class Themes
 
     public void progress(Player p, ThemeType type, Predicate<Theme> matcher, int delta)
     {
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         Theme theme = activeOf(p);
         if (data == null || theme == null || theme.getType() != type || !matcher.test(theme)) {return;}
         if (data.themeProgress >= theme.getAmount()) {return;}
@@ -157,7 +157,7 @@ public class Themes
     /** FIND: прогресс = сколько предметов-целей у игрока сейчас (максимум запоминается). */
     public void refreshFind(Player p)
     {
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         Theme theme = activeOf(p);
         if (data == null || theme == null || theme.getType() != ThemeType.FIND) {return;}
         Material target = Material.matchMaterial(theme.getIdle());
@@ -190,7 +190,7 @@ public class Themes
     {
         if (deliverPackages(p, npc)) {return true;}
 
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         Theme theme = activeOf(p);
         if (data == null || theme == null) {return false;}
         if (!turnInMatches(theme, npc, entity, data))
@@ -244,7 +244,7 @@ public class Themes
         return true;
     }
 
-    private boolean turnInMatches(Theme theme, TraderType npc, Villager entity, MatchPlayer data)
+    private boolean turnInMatches(Theme theme, TraderType npc, Villager entity, EscapePlayerData data)
     {
         if (theme.isTurnInAny()) {return npc.isOverseer();}
         if (theme.isTurnInSelf()) {return entity != null && entity.getUniqueId().equals(data.themeIssuer);}
@@ -267,7 +267,7 @@ public class Themes
                 .get(EscapeKeys.THEME_OWNER, PersistentDataType.STRING);
             if (ownerRaw != null)
             {
-                MatchPlayer owner = session.matchData(UUID.fromString(ownerRaw));
+                EscapePlayerData owner = session.matchData(UUID.fromString(ownerRaw));
                 if (owner != null && themeId.equals(owner.themeId)) {clearActive(owner);}
             }
 
@@ -283,7 +283,7 @@ public class Themes
     private void reward(Player p, Theme theme)
     {
         session.giveGold(p, theme.getGold());
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         if (data != null)
         {
             data.quests++;
@@ -357,7 +357,7 @@ public class Themes
     /** Отладка: заполнить прогресс активной темки до цели. */
     public boolean debugComplete(Player p)
     {
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         Theme theme = activeOf(p);
         if (data == null || theme == null) {return false;}
         data.themeProgress = theme.getAmount();

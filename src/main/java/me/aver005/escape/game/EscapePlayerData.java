@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.bukkit.Location;
 
 /** Per-match данные участника. */
-public class MatchPlayer
+public class EscapePlayerData
 {
     public final UUID uuid;
     public final String name;
@@ -34,7 +34,7 @@ public class MatchPlayer
     /** Сданные темки: повторно взять нельзя (одна темка = один раз за матч). */
     public final Set<String> completedThemes = new HashSet<>();
 
-    public MatchPlayer(UUID uuid, String name)
+    public EscapePlayerData(UUID uuid, String name)
     {
         this.uuid = uuid;
         this.name = name;

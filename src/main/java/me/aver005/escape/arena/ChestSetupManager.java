@@ -1,4 +1,6 @@
 package me.aver005.escape.arena;
+
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
@@ -64,7 +66,7 @@ public class ChestSetupManager
     public void start(Player p, Arena arena)
     {
         if (isActive(p)) {Msg.send(p, "chestsetup.already"); return;}
-        if (plugin.arenas().sessionOf(p) != null || arena.getSession() != null)
+        if (plugin.arenas().sessionOf(p) != null || plugin.arenas().sessionOf(arena) != null)
         {
             Msg.send(p, "chestsetup.arena-busy", Msg.ph("arena", arena.getId()));
             return;
@@ -74,7 +76,7 @@ public class ChestSetupManager
             Msg.send(p, "chestsetup.no-categories", Msg.ph("arena", arena.getId()));
             return;
         }
-        if (arena.getChestSpots().isEmpty())
+        if (EscapeArena.chestSpots(arena).isEmpty())
         {
             Msg.send(p, "chestsetup.no-points", Msg.ph("arena", arena.getId()));
             return;
@@ -91,7 +93,7 @@ public class ChestSetupManager
         giveWands(p, arena);
 
         WizardState state = new WizardState(p.getUniqueId(), arena,
-            new ArrayList<>(arena.getChestSpots().keySet()));
+            new ArrayList<>(EscapeArena.chestSpots(arena).keySet()));
         active.put(p.getUniqueId(), state);
         DebugLog.log(Cat.ADMIN, "chestsetup-start admin=%s arena=%s points=%d categories=%d",
             p.getName(), arena.getId(), state.size(), plugin.loot().all().size());
@@ -146,7 +148,7 @@ public class ChestSetupManager
         Location point = state.current();
         if (point == null) {advance(p); return;}
 
-        List<String> cats = arena.getChestSpots().computeIfAbsent(point, k -> new ArrayList<>());
+        List<String> cats = EscapeArena.chestSpots(arena).computeIfAbsent(point, k -> new ArrayList<>());
         boolean added;
         if (cats.remove(cat.getId())) {added = false;}
         else {cats.add(cat.getId()); added = true;}
@@ -192,7 +194,7 @@ public class ChestSetupManager
         SetupMarkers.placePoint(state.getArena(), point, "chest"); // гарантируем видимый сундук
         p.teleport(point.clone().add(0.5, 1.0, 0.5));
 
-        List<String> ids = state.getArena().getChestSpots().get(point);
+        List<String> ids = EscapeArena.chestSpots(state.getArena()).get(point);
         p.sendActionBar(Msg.get("chestsetup.progress",
             Msg.ph("index", i + 1), Msg.ph("total", state.size()),
             Msg.ph("count", ids == null ? 0 : ids.size()),

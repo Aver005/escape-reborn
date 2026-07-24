@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
-import me.aver005.escape.game.MatchPlayer;
+import me.aver005.escape.game.EscapeRules;
+import me.aver005.escape.game.EscapePlayerData;
 import me.aver005.escape.trader.Trade;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.DebugLog;
@@ -33,19 +33,19 @@ public class ShopMenu extends Menu
     public static final int MAX_TRADES = 28;
 
     private final EscapePlugin plugin;
-    private final GameSession session;
+    private final EscapeRules session;
     private final TraderType trader;
     private final Villager backVillager; // null — без кнопки «назад»
     private final int backSlot;
     private final Map<Integer, Trade> tradeBySlot = new HashMap<>();
 
-    public ShopMenu(EscapePlugin plugin, GameSession session, TraderType trader)
+    public ShopMenu(EscapePlugin plugin, EscapeRules session, TraderType trader)
     {
         this(plugin, session, trader, null);
     }
 
     /** backVillager != null — открыт из меню совмещённого NPC, показать «Назад». */
-    public ShopMenu(EscapePlugin plugin, GameSession session, TraderType trader, Villager backVillager)
+    public ShopMenu(EscapePlugin plugin, EscapeRules session, TraderType trader, Villager backVillager)
     {
         super(rowsFor(trader) * 9, Msg.get("shop.title-prefix").append(trader.displayName()));
         this.plugin = plugin;
@@ -126,7 +126,7 @@ public class ShopMenu extends Menu
         DebugLog.log(Cat.SHOP, "buy player=%s trader=%s item=%s price=%d gold-left=%d",
             p.getName(), trader.getId(), DebugLog.item(bought), trade.price(), gold - trade.price());
 
-        MatchPlayer data = session.matchData(p.getUniqueId());
+        EscapePlayerData data = session.matchData(p.getUniqueId());
         if (data != null) {data.trades++;}
         plugin.stats().add(p.getUniqueId(), p.getName(), "trades_completed", 1);
 

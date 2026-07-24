@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+
+import me.aver005.escape.arena.EscapeArena;
 import ru.kiviuly.mg.api.menu.Menu;
 import me.aver005.escape.util.EscapeKeys;
 
@@ -7,8 +9,8 @@ import java.util.List;
 import java.util.UUID;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
-import me.aver005.escape.game.GameSession;
+import ru.kiviuly.mg.api.arena.Arena;
+import me.aver005.escape.game.EscapeRules;
 import me.aver005.escape.kit.Kit;
 import ru.kiviuly.mg.api.util.Items;
 import ru.kiviuly.mg.api.util.Keys;
@@ -37,13 +39,15 @@ public class KitSelectMenu extends Menu
     private static final int SLOT_NONE = 48;
     private static final int SLOT_RANDOM = 50;
 
-    private final GameSession session;
+    private final EscapePlugin plugin;
+    private final EscapeRules session;
     private final Arena arena;
     private final UUID viewer;
 
-    public KitSelectMenu(EscapePlugin plugin, GameSession session, UUID viewer)
+    public KitSelectMenu(EscapePlugin plugin, EscapeRules session, UUID viewer)
     {
         super(54, Msg.get("kit.menu-title"));
+        this.plugin = plugin;
         this.session = session;
         this.arena = session.getArena();
         this.viewer = viewer;
@@ -56,9 +60,9 @@ public class KitSelectMenu extends Menu
         fillBorder(Material.GRAY_STAINED_GLASS_PANE);
 
         String choice = session.getChosenKit(viewer);
-        String effective = choice != null ? choice : arena.getDefaultKit();
+        String effective = choice != null ? choice : plugin.arenaConfigs().of(arena).defaultKit();
 
-        List<Kit> kits = arena.getKits();
+        List<Kit> kits = plugin.kitsFor(arena);
         for (int i = 0; i < kits.size() && i < KIT_SLOTS.length; i++)
         {
             Kit kit = kits.get(i);
@@ -79,7 +83,7 @@ public class KitSelectMenu extends Menu
         List<Component> lore = new ArrayList<>();
         for (String line : kit.getLoreRaw()) {lore.add(Items.flat(Msg.mm(line)));}
         lore.add(Component.empty());
-        int gold = kit.getGold() >= 0 ? kit.getGold() : arena.getStartGold();
+        int gold = kit.getGold() >= 0 ? kit.getGold() : EscapeArena.startGold(arena);
         lore.add(Items.flat(Msg.get("kit.menu-gold-line", Msg.ph("n", gold))));
         for (ItemStack item : kit.getItems())
         {
@@ -126,7 +130,7 @@ public class KitSelectMenu extends Menu
             }
             default ->
             {
-                Kit kit = arena.getKit(tag);
+                Kit kit = plugin.kitFor(arena, tag);
                 if (kit == null) {return;}
                 session.setChosenKit(p.getUniqueId(), kit.getId());
                 Msg.send(p, "kit.chosen", Msg.phMm("name", kit.getNameRaw()));

@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.kit.Kit;
 import ru.kiviuly.mg.api.util.Items;
 import ru.kiviuly.mg.api.util.Msg;
@@ -50,7 +50,7 @@ public class ArenaKitsMenu extends Menu
     {
         inventory.clear();
         idBySlot.clear();
-        List<Kit> kits = arena.getKits();
+        List<Kit> kits = plugin.kitsFor(arena);
         int pages = pageCount(kits.size());
         if (page >= pages) {page = pages - 1;}
         if (page < 0) {page = 0;}
@@ -74,7 +74,7 @@ public class ArenaKitsMenu extends Menu
 
     private ItemStack icon(Kit kit)
     {
-        boolean isDefault = kit.getId().equalsIgnoreCase(arena.getDefaultKit());
+        boolean isDefault = kit.getId().equalsIgnoreCase(plugin.arenaConfigs().of(arena).defaultKit());
         ItemStack item = new ItemStack(kit.getIcon());
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Items.flat(Msg.mm(kit.getNameRaw() == null ? kit.getId() : kit.getNameRaw())));
@@ -95,7 +95,7 @@ public class ArenaKitsMenu extends Menu
     {
         if (!(e.getWhoClicked() instanceof Player p)) {return;}
         int raw = e.getRawSlot();
-        int pages = pageCount(arena.getKits().size());
+        int pages = pageCount(plugin.kitsFor(arena).size());
         if (raw == SLOT_PREV && page > 0) {page--; render(); return;}
         if (raw == SLOT_NEXT && page < pages - 1) {page++; render(); return;}
         if (raw == SLOT_BACK) {new ArenaHubMenu(plugin, arena).open(p); return;}
@@ -104,7 +104,7 @@ public class ArenaKitsMenu extends Menu
 
         String id = idBySlot.get(raw);
         if (id == null) {return;}
-        Kit kit = arena.getKit(id);
+        Kit kit = plugin.kitFor(arena, id);
         if (kit == null) {render(); return;}
         new KitEditorMenu(plugin, arena, kit).open(p);
     }

@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
-import me.aver005.escape.game.MatchPlayer;
+import me.aver005.escape.game.EscapeRules;
+import me.aver005.escape.game.EscapePlayerData;
 import me.aver005.escape.theme.Theme;
 import me.aver005.escape.trader.TraderType;
 import ru.kiviuly.mg.api.util.Items;
@@ -31,19 +31,19 @@ public class ThemesMenu extends Menu
     private static final int SLOT_BACK = 27;
 
     private final EscapePlugin plugin;
-    private final GameSession session;
+    private final EscapeRules session;
     private final TraderType npc;
     private final Villager villager;
     private final boolean showBack;
     private final Map<Integer, Theme> themeBySlot = new HashMap<>();
 
-    public ThemesMenu(EscapePlugin plugin, GameSession session, TraderType npc, Villager villager)
+    public ThemesMenu(EscapePlugin plugin, EscapeRules session, TraderType npc, Villager villager)
     {
         this(plugin, session, npc, villager, false);
     }
 
     /** showBack — открыто из меню совмещённого NPC, показать «Назад». */
-    public ThemesMenu(EscapePlugin plugin, GameSession session, TraderType npc, Villager villager, boolean showBack)
+    public ThemesMenu(EscapePlugin plugin, EscapeRules session, TraderType npc, Villager villager, boolean showBack)
     {
         super(36, Msg.get("theme.menu-title-prefix").append(npc.displayName()));
         this.plugin = plugin;
@@ -60,7 +60,7 @@ public class ThemesMenu extends Menu
         inventory.clear();
         fillBorder(Material.GREEN_STAINED_GLASS_PANE);
 
-        MatchPlayer data = viewer == null ? null : session.matchData(viewer.getUniqueId());
+        EscapePlayerData data = viewer == null ? null : session.matchData(viewer.getUniqueId());
 
         int slot = 10;
         for (String themeId : npc.getThemes())
@@ -123,7 +123,7 @@ public class ThemesMenu extends Menu
         return Items.named(Material.GRAY_DYE, Msg.get("theme.completed-name", Msg.ph("id", theme.getId())), lore);
     }
 
-    private ItemStack activeItem(Theme theme, MatchPlayer data)
+    private ItemStack activeItem(Theme theme, EscapePlayerData data)
     {
         List<Component> lore = new ArrayList<>();
         lore.add(Msg.get("theme.lore-description", Msg.phMm("description", theme.getDescription())));

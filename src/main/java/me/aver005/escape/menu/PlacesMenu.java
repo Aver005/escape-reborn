@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+
+import me.aver005.escape.arena.EscapeArena;
 import ru.kiviuly.mg.api.menu.Menu;
 import me.aver005.escape.util.EscapeItems;
 
@@ -6,7 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import ru.kiviuly.mg.api.util.Items;
 import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.Location;
@@ -18,16 +20,16 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 public class PlacesMenu extends Menu
 {
     private final EscapePlugin plugin;
-    private final GameSession session;
+    private final EscapeRules session;
     private final Map<Integer, Location> locationBySlot = new HashMap<>();
 
-    public PlacesMenu(EscapePlugin plugin, GameSession session)
+    public PlacesMenu(EscapePlugin plugin, EscapeRules session)
     {
         super(27, Msg.get("assistant.places-title"));
         this.plugin = plugin;
         this.session = session;
         int slot = 0;
-        for (Map.Entry<Location, String> entry : session.getArena().getLevers().entrySet())
+        for (Map.Entry<Location, String> entry : EscapeArena.levers(session.getArena()).entrySet())
         {
             if (slot >= 27) {break;}
             inventory.setItem(slot, Items.named(Material.GRASS_BLOCK,
@@ -46,7 +48,7 @@ public class PlacesMenu extends Menu
         Location loc = locationBySlot.get(e.getRawSlot());
         if (loc == null) {return;}
 
-        String name = session.getArena().getLevers().get(loc);
+        String name = EscapeArena.levers(session.getArena()).get(loc);
         Msg.send(p, "assistant.used-header",
             Msg.phC("ability", Msg.get("assistant.place-item-name", Msg.ph("place", name))));
         if (EscapeItems.pointAssistantCompass(p, loc))

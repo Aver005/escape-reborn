@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+
+import me.aver005.escape.arena.EscapeArena;
 import ru.kiviuly.mg.api.menu.Menu;
 
 import java.util.ArrayList;
@@ -9,7 +11,7 @@ import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
 import ru.kiviuly.mg.api.util.Items;
@@ -55,26 +57,26 @@ public class ArenaSettingsMenu extends Menu
         List<Setting> s = new ArrayList<>();
         s.add(new Setting(0, "minplayers", Material.IRON_HELMET, false, 1, 128, a::getMinPlayers, a::setMinPlayers));
         s.add(new Setting(1, "maxplayers", Material.DIAMOND_HELMET, false, 1, 128, a::getMaxPlayers, a::setMaxPlayers));
-        s.add(new Setting(2, "duration", Material.CLOCK, false, 1, 100000, a::getDurationSeconds, a::setDurationSeconds));
-        s.add(new Setting(3, "startdelay", Material.REPEATER, false, 1, 100000, a::getStartDelaySeconds, a::setStartDelaySeconds));
-        s.add(new Setting(4, "startdelayfull", Material.COMPARATOR, false, 1, 100000, a::getStartDelayFullSeconds, a::setStartDelayFullSeconds));
-        s.add(new Setting(5, "eventinterval", Material.BELL, false, 1, 100000, a::getEventIntervalSeconds, a::setEventIntervalSeconds));
-        s.add(new Setting(6, "salaryinterval", Material.COMPASS, false, 1, 100000, a::getSalaryIntervalSeconds, a::setSalaryIntervalSeconds));
-        s.add(new Setting(7, "glowtime", Material.GLOWSTONE, false, 1, 100000, a::getGlowSecondsBeforeEnd, a::setGlowSecondsBeforeEnd));
-        s.add(new Setting(9, "salarygold", Material.GOLD_INGOT, false, 1, 100000, a::getSalaryGold, a::setSalaryGold));
-        s.add(new Setting(10, "startgold", Material.GOLD_NUGGET, false, 1, 100000, a::getStartGold, a::setStartGold));
-        s.add(new Setting(11, "glowgold", Material.GLOWSTONE_DUST, false, 1, 100000, a::getGlowBonusGold, a::setGlowBonusGold));
-        s.add(new Setting(12, "forkuses", Material.STICK, false, 1, 100000, a::getForkUses, a::setForkUses));
-        s.add(new Setting(14, "traders", Material.EMERALD, false, 1, 100000, a::getTraderCount, a::setTraderCount));
-        s.add(new Setting(15, "tables", Material.ENCHANTING_TABLE, false, 1, 100000, a::getTableCount, a::setTableCount));
-        s.add(new Setting(16, "wearmin", Material.DAMAGED_ANVIL, false, 0, 99, a::getWearMinPercent, a::setWearMinPercent));
-        s.add(new Setting(17, "wearmax", Material.ANVIL, false, 0, 99, a::getWearMaxPercent, a::setWearMaxPercent));
+        s.add(new Setting(2, "duration", Material.CLOCK, false, 1, 100000, a::getMatchDurationSeconds, a::setMatchDurationSeconds));
+        s.add(new Setting(3, "startdelay", Material.REPEATER, false, 1, 100000, a::getLobbyCountdownSeconds, a::setLobbyCountdownSeconds));
+        s.add(new Setting(4, "startdelayfull", Material.COMPARATOR, false, 1, 100000, a::getCountdownFullSeconds, a::setCountdownFullSeconds));
+        s.add(new Setting(5, "eventinterval", Material.BELL, false, 1, 100000, () -> EscapeArena.eventIntervalSeconds(a), v -> EscapeArena.setEventIntervalSeconds(a, v)));
+        s.add(new Setting(6, "salaryinterval", Material.COMPASS, false, 1, 100000, () -> EscapeArena.salaryIntervalSeconds(a), v -> EscapeArena.setSalaryIntervalSeconds(a, v)));
+        s.add(new Setting(7, "glowtime", Material.GLOWSTONE, false, 1, 100000, () -> EscapeArena.glowSecondsBeforeEnd(a), v -> EscapeArena.setGlowSecondsBeforeEnd(a, v)));
+        s.add(new Setting(9, "salarygold", Material.GOLD_INGOT, false, 1, 100000, () -> EscapeArena.salaryGold(a), v -> EscapeArena.setSalaryGold(a, v)));
+        s.add(new Setting(10, "startgold", Material.GOLD_NUGGET, false, 1, 100000, () -> EscapeArena.startGold(a), v -> EscapeArena.setStartGold(a, v)));
+        s.add(new Setting(11, "glowgold", Material.GLOWSTONE_DUST, false, 1, 100000, () -> EscapeArena.glowBonusGold(a), v -> EscapeArena.setGlowBonusGold(a, v)));
+        s.add(new Setting(12, "forkuses", Material.STICK, false, 1, 100000, () -> EscapeArena.forkUses(a), v -> EscapeArena.setForkUses(a, v)));
+        s.add(new Setting(14, "traders", Material.EMERALD, false, 1, 100000, () -> EscapeArena.traderCount(a), v -> EscapeArena.setTraderCount(a, v)));
+        s.add(new Setting(15, "tables", Material.ENCHANTING_TABLE, false, 1, 100000, () -> EscapeArena.tableCount(a), v -> EscapeArena.setTableCount(a, v)));
+        s.add(new Setting(16, "wearmin", Material.DAMAGED_ANVIL, false, 0, 99, () -> EscapeArena.wearMinPercent(a), v -> EscapeArena.setWearMinPercent(a, v)));
+        s.add(new Setting(17, "wearmax", Material.ANVIL, false, 0, 99, () -> EscapeArena.wearMaxPercent(a), v -> EscapeArena.setWearMaxPercent(a, v)));
         s.add(new Setting(18, "dynamicchests", Material.TRAPPED_CHEST, true, 0, 1,
-            () -> a.isDynamicChests() ? 1 : 0, v -> a.setDynamicChests(v > 0)));
-        s.add(new Setting(20, "contractminarena", Material.PAPER, false, 0, 100000, a::getContractsMinPerArena, a::setContractsMinPerArena));
-        s.add(new Setting(21, "contractmaxarena", Material.MAP, false, -1, 100000, a::getContractsMaxPerArena, a::setContractsMaxPerArena));
-        s.add(new Setting(22, "contractminchest", Material.BOOK, false, 0, 100000, a::getContractsMinPerChest, a::setContractsMinPerChest));
-        s.add(new Setting(23, "contractmaxchest", Material.WRITTEN_BOOK, false, 0, 100000, a::getContractsMaxPerChest, a::setContractsMaxPerChest));
+            () -> EscapeArena.dynamicChests(a) ? 1 : 0, v -> EscapeArena.setDynamicChests(a, v > 0)));
+        s.add(new Setting(20, "contractminarena", Material.PAPER, false, 0, 100000, () -> EscapeArena.contractsMinPerArena(a), v -> EscapeArena.setContractsMinPerArena(a, v)));
+        s.add(new Setting(21, "contractmaxarena", Material.MAP, false, -1, 100000, () -> EscapeArena.contractsMaxPerArena(a), v -> EscapeArena.setContractsMaxPerArena(a, v)));
+        s.add(new Setting(22, "contractminchest", Material.BOOK, false, 0, 100000, () -> EscapeArena.contractsMinPerChest(a), v -> EscapeArena.setContractsMinPerChest(a, v)));
+        s.add(new Setting(23, "contractmaxchest", Material.WRITTEN_BOOK, false, 0, 100000, () -> EscapeArena.contractsMaxPerChest(a), v -> EscapeArena.setContractsMaxPerChest(a, v)));
         return s;
     }
 

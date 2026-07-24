@@ -1,8 +1,8 @@
 package me.aver005.escape.listener;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
-import me.aver005.escape.game.GameSession;
+import ru.kiviuly.mg.api.arena.Arena;
+import me.aver005.escape.game.EscapeRules;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -44,8 +44,8 @@ public class ProtectionListener implements Listener
     {
         Arena arena = arenaInWorld(e.getBlock().getWorld());
         if (arena == null) {return;}
-        GameSession session = arena.getSession();
-        if (session == null || session.getPhase() != GameSession.Phase.RUNNING) {e.setCancelled(true); return;}
+        EscapeRules session = plugin.arenas().sessionOf(arena);
+        if (session == null || session.getPhase() != EscapeRules.Phase.RUNNING) {e.setCancelled(true); return;}
 
         // в матче — только НАМЕРЕННЫЙ поджиг (огниво / огненный шар / горящая
         // стрела). Огонь регистрируется как игровой: не распространяется, не жжёт
@@ -71,7 +71,7 @@ public class ProtectionListener implements Listener
         if (e.getBlock().getType() != Material.FIRE) {return;}
         Arena arena = arenaInWorld(e.getBlock().getWorld());
         if (arena == null) {return;}
-        GameSession session = arena.getSession();
+        EscapeRules session = plugin.arenas().sessionOf(arena);
         if (session != null && session.isMatchFire(e.getBlock().getLocation())) {e.setCancelled(true);}
     }
 

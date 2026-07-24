@@ -1,10 +1,12 @@
 package me.aver005.escape.listener;
+
+import me.aver005.escape.arena.EscapeArena;
 import me.aver005.escape.util.EscapeKeys;
 
 import me.aver005.escape.EscapePlugin;
 import me.aver005.escape.contract.ContractType;
 import me.aver005.escape.game.GameEvent;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import me.aver005.escape.menu.AssistantMenu;
 import me.aver005.escape.menu.KitSelectMenu;
 import ru.kiviuly.mg.api.menu.Menu;
@@ -68,7 +70,7 @@ public class GameListener implements Listener
 
     public GameListener(EscapePlugin plugin) {this.plugin = plugin;}
 
-    private GameSession session(Player p) {return plugin.arenas().sessionOf(p);}
+    private EscapeRules session(Player p) {return plugin.arenas().sessionOf(p);}
 
     // ===== блоки =====
 
@@ -76,7 +78,7 @@ public class GameListener implements Listener
     public void onBlockPlace(BlockPlaceEvent e)
     {
         Player p = e.getPlayer();
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null) {return;}
 
         // блок возрождения — единственное, что игрок может ставить
@@ -92,7 +94,7 @@ public class GameListener implements Listener
     public void onBlockBreak(BlockBreakEvent e)
     {
         Player p = e.getPlayer();
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null) {return;}
         if (!session.isPlaying(p.getUniqueId())) {e.setCancelled(true); return;}
 
@@ -113,7 +115,7 @@ public class GameListener implements Listener
         }
 
         // отмеченные ломаемые блоки: игрок ломает, после матча вернутся (обе половины дверей/кроватей)
-        if (session.getArena().getBreakables().contains(block.getLocation()))
+        if (EscapeArena.breakables(session.getArena()).contains(block.getLocation()))
         {
             DebugLog.log(Cat.WORLD, "breakable-broken player=%s block=%s at=%s",
                 p.getName(), type, DebugLog.at(block.getLocation()));
@@ -173,7 +175,7 @@ public class GameListener implements Listener
     public void onBucketEmpty(PlayerBucketEmptyEvent e)
     {
         Player p = e.getPlayer();
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null) {return;}
         if (!session.isPlaying(p.getUniqueId()) || !liquidAllowed(e.getBucket()))
         {
@@ -196,7 +198,7 @@ public class GameListener implements Listener
     public void onBucketFill(PlayerBucketFillEvent e)
     {
         Player p = e.getPlayer();
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null) {return;}
         if (!session.isPlaying(p.getUniqueId()) || !plugin.getConfig().getBoolean("liquids.enabled", true))
         {
@@ -225,7 +227,7 @@ public class GameListener implements Listener
     {
         Player damager = resolveDamager(e.getDamager());
         if (damager == null) {return;}
-        GameSession session = session(damager);
+        EscapeRules session = session(damager);
         if (session == null) {return;}
 
         if (e.getEntity() instanceof ItemFrame) {e.setCancelled(true); return;}
@@ -272,7 +274,7 @@ public class GameListener implements Listener
     public void onDamage(EntityDamageEvent e)
     {
         if (!(e.getEntity() instanceof Player p)) {return;}
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null) {return;}
 
         if (session.isLobbyMember(p.getUniqueId())) {e.setCancelled(true); return;}
@@ -295,7 +297,7 @@ public class GameListener implements Listener
     public void onInteract(PlayerInteractEvent e)
     {
         Player p = e.getPlayer();
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null) {return;}
         if (e.getHand() == EquipmentSlot.OFF_HAND && e.getAction() != Action.PHYSICAL) {return;}
 
@@ -392,7 +394,7 @@ public class GameListener implements Listener
 
         if (type == Material.LEVER)
         {
-            String leverName = session.getArena().getLevers().get(block.getLocation());
+            String leverName = EscapeArena.levers(session.getArena()).get(block.getLocation());
             DebugLog.log(Cat.WORLD, "lever player=%s named=%s at=%s",
                 p.getName(), leverName == null ? "-" : leverName, DebugLog.at(block.getLocation()));
             if (leverName != null)
@@ -408,7 +410,7 @@ public class GameListener implements Listener
     public void onInteractAtStand(PlayerInteractAtEntityEvent e)
     {
         Player p = e.getPlayer();
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null || !session.isPlaying(p.getUniqueId())) {return;}
         if (!(e.getRightClicked() instanceof ArmorStand stand)) {return;}
 
@@ -427,7 +429,7 @@ public class GameListener implements Listener
     public void onInteractVillager(PlayerInteractEntityEvent e)
     {
         Player p = e.getPlayer();
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null || !session.isPlaying(p.getUniqueId())) {return;}
         if (!(e.getRightClicked() instanceof Villager villager)) {return;}
 
@@ -463,7 +465,7 @@ public class GameListener implements Listener
     public void onInventoryOpen(InventoryOpenEvent e)
     {
         if (!(e.getPlayer() instanceof Player p)) {return;}
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null || !session.isPlaying(p.getUniqueId())) {return;}
         if (!(e.getInventory().getHolder() instanceof Chest chest)) {return;}
 
@@ -480,7 +482,7 @@ public class GameListener implements Listener
     public void onInventoryClose(InventoryCloseEvent e)
     {
         if (!(e.getPlayer() instanceof Player p)) {return;}
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null || !session.isPlaying(p.getUniqueId())) {return;}
         if (!(e.getInventory().getHolder() instanceof Chest chest)) {return;}
 
@@ -492,7 +494,7 @@ public class GameListener implements Listener
     public void onPickup(EntityPickupItemEvent e)
     {
         if (!(e.getEntity() instanceof Player p)) {return;}
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null || !session.isPlaying(p.getUniqueId())) {return;}
         // прогресс FIND пересчитается на следующий тик, когда предмет уже в инвентаре
         plugin.getServer().getScheduler().runTask(plugin, () ->
@@ -506,7 +508,7 @@ public class GameListener implements Listener
     public void onInventoryClick(InventoryClickEvent e)
     {
         if (!(e.getWhoClicked() instanceof Player p)) {return;}
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null || !session.isPlaying(p.getUniqueId())) {return;}
         var top = e.getView().getTopInventory();
         if (top.getHolder() instanceof Menu) {return;}
@@ -529,7 +531,7 @@ public class GameListener implements Listener
     public void onPrepareCraft(PrepareItemCraftEvent e)
     {
         if (!(e.getView().getPlayer() instanceof Player p)) {return;}
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null) {return;}
         for (ItemStack item : e.getInventory().getMatrix())
         {
@@ -547,7 +549,7 @@ public class GameListener implements Listener
     public void onDrop(PlayerDropItemEvent e)
     {
         Player p = e.getPlayer();
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session == null) {return;}
         if (session.isLobbyMember(p.getUniqueId())) {e.setCancelled(true); return;}
         if (session.isPlaying(p.getUniqueId()))
@@ -569,14 +571,14 @@ public class GameListener implements Listener
     public void onFoodChange(FoodLevelChangeEvent e)
     {
         if (!(e.getEntity() instanceof Player p)) {return;}
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session != null && session.isLobbyMember(p.getUniqueId())) {e.setCancelled(true);}
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e)
     {
-        GameSession session = session(e.getPlayer());
+        EscapeRules session = session(e.getPlayer());
         if (session != null) {session.handleQuit(e.getPlayer());}
     }
 
@@ -586,7 +588,7 @@ public class GameListener implements Listener
         Player p = e.getPlayer();
 
         // возврат в матч, которым всё ещё владеет сессия (оффлайн-страж)
-        GameSession session = session(p);
+        EscapeRules session = session(p);
         if (session != null)
         {
             if (session.handleRejoin(p)) {return;}
@@ -613,7 +615,7 @@ public class GameListener implements Listener
         if (!(e.getEntity() instanceof Zombie zombie)) {return;}
         for (var arena : plugin.arenas().all().values())
         {
-            GameSession session = arena.getSession();
+            EscapeRules session = plugin.arenas().sessionOf(arena);
             if (session == null || !session.offlineGuards().ownsZombie(zombie.getUniqueId())) {continue;}
             e.getDrops().clear();
             e.setDroppedExp(0);

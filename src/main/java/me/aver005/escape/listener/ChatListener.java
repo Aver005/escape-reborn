@@ -4,7 +4,7 @@ import java.util.Set;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -26,7 +26,7 @@ public class ChatListener implements Listener
     public void onChat(AsyncChatEvent e)
     {
         Player p = e.getPlayer();
-        GameSession session = plugin.arenas().sessionOf(p);
+        EscapeRules session = plugin.arenas().sessionOf(p);
         if (session == null) {return;}
 
         e.setCancelled(true);
@@ -42,7 +42,7 @@ public class ChatListener implements Listener
     {
         Player p = e.getPlayer();
         if (p.hasPermission("escape.admin")) {return;}
-        GameSession session = plugin.arenas().sessionOf(p);
+        EscapeRules session = plugin.arenas().sessionOf(p);
         if (session == null) {return;}
 
         String[] parts = e.getMessage().substring(1).split("\\s+");

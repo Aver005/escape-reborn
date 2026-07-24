@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
@@ -83,7 +83,7 @@ public class ArenaContractsMenu extends Menu
 
     private ItemStack icon(Contract c)
     {
-        boolean attached = arena.getContractIds().contains(c.getId());
+        boolean attached = plugin.arenaConfigs().of(arena).contractIds().contains(c.getId());
         List<Component> lore = new ArrayList<>();
         lore.add(Msg.get("arena-contracts.lore-type",
             Msg.ph("type", c.getType() == null ? Msg.raw("arena-contracts.no-type") : c.getType().name())));
@@ -109,8 +109,8 @@ public class ArenaContractsMenu extends Menu
         Contract c = plugin.contracts().get(id);
         if (c == null) {render(); return;}
 
-        boolean attached = arena.getContractIds().remove(id);
-        if (!attached) {arena.getContractIds().add(id);}
+        boolean attached = plugin.arenaConfigs().of(arena).contractIds().remove(id);
+        if (!attached) {plugin.arenaConfigs().of(arena).contractIds().add(id);}
         plugin.arenas().save(arena);
         p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, attached ? 0.8f : 1.3f);
         DebugLog.log(Cat.ADMIN, "arena-contract admin=%s arena=%s contract=%s attached=%b",

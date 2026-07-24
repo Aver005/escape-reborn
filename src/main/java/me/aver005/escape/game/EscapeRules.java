@@ -1,4 +1,6 @@
 package me.aver005.escape.game;
+
+import me.aver005.escape.arena.EscapeArena;
 import me.aver005.escape.util.EscapeKeys;
 
 import java.util.ArrayList;
@@ -16,7 +18,11 @@ import java.util.UUID;
 import java.util.function.Predicate;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
+import ru.kiviuly.mg.api.game.GamePhase;
+import ru.kiviuly.mg.api.game.Match;
+import ru.kiviuly.mg.api.game.MatchPlayer;
+import ru.kiviuly.mg.api.game.MatchResult;
 import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractPapers;
@@ -59,23 +65,28 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 
-/** Один матч на арене: лобби -> отсчёт -> игра -> финальная битва -> очистка. */
-public class GameSession
+/**
+ * Правила Escape для одного матча.
+ *
+ * <p>Каркас (фазы, лобби, отсчёт, ростер, снапшоты игроков, откат мира, HUD,
+ * статистика) ведёт платформа и зовёт хуки через {@link EscapeGame}; здесь — только
+ * игровая логика: контракты, темы, торговцы, события, модификаторы, респавн-блоки,
+ * сундуки, зарплата, финальная битва.</p>
+ *
+ * <p>Объект живёт по одному на матч и хранится в самом матче.</p>
+ */
+public class EscapeRules
 {
-    public enum Phase {WAITING, COUNTDOWN, RUNNING, ENDING}
-
     private static final Random RANDOM = new Random();
     private static final long KILL_CREDIT_MILLIS = 10_000L;
 
     private final EscapePlugin plugin;
+    /** Матч платформы: ростер, фазы, откат мира, рассылка — всё через него. */
+    private final Match match;
     private final Arena arena;
 
-    private Phase phase = Phase.WAITING;
-
-    private final Set<UUID> lobby = new LinkedHashSet<>();
-    private final Set<UUID> playing = new LinkedHashSet<>();
-    private final Set<UUID> spectators = new LinkedHashSet<>();
-    private final Map<UUID, MatchPlayer> matchData = new HashMap<>();
+    /** Escape-специфичные данные игроков матча. */
+    private final Map<UUID, EscapePlayerData> matchData = new HashMap<>();
 
     private final Map<UUID, Double> warmupDamage = new HashMap<>();
 
@@ -103,14 +114,6 @@ public class GameSession
     private final Map<Location, BukkitTask> refillTasks = new HashMap<>();
     private final Map<String, Long> cooldowns = new HashMap<>();
 
-    private BukkitTask countdownTask;
-    private BukkitTask mainTask;
-    private BukkitTask stopTask;
-
-    private int countdownRemaining = 0;
-    private boolean forcedStart = false; // старт админом: min-players не проверяется
-    private int remaining = 0;
-    private BossBar timerBar; // таймер матча (XP — валюта зачарования)
     private GameEvent currentEvent = null;
     private int eventTicksLeft = 0;
     private final Map<UUID, Location> eventPositions = new HashMap<>();
@@ -128,10 +131,11 @@ public class GameSession
     private final Map<UUID, Long> lastVoteMs = new HashMap<>();
     private Modifier activeModifier = null;
 
-    public GameSession(EscapePlugin plugin, Arena arena)
+    public EscapeRules(EscapePlugin plugin, Match match)
     {
         this.plugin = plugin;
-        this.arena = arena;
+        this.match = match;
+        this.arena = match.arena();
         this.respawnBlocks = new RespawnBlocks(plugin, this);
         this.offlineGuards = new OfflineGuards(plugin, this);
         this.themes = new Themes(plugin, this);
@@ -140,18 +144,55 @@ public class GameSession
 
     // ===== доступ =====
 
+    /** Матч платформы, которому принадлежат эти правила. */
+    public Match match() {return match;}
+
     public Arena getArena() {return arena;}
-    public Phase getPhase() {return phase;}
-    public boolean isLobbyMember(UUID id) {return lobby.contains(id);}
-    public boolean isPlaying(UUID id) {return playing.contains(id);}
-    public boolean isSpectating(UUID id) {return spectators.contains(id);}
-    public int lobbySize() {return lobby.size();}
-    public int aliveCount() {return playing.size();}
-    public Set<UUID> playingSet() {return playing;}
+
+    /** Фаза берётся у матча: своих фаз у правил больше нет. */
+    public GamePhase getPhase() {return match.phase();}
+
+    /** В лобби = матч ещё принимает игроков и игрок в нём. */
+    public boolean isLobbyMember(UUID id) {return match.acceptsPlayers() && match.hasPlayer(id);}
+
+    /** Играет = участник матча и ещё не выбыл. */
+    public boolean isPlaying(UUID id)
+    {
+        MatchPlayer mp = match.player(id);
+        return mp != null && mp.isAlive();
+    }
+    /** Спектейт = участник матча, который уже выбыл. */
+    public boolean isSpectating(UUID id)
+    {
+        MatchPlayer mp = match.player(id);
+        return mp != null && !mp.isAlive();
+    }
+
+    /** Сколько игроков в лобби (до старта участники = лобби). */
+    public int lobbySize() {return match.acceptsPlayers() ? match.players().size() : 0;}
+
+    public int aliveCount() {return match.aliveCount();}
+
+    /** UUID участников лобби (до старта участники матча и есть лобби). */
+    public Set<UUID> lobbyMembers()
+    {
+        Set<UUID> out = new LinkedHashSet<>();
+        if (!match.acceptsPlayers()) {return out;}
+        for (MatchPlayer mp : match.players()) {out.add(mp.getUuid());}
+        return out;
+    }
+
+    /** UUID живых участников матча. */
+    public Set<UUID> playingSet()
+    {
+        Set<UUID> out = new LinkedHashSet<>();
+        for (MatchPlayer mp : match.players()) {if (mp.isAlive()) {out.add(mp.getUuid());}}
+        return out;
+    }
     public ChatChannel lobbyChat() {return lobbyChat;}
     public ChatChannel gameChat() {return gameChat;}
     public ChatChannel spectatorChat() {return spectatorChat;}
-    public MatchPlayer matchData(UUID id) {return matchData.get(id);}
+    public EscapePlayerData matchData(UUID id) {return matchData.get(id);}
     public Set<Location> getActiveChests() {return activeChests;}
     public List<Location> getTraderLocations() {return traderLocations;}
     public Map<Location, UUID> getChestStands() {return chestStands;}
@@ -175,7 +216,7 @@ public class GameSession
     /** Флаг принятого модификатора. */
     public boolean modFlag(String key) {return activeModifier != null && activeModifier.flag(key);}
 
-    private long countModifierVotes() {return lobby.stream().filter(modifierVotes::contains).count();}
+    private long countModifierVotes() {return lobbyMembers().stream().filter(modifierVotes::contains).count();}
 
     /** Бюллетень в лобби: описание кандидата, текущий счётчик и состояние голоса. */
     private void giveModifierBallot(Player p)
@@ -183,7 +224,7 @@ public class GameSession
         if (candidateModifier == null) {return;}
         boolean voted = modifierVotes.contains(p.getUniqueId());
         long forVotes = countModifierVotes();
-        int need = lobby.size() / 3 + 1;
+        int need = lobbySize() / 3 + 1;
         List<Component> lore = new ArrayList<>();
         for (String line : candidateModifier.getDescRaw()) {lore.add(Msg.mm(line));}
         lore.add(Component.empty());
@@ -196,7 +237,7 @@ public class GameSession
 
     private void refreshBallots()
     {
-        forEachOnline(lobby, this::giveModifierBallot);
+        forEachOnline(lobbyMembers(), this::giveModifierBallot);
     }
 
     /** Переключить голос игрока «за» кандидата и обновить бюллетени лобби. */
@@ -214,7 +255,7 @@ public class GameSession
         if (modifierVotes.remove(id)) {nowFor = false;}
         else {modifierVotes.add(id); nowFor = true;}
         long forVotes = countModifierVotes();
-        int need = lobby.size() / 3 + 1;
+        int need = lobbySize() / 3 + 1;
         Msg.send(p, nowFor ? "modifier.voted-for" : "modifier.voted-cancel",
             Msg.phMm("name", candidateModifier.getNameRaw()),
             Msg.ph("for", forVotes), Msg.ph("need", need));
@@ -226,7 +267,7 @@ public class GameSession
     {
         activeModifier = null;
         if (candidateModifier == null) {return;}
-        int starting = lobby.size();
+        int starting = lobbySize();
         long forVotes = countModifierVotes();
         boolean accepted = forVotes * 3 > starting;
         DebugLog.log(Cat.SESSION, "modifier arena=%s candidate=%s votes=%d/%d accepted=%b",
@@ -256,135 +297,19 @@ public class GameSession
 
     // ===== лобби =====
 
-    public boolean join(Player p)
-    {
-        if (plugin.arenas().inSession(p)) {Msg.send(p, "errors.already-in-game"); return false;}
-        if (!arena.isEnabled()) {Msg.send(p, "errors.arena-disabled"); return false;}
-        if (phase == Phase.RUNNING || phase == Phase.ENDING) {Msg.send(p, "errors.arena-started"); return false;}
-        if (lobby.size() >= arena.getMaxPlayers()) {Msg.send(p, "menu.arena-full"); return false;}
-        if (arena.getLobby() == null || arena.getLobby().getWorld() == null) {Msg.send(p, "errors.world-not-found"); return false;}
-        if (arena.getSpawns().isEmpty()) {Msg.send(p, "errors.no-spawns"); return false;}
-
-        PlayerSnapshot.save(plugin, p);
-        PlayerSnapshot.clear(p);
-
-        lobby.add(p.getUniqueId());
-        plugin.arenas().bind(p.getUniqueId(), this);
-        lobbyChat.add(p.getUniqueId());
-        lobbyChat.systemKey("lobby.join", Msg.ph("player", p.getName()), Msg.phMm("arena", arena.getDisplayNameRaw()));
-        DebugLog.log(Cat.SESSION, "join arena=%s player=%s lobby=%d/%d phase=%s",
-            arena.getId(), p.getName(), lobby.size(), arena.getMaxPlayers(), phase);
-
-        p.teleport(arena.getLobby());
-        p.getInventory().setItem(8, Items.special(Material.MAGMA_CREAM,
-            Msg.get("lobby.leave-item-name"), List.of(Msg.get("lobby.leave-item-lore")), "leave"));
-        if (!arena.getKits().isEmpty())
-        {
-            p.getInventory().setItem(0, Items.special(Material.CHEST,
-                Msg.get("kit.select-item-name"), Msg.getList("kit.select-item-lore"), "kit-select"));
-        }
-        if (candidateModifier != null)
-        {
-            refreshBallots(); // счётчик «нужно N» зависит от размера лобби — обновляем всем
-            Msg.send(p, "modifier.candidate", Msg.phMm("name", candidateModifier.getNameRaw()));
-        }
-
-        if (phase == Phase.WAITING && lobby.size() >= arena.getMinPlayers())
-        {
-            startCountdown(arena.getStartDelaySeconds());
-        }
-        else if (phase == Phase.COUNTDOWN && lobby.size() >= arena.getMaxPlayers()
-            && countdownRemaining > arena.getStartDelayFullSeconds())
-        {
-            countdownRemaining = arena.getStartDelayFullSeconds();
-        }
-        return true;
-    }
 
     /** Добровольный выход или кик. Возвращает false, если игрок не в сессии. */
-    public boolean leave(Player p)
-    {
-        UUID id = p.getUniqueId();
-        if (lobby.remove(id))
-        {
-            lobbyChat.remove(id);
-            plugin.arenas().unbind(id);
-            PlayerSnapshot.restore(plugin, p);
-            lobbyChat.systemKey("lobby.leave", Msg.ph("player", p.getName()));
-            DebugLog.log(Cat.SESSION, "leave-lobby arena=%s player=%s lobby=%d", arena.getId(), p.getName(), lobby.size());
-            if (phase == Phase.WAITING && lobby.isEmpty()) {dispose();}
-            return true;
-        }
-        if (playing.contains(id))
-        {
-            DebugLog.log(Cat.SESSION, "leave-match arena=%s player=%s alive=%d", arena.getId(), p.getName(), playing.size());
-            dropInventory(p, p.getLocation());
-            eliminate(p, false);
-            hideTimerBar(p);
-            plugin.arenas().unbind(id);
-            PlayerSnapshot.restore(plugin, p);
-            return true;
-        }
-        if (spectators.remove(id))
-        {
-            spectatorChat.remove(id);
-            hideTimerBar(p);
-            plugin.arenas().unbind(id);
-            PlayerSnapshot.restore(plugin, p);
-            DebugLog.log(Cat.SESSION, "leave-spectator arena=%s player=%s", arena.getId(), p.getName());
-            return true;
-        }
-        return false;
-    }
 
     /** Выход с сервера во время матча. */
-    public void handleQuit(Player p)
-    {
-        UUID id = p.getUniqueId();
-        DebugLog.log(Cat.SESSION, "quit arena=%s player=%s phase=%s role=%s", arena.getId(), p.getName(), phase,
-            lobby.contains(id) ? "lobby" : playing.contains(id) ? "playing" : "spectator");
-        if (lobby.contains(id)) {leave(p); return;}
-        if (playing.contains(id))
-        {
-            // ожидание возрождения / финал / завершение — выбытие сразу, без стража
-            if (respawnBlocks.isAwaitingRespawn(id) || phase != Phase.RUNNING || finalBattleStarted)
-            {
-                DebugLog.log(Cat.SESSION, "quit-no-guard player=%s awaiting-respawn=%b final=%b",
-                    p.getName(), respawnBlocks.isAwaitingRespawn(id), finalBattleStarted);
-                dropInventory(p, p.getLocation());
-                eliminate(p, true);
-                // снапшот не восстанавливаем сейчас — восстановится при заходе (файл остаётся)
-                plugin.arenas().unbind(id);
-                spectators.remove(id);
-                spectatorChat.remove(id);
-                return;
-            }
-            // живой игрок в идущем матче: оффлайн-страж, игрок остаётся участником
-            offlineGuards.beginGuard(p);
-            return;
-        }
-        if (spectators.remove(id))
-        {
-            spectatorChat.remove(id);
-            plugin.arenas().unbind(id);
-        }
-    }
 
     /** Возврат игрока на сервер, пока сессия им владеет. true — обработано. */
-    public boolean handleRejoin(Player p)
-    {
-        if (!playing.contains(p.getUniqueId())) {return false;}
-        DebugLog.log(Cat.SESSION, "rejoin arena=%s player=%s guarded=%b",
-            arena.getId(), p.getName(), offlineGuards.isGuarded(p.getUniqueId()));
-        return offlineGuards.handleRejoin(p);
-    }
 
     /** Заочное выбывание (оффлайн-страж не дождался владельца). */
     public void eliminateOffline(UUID id, String name, boolean announce)
     {
-        if (!playing.remove(id)) {return;}
+        if (!isPlaying(id)) {return;}
         DebugLog.log(Cat.PLAYER, "eliminate-offline arena=%s player=%s announce=%b alive=%d",
-            arena.getId(), name, announce, playing.size());
+            arena.getId(), name, announce, match.aliveCount());
         gameChat.remove(id);
         plugin.stats().add(id, name, "loses", 1);
         respawnBlocks.onOwnerEliminated(id);
@@ -396,13 +321,12 @@ public class GameSession
             spectatorChat.systemKey("offline-guard.eliminated", Msg.ph("player", name));
         }
 
-        if (playing.size() > 1)
+        if (match.aliveCount() > 1)
         {
-            gameChat.systemKey("game.players-left", Msg.ph("n", playing.size()));
-            spectatorChat.systemKey("game.players-left", Msg.ph("n", playing.size()));
-            return;
+            gameChat.systemKey("game.players-left", Msg.ph("n", match.aliveCount()));
+            spectatorChat.systemKey("game.players-left", Msg.ph("n", match.aliveCount()));
         }
-        finish();
+        // конец матча определяет ядро через checkResult()
     }
 
     public void addWarmupDamage(Player damager, double dmg)
@@ -410,54 +334,6 @@ public class GameSession
         warmupDamage.merge(damager.getUniqueId(), dmg, Double::sum);
     }
 
-    private void startCountdown(int seconds)
-    {
-        phase = Phase.COUNTDOWN;
-        countdownRemaining = seconds;
-        DebugLog.log(Cat.SESSION, "countdown-start arena=%s seconds=%d lobby=%d forced=%b",
-            arena.getId(), seconds, lobby.size(), forcedStart);
-        countdownTask = Bukkit.getScheduler().runTaskTimer(plugin, () ->
-        {
-            if (lobby.size() < (forcedStart ? 1 : arena.getMinPlayers()))
-            {
-                DebugLog.log(Cat.SESSION, "countdown-cancel arena=%s lobby=%d min=%d",
-                    arena.getId(), lobby.size(), arena.getMinPlayers());
-                forcedStart = false;
-                lobbyChat.systemKey("lobby.countdown-cancelled");
-                phase = Phase.WAITING;
-                forEachOnline(lobby, pl -> pl.setLevel(60));
-                cancelTask(countdownTask);
-                countdownTask = null;
-                return;
-            }
-
-            int sec = countdownRemaining;
-            if (sec % 10 == 0 || sec < 10)
-            {
-                lobbyChat.systemKey("lobby.countdown", Msg.ph("seconds", sec));
-            }
-            forEachOnline(lobby, pl ->
-            {
-                pl.setLevel(sec);
-                if (sec % 10 == 0 || sec <= 5)
-                {
-                    pl.showTitle(Title.title(
-                        Msg.get("lobby.countdown-title"),
-                        Msg.get("lobby.countdown-subtitle", Msg.ph("seconds", sec))));
-                }
-            });
-
-            if (sec == 5) {announceWarmup();}
-            if (sec <= 0)
-            {
-                cancelTask(countdownTask);
-                countdownTask = null;
-                startMatch();
-                return;
-            }
-            countdownRemaining--;
-        }, 20L, 20L);
-    }
 
     private void announceWarmup()
     {
@@ -491,89 +367,6 @@ public class GameSession
 
     // ===== старт матча =====
 
-    private void startMatch()
-    {
-        phase = Phase.RUNNING;
-        remaining = arena.getDurationSeconds();
-        World world = arena.getWorld();
-        if (world == null)
-        {
-            DebugLog.log(Cat.SESSION, "start-abort arena=%s reason=world-not-loaded world=%s",
-                arena.getId(), arena.getWorldName());
-            forceStop();
-            return;
-        }
-        DebugLog.log(Cat.SESSION, "start arena=%s world=%s players=%d duration=%ds dynamic-chests=%b",
-            arena.getId(), world.getName(), lobby.size(), remaining, arena.isDynamicChests());
-
-        // модификатор сессии решаем ДО генерации и раздачи: он крутит числа
-        // (кол-во сундуков, стартовое золото, износ, ночь)
-        decideModifier(world);
-
-        // подсказки настройки убираем ДО генерации и телепорта: игрок не должен
-        // появиться внутри стекла, а лут сундуков-маркеров в игре не участвует
-        SetupMarkers.clearForMatch(arena);
-
-        placeChests();
-        placeContracts();
-        spawnTraders();
-        placeOres();
-        placeTables();
-
-        List<PotionEffect> startEffects = List.of(
-            new PotionEffect(PotionEffectType.RESISTANCE, 20 * 20, 1, false, false),
-            new PotionEffect(PotionEffectType.SPEED, 20 * 12, 0, false, false),
-            new PotionEffect(PotionEffectType.REGENERATION, 20 * 20, 0, false, false));
-
-        // мешок точек: каждому игроку РАЗНАЯ точка; повтор только когда точки
-        // кончились, и тогда мешок пересыпается заново — стаканья на одной точке нет
-        List<Location> spawnBag = new ArrayList<>();
-
-        for (UUID id : new ArrayList<>(lobby))
-        {
-            Player p = Bukkit.getPlayer(id);
-            lobbyChat.remove(id);
-            if (p == null) {plugin.arenas().unbind(id); continue;}
-
-            playing.add(id);
-            matchData.put(id, new MatchPlayer(id, p.getName()));
-            gameChat.add(id);
-            plugin.stats().add(id, p.getName(), "games_played", 1);
-
-            Location spawn = nextFromBag(spawnBag, arena.getSpawns());
-            spawn.getChunk().load();
-            DebugLog.log(Cat.PLAYER, "spawn arena=%s player=%s at=%s", arena.getId(), p.getName(), DebugLog.at(spawn));
-
-            p.getInventory().clear();
-            p.setGameMode(GameMode.SURVIVAL);
-            p.setHealth(20.0);
-            p.setFoodLevel(20);
-            // XP — валюта зачарования: стартовый запас, пополняется убийствами
-            p.setLevel(plugin.getConfig().getInt("match.start-xp-levels", 50));
-            p.setExp(0f);
-            p.teleport(spawn.clone().add(0.5, 0, 0.5));
-            p.addPotionEffects(startEffects);
-
-            giveKit(p);
-            Msg.send(p, "game.start-effects-hint");
-        }
-        lobby.clear();
-        warmupDamage.clear();
-
-        // «Молния прозрения»: 1 на матч + 1 за каждую пару игроков
-        respawnBlocks.distributeInsight(activeChests, playing.size());
-        DebugLog.log(Cat.SESSION, "start-done arena=%s playing=%d chests=%d traders=%d loot-cats=%d contracts=%d",
-            arena.getId(), playing.size(), activeChests.size(), traderLocations.size(),
-            plugin.loot().all().size(), arena.getContractIds().size());
-
-        timerBar = BossBar.bossBar(
-            Component.empty(), 1f,
-            BossBar.Color.GREEN,
-            BossBar.Overlay.PROGRESS);
-        updateTimerBar();
-
-        mainTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
-    }
 
     private void giveKit(Player p)
     {
@@ -582,7 +375,7 @@ public class GameSession
             Msg.get("game.fork-name"), Msg.getList("game.fork-lore"), "fork");
         ItemMeta meta = fork.getItemMeta();
         int maxDurability = fork.getType().getMaxDurability();
-        int uses = Math.max(1, Math.min(arena.getForkUses(), maxDurability));
+        int uses = Math.max(1, Math.min(EscapeArena.forkUses(arena), maxDurability));
         ((Damageable) meta).setDamage(maxDurability - uses);
         fork.setItemMeta(meta);
         p.getInventory().addItem(fork);
@@ -592,7 +385,7 @@ public class GameSession
 
         // выбранный каст: своё золото (или дефолт арены) + доп. предметы
         Kit kit = resolveKit(p.getUniqueId());
-        int gold = (kit != null && kit.getGold() >= 0) ? kit.getGold() : arena.getStartGold();
+        int gold = (kit != null && kit.getGold() >= 0) ? kit.getGold() : EscapeArena.startGold(arena);
         gold = (int) Math.round(gold * modMult("start-gold-mult"));
         if (gold > 0) {p.getInventory().addItem(new ItemStack(Material.GOLD_INGOT, gold));}
         if (kit != null)
@@ -606,13 +399,13 @@ public class GameSession
     /** Разрешить выбор игрока в конкретный каст: учитывает none/random и дефолт арены. */
     private Kit resolveKit(UUID id)
     {
-        List<Kit> kits = arena.getKits();
+        List<Kit> kits = plugin.kitsFor(arena);
         if (kits.isEmpty()) {return null;}
         String choice = chosenKit.get(id);
-        if (choice == null) {choice = arena.getDefaultKit();}
+        if (choice == null) {choice = plugin.arenaConfigs().of(arena).defaultKit();}
         if (choice == null || choice.equalsIgnoreCase("none")) {return null;}
         if (choice.equalsIgnoreCase("random")) {return kits.get(RANDOM.nextInt(kits.size()));}
-        return arena.getKit(choice);
+        return plugin.kitFor(arena, choice);
     }
 
     /**
@@ -631,7 +424,7 @@ public class GameSession
 
         // используемые категории каждой точки (фильтр по существованию, без дублей)
         Map<Location, List<String>> usable = new LinkedHashMap<>();
-        for (Map.Entry<Location, List<String>> entry : arena.getChestSpots().entrySet())
+        for (Map.Entry<Location, List<String>> entry : EscapeArena.chestSpots(arena).entrySet())
         {
             Location loc = entry.getKey();
             if (loc.getWorld() == null) {continue;}
@@ -705,7 +498,7 @@ public class GameSession
 
         // Материализация: КАЖДАЯ точка сундука сначала в воздух (cleanup вернёт),
         // затем активные точки становятся сундуками и наполняются из своих категорий
-        for (Location loc : arena.getChestSpots().keySet())
+        for (Location loc : EscapeArena.chestSpots(arena).keySet())
         {
             if (loc.getWorld() == null) {continue;}
             Block block = loc.getBlock();
@@ -722,7 +515,7 @@ public class GameSession
             // сундук должен смотреть, как задумано (setType всегда даёт NORTH)
             if (block.getBlockData() instanceof Directional dir)
             {
-                BlockFace facing = arena.getChestFacing(loc);
+                BlockFace facing = EscapeArena.chestFacing(arena, loc);
                 if (dir.getFaces().contains(facing)) {dir.setFacing(facing); block.setBlockData(dir, false);}
             }
             Location placed = block.getLocation();
@@ -740,7 +533,7 @@ public class GameSession
             perCat.append(e.getKey()).append('=').append(e.getValue());
         }
         DebugLog.log(Cat.WORLD, "chests-placed arena=%s total=%d spots=%d per-cat=[%s]",
-            arena.getId(), activeChests.size(), arena.getChestSpots().size(), perCat.toString());
+            arena.getId(), activeChests.size(), EscapeArena.chestSpots(arena).size(), perCat.toString());
     }
 
     /** Взвешенно-случайная категория из списка (по weight). null — список пуст. */
@@ -780,7 +573,7 @@ public class GameSession
      */
     public boolean registerDynamicChest(Chest chest)
     {
-        if (phase != Phase.RUNNING || !arena.isDynamicChests()) {return false;}
+        if (match.phase() != GamePhase.RUNNING || !EscapeArena.dynamicChests(arena)) {return false;}
         Block block = chest.getBlock();
         if (!block.getWorld().getName().equals(arena.getWorldName())) {return false;}
         Location loc = block.getLocation();
@@ -891,7 +684,7 @@ public class GameSession
     private List<Contract> availableContracts()
     {
         List<Contract> out = new ArrayList<>();
-        for (String cid : arena.getContractIds())
+        for (String cid : plugin.arenaConfigs().of(arena).contractIds())
         {
             Contract c = plugin.contracts().get(cid);
             if (c != null && c.isComplete()) {out.add(c);}
@@ -911,9 +704,9 @@ public class GameSession
         List<Contract> available = availableContracts();
         if (available.isEmpty() || activeChests.isEmpty()) {return;}
 
-        int minArena = Math.max(0, arena.getContractsMinPerArena());
-        int maxArena = arena.getContractsMaxPerArena();          // -1 = без потолка
-        int maxPerChest = Math.max(1, arena.getContractsMaxPerChest());
+        int minArena = Math.max(0, EscapeArena.contractsMinPerArena(arena));
+        int maxArena = EscapeArena.contractsMaxPerArena(arena);          // -1 = без потолка
+        int maxPerChest = Math.max(1, EscapeArena.contractsMaxPerChest(arena));
 
         int total = maxArena < 0 ? activeChests.size() * maxPerChest
             : (maxArena <= minArena ? minArena : minArena + RANDOM.nextInt(maxArena - minArena + 1));
@@ -977,14 +770,14 @@ public class GameSession
      */
     public ItemStack applyWear(ItemStack item)
     {
-        int maxPct = arena.getWearMaxPercent();
+        int maxPct = EscapeArena.wearMaxPercent(arena);
         if (maxPct <= 0) {return item;}
         int maxDurability = item.getType().getMaxDurability();
         if (maxDurability <= 0 || !(item.getItemMeta() instanceof Damageable meta)) {return item;}
         if (meta.hasDamage()) {return item;}
 
         int wearAdd = (int) Math.round(modAdd("wear-add"));
-        int minPct = Math.max(0, Math.min(arena.getWearMinPercent() + wearAdd, 99));
+        int minPct = Math.max(0, Math.min(EscapeArena.wearMinPercent(arena) + wearAdd, 99));
         maxPct = Math.max(minPct, Math.min(99, maxPct + wearAdd));
         int pct = minPct + RANDOM.nextInt(maxPct - minPct + 1);
         int damage = Math.min(maxDurability - 1, maxDurability * pct / 100);
@@ -996,12 +789,12 @@ public class GameSession
 
     private void spawnTraders()
     {
-        if (arena.getTraderQuotas().isEmpty()) {spawnTradersGlobal(); return;}
+        if (EscapeArena.traderQuotas(arena).isEmpty()) {spawnTradersGlobal(); return;}
 
         // лимиты по типам: точки группируем по типу, из каждой группы случайно
         // min(quota, точек); тип без записи в trader-quotas выставляется целиком
         Map<String, List<Location>> byType = new LinkedHashMap<>();
-        for (Map.Entry<Location, String> entry : arena.getTraderSpots().entrySet())
+        for (Map.Entry<Location, String> entry : EscapeArena.traderSpots(arena).entrySet())
         {
             byType.computeIfAbsent(entry.getValue().toUpperCase(Locale.ROOT), k -> new ArrayList<>())
                 .add(entry.getKey());
@@ -1012,7 +805,7 @@ public class GameSession
             String typeId = entry.getKey();
             List<Location> points = entry.getValue();
             Collections.shuffle(points, RANDOM);
-            Integer quota = arena.getTraderQuotas().get(typeId);
+            Integer quota = EscapeArena.traderQuotas(arena).get(typeId);
             int want = quota != null ? Math.max(0, quota) : points.size();
             int count = Math.min(want, points.size());
             for (int i = 0; i < count; i++)
@@ -1023,22 +816,22 @@ public class GameSession
                 arena.getId(), typeId, count, quota == null ? "all" : quota.toString(), points.size());
         }
         DebugLog.log(Cat.WORLD, "traders-placed arena=%s mode=quota total=%d spots=%d",
-            arena.getId(), total, arena.getTraderSpots().size());
+            arena.getId(), total, EscapeArena.traderSpots(arena).size());
     }
 
     /** Без лимитов по типам (trader-quotas пуст): случайное подмножество размера trader-count. */
     private void spawnTradersGlobal()
     {
-        List<Map.Entry<Location, String>> pool = new ArrayList<>(arena.getTraderSpots().entrySet());
+        List<Map.Entry<Location, String>> pool = new ArrayList<>(EscapeArena.traderSpots(arena).entrySet());
         Collections.shuffle(pool, RANDOM);
-        int count = Math.min(arena.getTraderCount(), pool.size());
+        int count = Math.min(EscapeArena.traderCount(arena), pool.size());
         int placed = 0;
         for (int i = 0; i < count; i++)
         {
             if (spawnOneTrader(pool.get(i).getKey(), pool.get(i).getValue())) {placed++;}
         }
         DebugLog.log(Cat.WORLD, "traders-placed arena=%s mode=global placed=%d wanted=%d spots=%d",
-            arena.getId(), placed, arena.getTraderCount(), pool.size());
+            arena.getId(), placed, EscapeArena.traderCount(arena), pool.size());
     }
 
     /** Заспавнить одного жителя заданного типа в точке. false — тип/мир недоступны. */
@@ -1065,14 +858,14 @@ public class GameSession
 
     private void placeOres()
     {
-        for (Location loc : arena.getOreSpots())
+        for (Location loc : EscapeArena.oreSpots(arena))
         {
             if (loc.getWorld() == null) {continue;}
             Block block = loc.getBlock();
             editedBlocks.putIfAbsent(loc, block.getBlockData().clone());
             block.setType(randomOre());
         }
-        DebugLog.log(Cat.WORLD, "ores-placed arena=%s count=%d", arena.getId(), arena.getOreSpots().size());
+        DebugLog.log(Cat.WORLD, "ores-placed arena=%s count=%d", arena.getId(), EscapeArena.oreSpots(arena).size());
     }
 
     private Material randomOre()
@@ -1089,9 +882,9 @@ public class GameSession
 
     private void placeTables()
     {
-        List<Location> pool = new ArrayList<>(arena.getTableSpots());
+        List<Location> pool = new ArrayList<>(EscapeArena.tableSpots(arena));
         Collections.shuffle(pool, RANDOM);
-        int count = Math.min(arena.getTableCount(), pool.size());
+        int count = Math.min(EscapeArena.tableCount(arena), pool.size());
         for (int i = 0; i < count; i++)
         {
             Location loc = pool.get(i);
@@ -1101,115 +894,18 @@ public class GameSession
             block.setType(Material.ENCHANTING_TABLE);
         }
         DebugLog.log(Cat.WORLD, "tables-placed arena=%s placed=%d wanted=%d spots=%d",
-            arena.getId(), count, arena.getTableCount(), pool.size());
+            arena.getId(), count, EscapeArena.tableCount(arena), pool.size());
     }
 
     // ===== игровой цикл =====
 
-    private void tick()
-    {
-        if (phase != Phase.RUNNING) {return;}
-        if (remaining <= 0) {return;} // финальная битва без таймера
-        remaining--;
-
-        updateTimerBar();
-
-        int interval = Math.max(30, (int) Math.round(arena.getEventIntervalSeconds() * modMult("event-interval-mult")));
-        if (currentEvent == null && remaining > 0 && remaining % interval == 0 && remaining != arena.getDurationSeconds())
-        {
-            startRandomEvent();
-        }
-        else if (currentEvent != null)
-        {
-            currentEvent.onTick(this);
-            eventTicksLeft--;
-            if (eventTicksLeft <= 0) {endCurrentEvent();}
-        }
-
-        int salaryInterval = Math.max(60, arena.getSalaryIntervalSeconds());
-        if (remaining > 0 && remaining % salaryInterval == 0)
-        {
-            int salary = Math.max(0, (int) Math.round(arena.getSalaryGold() * modMult("salary-mult")));
-            DebugLog.log(Cat.SESSION, "salary arena=%s gold=%d alive=%d remaining=%ds",
-                arena.getId(), salary, playing.size(), remaining);
-            gameChat.systemKey("game.salary", Msg.ph("n", salary));
-            forEachPlaying(p ->
-            {
-                p.getWorld().strikeLightningEffect(p.getLocation());
-                giveGold(p, salary);
-            });
-        }
-
-        int strikeInterval = Math.max(60, plugin.getConfig().getInt("respawn-block.lightning-interval-seconds", 300));
-        if (remaining > 0 && remaining % strikeInterval == 0 && remaining != arena.getDurationSeconds())
-        {
-            respawnBlocks.strikeAll();
-        }
-
-        if (remaining == arena.getGlowSecondsBeforeEnd())
-        {
-            glowActive = true;
-            DebugLog.log(Cat.SESSION, "glow-start arena=%s bonus=%d alive=%d",
-                arena.getId(), arena.getGlowBonusGold(), playing.size());
-            gameChat.systemKey("game.glow-warning");
-            forEachPlaying(p ->
-            {
-                p.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0, false, false));
-                giveGold(p, arena.getGlowBonusGold());
-            });
-        }
-
-        if (remaining > 0 && remaining % 600 == 0)
-        {
-            gameChat.systemKey("game.time-left-minutes", Msg.ph("n", remaining / 60));
-        }
-        if (remaining > 0 && remaining < 15)
-        {
-            gameChat.systemKey("game.time-left-seconds", Msg.ph("n", remaining));
-        }
-
-        if (remaining == 0)
-        {
-            finalBattle();
-        }
-    }
 
     // ===== боссбар-таймер =====
 
-    private void updateTimerBar()
-    {
-        if (timerBar == null) {return;}
-        int duration = Math.max(1, arena.getDurationSeconds());
-        timerBar.progress(Math.max(0f, Math.min(1f, remaining / (float) duration)));
-        timerBar.name(Msg.get("game.timer-bar", Msg.ph("time", formatTime(remaining))));
-        timerBar.color(remaining <= 60 ? BossBar.Color.RED
-            : remaining <= arena.getGlowSecondsBeforeEnd() ? BossBar.Color.YELLOW
-            : BossBar.Color.GREEN);
-        showTimerBarToAll();
-    }
 
     /** Показ идемпотентен — один и тот же инстанс бара не дублируется. */
-    private void showTimerBarToAll()
-    {
-        if (timerBar == null) {return;}
-        forEachOnline(playing, p -> p.showBossBar(timerBar));
-        forEachOnline(spectators, p -> p.showBossBar(timerBar));
-    }
 
-    public void hideTimerBar(Player p)
-    {
-        if (timerBar != null) {p.hideBossBar(timerBar);}
-    }
 
-    private void removeTimerBar()
-    {
-        if (timerBar == null) {return;}
-        BossBar bar = timerBar;
-        timerBar = null;
-        forEachOnline(playing, p -> p.hideBossBar(bar));
-        forEachOnline(spectators, p -> p.hideBossBar(bar));
-        forEachOnline(lobby, p -> p.hideBossBar(bar));
-    }
 
     private String formatTime(int seconds)
     {
@@ -1226,7 +922,7 @@ public class GameSession
         if (candidates.isEmpty()) {DebugLog.log(Cat.EVENT, "no-candidates arena=%s", arena.getId()); return;}
         GameEvent event = candidates.get(RANDOM.nextInt(candidates.size()));
         DebugLog.log(Cat.EVENT, "start arena=%s event=%s window=%ds candidates=%d alive=%d",
-            arena.getId(), event.name(), event.windowSeconds(), candidates.size(), playing.size());
+            arena.getId(), event.name(), event.windowSeconds(), candidates.size(), match.aliveCount());
 
         gameChat.systemKey("events.announce-header");
         for (String key : event.announceKeys()) {gameChat.systemKey(key);}
@@ -1245,7 +941,7 @@ public class GameSession
         GameEvent event = currentEvent;
         currentEvent = null;
         DebugLog.log(Cat.EVENT, "end arena=%s event=%s flagged=%d alive=%d",
-            arena.getId(), event.name(), eventFlagged.size(), playing.size());
+            arena.getId(), event.name(), eventFlagged.size(), match.aliveCount());
         forEachPlaying(p -> event.resolvePlayer(this, p));
         event.onEnd(this);
         eventPositions.clear();
@@ -1258,7 +954,7 @@ public class GameSession
     public void captureEventPositions()
     {
         eventPositions.clear();
-        forEachOnline(playing, p -> eventPositions.put(p.getUniqueId(), p.getLocation().clone()));
+        forEachOnline(playingSet(), p -> eventPositions.put(p.getUniqueId(), p.getLocation().clone()));
     }
 
     public Map<UUID, Location> getEventPositions() {return eventPositions;}
@@ -1283,7 +979,7 @@ public class GameSession
     /** Живые игроки, кроме ожидающих возрождения (те 5 сек «мертвы»). */
     public void forEachPlaying(java.util.function.Consumer<Player> action)
     {
-        for (UUID id : new ArrayList<>(playing))
+        for (UUID id : playingSet())
         {
             if (respawnBlocks.isAwaitingRespawn(id)) {continue;}
             Player p = Bukkit.getPlayer(id);
@@ -1315,11 +1011,9 @@ public class GameSession
 
     private void finalBattle()
     {
-        cancelTask(mainTask);
-        mainTask = null;
         finalBattleStarted = true;
         DebugLog.log(Cat.SESSION, "final-battle arena=%s alive=%d respawn-blocks=%b",
-            arena.getId(), playing.size(), respawnBlocks.hasPlacedBlocks());
+            arena.getId(), match.aliveCount(), respawnBlocks.hasPlacedBlocks());
         offlineGuards.onFinalBattle();
         if (respawnBlocks.hasPlacedBlocks())
         {
@@ -1327,16 +1021,9 @@ public class GameSession
             respawnBlocks.annulAll();
         }
         gameChat.systemKey("game.final-battle");
-        if (timerBar != null)
-        {
-            timerBar.name(Msg.get("game.timer-bar-final"));
-            timerBar.color(BossBar.Color.RED);
-            timerBar.progress(1f);
-            showTimerBarToAll();
-        }
-        List<Location> pool = arena.getFinalSpawns().isEmpty() ? arena.getSpawns() : arena.getFinalSpawns();
+        List<Location> pool = EscapeArena.finalSpawns(arena).isEmpty() ? arena.getSpawns() : EscapeArena.finalSpawns(arena);
         List<Location> bag = new ArrayList<>();
-        for (UUID id : playing)
+        for (UUID id : playingSet())
         {
             Player p = Bukkit.getPlayer(id);
             if (p == null) {continue;}
@@ -1449,7 +1136,7 @@ public class GameSession
         Msg.send(p, "contract.complete-body");
         Msg.send(p, "contract.complete-footer");
         giveGold(p, contract.getPrice());
-        MatchPlayer data = matchData.get(p.getUniqueId());
+        EscapePlayerData data = matchData.get(p.getUniqueId());
         if (data != null) {data.quests++;}
         plugin.stats().add(p.getUniqueId(), p.getName(), "quests_completed", 1);
     }
@@ -1457,7 +1144,7 @@ public class GameSession
     /** LOOT: первый раз открыт сундук. */
     public void handleChestLooted(Player p, Location chestLoc)
     {
-        MatchPlayer data = matchData.get(p.getUniqueId());
+        EscapePlayerData data = matchData.get(p.getUniqueId());
         if (data == null) {return;}
         if (!data.lootedChests.add(chestLoc)) {return;}
         DebugLog.log(Cat.CHEST, "loot-first-open arena=%s player=%s at=%s total-looted=%d",
@@ -1508,7 +1195,7 @@ public class GameSession
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () ->
         {
             refillTasks.remove(loc);
-            if (phase != Phase.RUNNING) {return;}
+            if (match.phase() != GamePhase.RUNNING) {return;}
             if (loc.getBlock().getState() instanceof Chest target)
             {
                 fillChestRefill(target, categoriesFor(activeChestCategories.get(loc)));
@@ -1533,7 +1220,7 @@ public class GameSession
     public boolean forceRefillChest(Block block)
     {
         Location loc = block.getLocation();
-        if (phase != Phase.RUNNING || !activeChests.contains(loc)) {return false;}
+        if (match.phase() != GamePhase.RUNNING || !activeChests.contains(loc)) {return false;}
         if (!(block.getState() instanceof Chest chest)) {return false;}
 
         BukkitTask pending = refillTasks.remove(loc);
@@ -1569,7 +1256,7 @@ public class GameSession
 
     public void recordDamager(Player victim, Player damager)
     {
-        MatchPlayer data = matchData.get(victim.getUniqueId());
+        EscapePlayerData data = matchData.get(victim.getUniqueId());
         if (data == null) {return;}
         data.lastDamager = damager.getUniqueId();
         data.lastDamagerAt = System.currentTimeMillis();
@@ -1610,7 +1297,7 @@ public class GameSession
      */
     public boolean registerMatchFire(Location loc)
     {
-        if (phase != Phase.RUNNING) {return false;}
+        if (match.phase() != GamePhase.RUNNING) {return false;}
         if (!plugin.getConfig().getBoolean("fire.enabled", true)) {return false;}
         Block block = loc.getBlock();
         rememberEditedBlock(block); // сейчас тут воздух/заменяемый — cleanup вернёт его
@@ -1642,7 +1329,7 @@ public class GameSession
     /** Погасить игрок-огонь по таймеру. */
     private void extinguishMatchFire(Location loc)
     {
-        if (phase != Phase.RUNNING) {return;}
+        if (match.phase() != GamePhase.RUNNING) {return;}
         if (!matchFires.remove(loc)) {return;}
         if (loc.getWorld() == null) {return;}
         Block block = loc.getBlock();
@@ -1690,14 +1377,14 @@ public class GameSession
     public void handleDeath(Player p)
     {
         UUID id = p.getUniqueId();
-        if (!playing.contains(id)) {return;}
+        if (!isPlaying(id)) {return;}
 
         DebugLog.log(Cat.PLAYER, "death arena=%s player=%s at=%s alive=%d", arena.getId(), p.getName(),
-            DebugLog.at(p.getLocation()), playing.size());
+            DebugLog.at(p.getLocation()), match.aliveCount());
         creditKillAndAnnounce(p);
         plugin.stats().add(id, p.getName(), "deaths", 1);
 
-        MatchPlayer data = matchData.get(id);
+        EscapePlayerData data = matchData.get(id);
         if (data != null) {data.lastDamager = null;}
 
         if (respawnBlocks.tryScheduleRespawn(p)) {return;}
@@ -1708,7 +1395,7 @@ public class GameSession
     public void eliminate(Player p, boolean quit)
     {
         UUID id = p.getUniqueId();
-        if (!playing.contains(id)) {return;}
+        if (!isPlaying(id)) {return;}
         if (respawnBlocks.cancelPendingRespawn(id))
         {
             // игрок вышел, ожидая возрождения: смерть уже объявлена
@@ -1723,22 +1410,22 @@ public class GameSession
     /** Выбывание игрока, чья смерть уже объявлена (сорвавшееся отложенное возрождение). */
     public void eliminateAfterFailedRespawn(Player p)
     {
-        if (!playing.contains(p.getUniqueId())) {return;}
+        if (!isPlaying(p.getUniqueId())) {return;}
         finishElimination(p, false);
     }
 
     /** Кредит убийце (счёт, контракты, прогресс изумрудного блока) + сообщение о смерти. */
     private void creditKillAndAnnounce(Player p)
     {
-        MatchPlayer data = matchData.get(p.getUniqueId());
+        EscapePlayerData data = matchData.get(p.getUniqueId());
         if (data != null && data.lastDamager != null
             && System.currentTimeMillis() - data.lastDamagerAt <= KILL_CREDIT_MILLIS
-            && playing.contains(data.lastDamager))
+            && isPlaying(data.lastDamager))
         {
             Player killer = Bukkit.getPlayer(data.lastDamager);
             if (killer != null)
             {
-                MatchPlayer killerData = matchData.get(killer.getUniqueId());
+                EscapePlayerData killerData = matchData.get(killer.getUniqueId());
                 if (killerData != null) {killerData.kills++;}
                 DebugLog.log(Cat.COMBAT, "kill-credit arena=%s killer=%s victim=%s kills=%d",
                     arena.getId(), killer.getName(), p.getName(), killerData == null ? -1 : killerData.kills);
@@ -1766,265 +1453,41 @@ public class GameSession
     private void finishElimination(Player p, boolean quit)
     {
         UUID id = p.getUniqueId();
-        playing.remove(id);
         DebugLog.log(Cat.PLAYER, "eliminate arena=%s player=%s quit=%b alive=%d",
-            arena.getId(), p.getName(), quit, playing.size());
+            arena.getId(), p.getName(), quit, match.aliveCount());
         gameChat.remove(id);
         plugin.stats().add(id, p.getName(), "loses", 1);
         respawnBlocks.onOwnerEliminated(id);
 
         if (!quit)
         {
-            p.setGameMode(GameMode.SPECTATOR);
-            spectators.add(id);
-            spectatorChat.add(id);
+            spectatorChat.add(id);   // перевод в спектейт делает ядро
         }
 
-        if (playing.size() > 1)
+        if (match.aliveCount() > 1)
         {
-            gameChat.systemKey("game.players-left", Msg.ph("n", playing.size()));
-            spectatorChat.systemKey("game.players-left", Msg.ph("n", playing.size()));
-            return;
+            gameChat.systemKey("game.players-left", Msg.ph("n", match.aliveCount()));
+            spectatorChat.systemKey("game.players-left", Msg.ph("n", match.aliveCount()));
         }
-        finish();
+        // конец матча определяет ядро через checkResult()
     }
 
     private String randomDeadMessage()
     {
-        List<String> pool = arena.getDeadMessages();
+        List<String> pool = plugin.arenaConfigs().of(arena).deadMessages();
         if (pool.isEmpty()) {pool = Msg.rawList("death-messages");}
         if (pool.isEmpty()) {return "<yellow>Игрок <aqua><player><yellow> выбыл";}
         return pool.get(RANDOM.nextInt(pool.size()));
     }
 
     /** Победа/конец матча (осталось <= 1 живых). */
-    private void finish()
-    {
-        if (phase == Phase.ENDING) {return;}
-        phase = Phase.ENDING;
-        cancelTask(mainTask);
-        mainTask = null;
 
-        // MVP: лучший по убийствам среди всех участников
-        MatchPlayer mvp = null;
-        for (MatchPlayer data : matchData.values())
-        {
-            plugin.stats().recordGameKills(data.uuid, data.name, data.kills);
-            if (data.kills > 0 && (mvp == null || data.kills > mvp.kills)) {mvp = data;}
-        }
-        if (mvp != null) {plugin.stats().add(mvp.uuid, mvp.name, "mvp_games", 1);}
-        DebugLog.log(Cat.SESSION, "finish arena=%s alive=%d participants=%d mvp=%s",
-            arena.getId(), playing.size(), matchData.size(), mvp == null ? "-" : mvp.name);
-
-        int stopDelay = 3;
-        if (playing.size() == 1)
-        {
-            UUID winnerId = playing.iterator().next();
-            MatchPlayer data = matchData.get(winnerId);
-            if (data != null)
-            {
-                // победитель может быть и оффлайн (пережил всех под стражем) — статистика всё равно его
-                plugin.stats().add(winnerId, data.name, "wins", 1);
-                DebugLog.log(Cat.SESSION, "winner arena=%s player=%s kills=%d quests=%d trades=%d ores=%d",
-                    arena.getId(), data.name, data.kills, data.quests, data.trades, data.ores);
-                broadcastAll(Msg.get("game.win-header"));
-                broadcastAll(Component.empty());
-                broadcastAll(Msg.get("game.win-player", Msg.ph("player", data.name)));
-                broadcastAll(Msg.get("game.win-quests", Msg.ph("n", data.quests)));
-                broadcastAll(Msg.get("game.win-kills", Msg.ph("n", data.kills)));
-                broadcastAll(Msg.get("game.win-trades", Msg.ph("n", data.trades)));
-                broadcastAll(Component.empty());
-                broadcastAll(Msg.get("game.win-footer"));
-            }
-            stopDelay = 10;
-        }
-
-        int delay = stopDelay;
-        stopTask = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable()
-        {
-            int sec = delay;
-
-            @Override
-            public void run()
-            {
-                if (sec % 10 == 0 || sec < 6)
-                {
-                    broadcastAll(Msg.get("game.stop-countdown", Msg.ph("seconds", sec)));
-                }
-                if (timerBar != null)
-                {
-                    timerBar.name(Msg.get("game.timer-bar-stop", Msg.ph("seconds", sec)));
-                    timerBar.color(BossBar.Color.YELLOW);
-                    timerBar.progress(delay <= 0 ? 0f : Math.max(0f, Math.min(1f, sec / (float) delay)));
-                    showTimerBarToAll();
-                }
-                if (sec <= 0)
-                {
-                    cancelTask(stopTask);
-                    stopTask = null;
-                    cleanup();
-                    return;
-                }
-                sec--;
-            }
-        }, 20L, 20L);
-    }
-
-    private void broadcastAll(Component message)
-    {
-        gameChat.system(message);
-        spectatorChat.system(message);
-    }
 
     /** Немедленная остановка (админ, onDisable, удаление арены). */
-    public void forceStop()
-    {
-        DebugLog.log(Cat.SESSION, "force-stop arena=%s phase=%s lobby=%d playing=%d",
-            arena.getId(), phase, lobby.size(), playing.size());
-        cancelTask(countdownTask); countdownTask = null;
-        cancelTask(mainTask); mainTask = null;
-        cancelTask(stopTask); stopTask = null;
-        phase = Phase.ENDING;
-        cleanup();
-    }
 
     // ===== очистка =====
 
-    private void cleanup()
-    {
-        DebugLog.log(Cat.SESSION, "cleanup-start arena=%s blocks=%d chests=%d dynamic=%d entities=%d drops=%d refills=%d",
-            arena.getId(), editedBlocks.size(), activeChests.size(), dynamicChestOriginals.size(),
-            spawnedEntities.size(), droppedItems.size(), refillTasks.size());
-        removeTimerBar();
-        for (BukkitTask task : refillTasks.values()) {task.cancel();}
-        refillTasks.clear();
 
-        // сундуки: очистить содержимое перед восстановлением
-        for (Location loc : activeChests)
-        {
-            if (loc.getWorld() == null) {continue;}
-            if (loc.getBlock().getState() instanceof Chest chest) {chest.getInventory().clear();}
-        }
-
-        // динамические сундуки — это блоки карты: вернуть их исходное содержимое
-        for (Map.Entry<Location, ItemStack[]> entry : dynamicChestOriginals.entrySet())
-        {
-            Location loc = entry.getKey();
-            if (loc.getWorld() == null) {continue;}
-            if (loc.getBlock().getState() instanceof Chest chest)
-            {
-                chest.getInventory().setContents(entry.getValue());
-            }
-        }
-        dynamicChestOriginals.clear();
-
-        // вернуть все изменённые блоки (решётки, сундуки, руды, столы)
-        int restored = 0;
-        int skipped = 0;
-        List<Block> restoredBlocks = new ArrayList<>();
-        for (Map.Entry<Location, BlockData> entry : editedBlocks.entrySet())
-        {
-            Location loc = entry.getKey();
-            if (loc.getWorld() == null) {skipped++; continue;}
-            Block block = loc.getBlock();
-            block.setBlockData(entry.getValue(), false); // точная форма без физики (иначе прикреплённые блоки отваливаются)
-            restoredBlocks.add(block);
-            restored++;
-        }
-        // второй проход С физикой: соседи, НЕ попавшие в editedBlocks (например,
-        // уцелевшие прутья рядом со сломанным), пересчитывают стыки. Без него
-        // между восстановленными прутьями и соседними остаются щели, и сквозь
-        // них иногда можно пролезть. Первый проход уже вернул все блоки на места,
-        // поэтому физика ничего не «уронит».
-        for (Block block : restoredBlocks)
-        {
-            block.setBlockData(block.getBlockData(), true);
-        }
-        // третий проход: УЦЕЛЕВШИЕ соседние решётки/панели/заборы/стены (их не
-        // ломали, значит их нет в editedBlocks) не пересчитали стык к сломанному
-        // блоку — ваниль разорвала их соединение, когда игрок выбил соседний
-        // прут. Пройдёмся по горизонтальным соседям восстановленных решёток и
-        // заставим уцелевших соседей пересчитать форму (физика тут — только
-        // перерасчёт стыка, блок на месте не «падает»).
-        int neighborsFixed = fixConnectingNeighbors(restoredBlocks);
-        DebugLog.log(Cat.WORLD, "blocks-restored arena=%s restored=%d skipped-no-world=%d neighbors-fixed=%d",
-            arena.getId(), restored, skipped, neighborsFixed);
-        editedBlocks.clear();
-        matchFires.clear();
-        activeChests.clear();
-        activeChestCategories.clear();
-        categoryArenaSlots.clear();
-        chestStands.clear();
-        traderLocations.clear();
-
-        // мир вернулся в исходное — возвращаем и подсказки настройки
-        SetupMarkers.placeAll(arena);
-
-        // removed < tracked — часть сущностей исчезла раньше (смерть, деспавн), это норма
-        int entitiesRemoved = 0;
-        int entitiesTracked = spawnedEntities.size();
-        for (UUID id : spawnedEntities)
-        {
-            Entity entity = Bukkit.getEntity(id);
-            if (entity != null) {entity.remove(); entitiesRemoved++;}
-        }
-        spawnedEntities.clear();
-
-        int dropsRemoved = 0;
-        int dropsTracked = droppedItems.size();
-        for (UUID id : droppedItems)
-        {
-            Entity entity = Bukkit.getEntity(id);
-            if (entity != null) {entity.remove(); dropsRemoved++;}
-        }
-        droppedItems.clear();
-        DebugLog.log(Cat.WORLD, "entities-removed arena=%s spawned=%d/%d drops=%d/%d",
-            arena.getId(), entitiesRemoved, entitiesTracked, dropsRemoved, dropsTracked);
-
-        Set<UUID> everyone = new LinkedHashSet<>();
-        everyone.addAll(lobby);
-        everyone.addAll(playing);
-        everyone.addAll(spectators);
-        for (UUID id : everyone)
-        {
-            plugin.arenas().unbind(id);
-            Player p = Bukkit.getPlayer(id);
-            if (p != null)
-            {
-                PlayerSnapshot.restore(plugin, p);
-                DebugLog.log(Cat.PLAYER, "snapshot-restore arena=%s player=%s", arena.getId(), p.getName());
-            }
-        }
-        DebugLog.log(Cat.SESSION, "cleanup-done arena=%s players-restored=%d", arena.getId(), everyone.size());
-        lobby.clear();
-        playing.clear();
-        spectators.clear();
-        lobbyChat.clear();
-        gameChat.clear();
-        spectatorChat.clear();
-        matchData.clear();
-        chosenKit.clear();
-        modifierVotes.clear();
-        lastVoteMs.clear();
-        activeModifier = null;
-        cooldowns.clear();
-        currentEvent = null;
-        eventPositions.clear();
-        eventFlagged.clear();
-        bloodMoon = false;
-        glowActive = false;
-        finalBattleStarted = false;
-        forcedStart = false;
-        respawnBlocks.clear();
-        offlineGuards.clear();
-
-        dispose();
-    }
-
-    private void dispose()
-    {
-        arena.setSession(null);
-    }
 
     private static final BlockFace[] HORIZONTAL =
         {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
@@ -2067,7 +1530,7 @@ public class GameSession
     /** Принудительный запуск конкретного события (обходит canStart и таймер). */
     public boolean debugStartEvent(GameEvent event)
     {
-        if (phase != Phase.RUNNING) {return false;}
+        if (match.phase() != GamePhase.RUNNING) {return false;}
         if (currentEvent != null) {endCurrentEvent();}
         eventPositions.clear();
         eventFlagged.clear();
@@ -2081,28 +1544,29 @@ public class GameSession
     /** Досрочное включение фазы свечения. */
     public boolean debugStartGlow()
     {
-        if (phase != Phase.RUNNING || glowActive) {return false;}
+        if (match.phase() != GamePhase.RUNNING || glowActive) {return false;}
         glowActive = true;
         gameChat.systemKey("game.glow-warning");
         forEachPlaying(p ->
         {
             p.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0, false, false));
-            giveGold(p, arena.getGlowBonusGold());
+            giveGold(p, EscapeArena.glowBonusGold(arena));
         });
         return true;
     }
 
     public boolean debugFinalBattle()
     {
-        if (phase != Phase.RUNNING || finalBattleStarted) {return false;}
+        if (match.phase() != GamePhase.RUNNING || finalBattleStarted) {return false;}
         finalBattle();
         return true;
     }
 
+    /** Досрочно завершить матч: выбиваем всех живых, дальше решает ядро (checkResult). */
     public boolean debugFinish()
     {
-        if (phase != Phase.RUNNING) {return false;}
-        finish();
+        if (match.phase() != GamePhase.RUNNING) {return false;}
+        for (Player p : new ArrayList<>(match.alivePlayers())) {match.eliminate(p, false);}
         return true;
     }
 
@@ -2133,55 +1597,9 @@ public class GameSession
     }
 
     /** Принудительный старт админом (достаточно 1 игрока — соло-режим для отладки). */
-    public boolean forceStart()
-    {
-        if (phase == Phase.RUNNING || phase == Phase.ENDING) {return false;}
-        if (lobby.isEmpty()) {return false;}
-        cancelTask(countdownTask);
-        countdownTask = null;
-        forcedStart = true;
-        DebugLog.log(Cat.ADMIN, "force-start arena=%s lobby=%d", arena.getId(), lobby.size());
-        startCountdown(Math.min(5, arena.getStartDelayFullSeconds()));
-        return true;
-    }
 
     /** Остановка админом с отсчётом. */
-    public void adminStop()
-    {
-        DebugLog.log(Cat.ADMIN, "admin-stop arena=%s phase=%s", arena.getId(), phase);
-        if (phase == Phase.RUNNING)
-        {
-            finishForced();
-            return;
-        }
-        forceStop();
-    }
 
-    private void finishForced()
-    {
-        phase = Phase.ENDING;
-        cancelTask(mainTask);
-        mainTask = null;
-        int delay = 5;
-        stopTask = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable()
-        {
-            int sec = delay;
-
-            @Override
-            public void run()
-            {
-                broadcastAll(Msg.get("game.stop-countdown", Msg.ph("seconds", sec)));
-                if (sec <= 0)
-                {
-                    cancelTask(stopTask);
-                    stopTask = null;
-                    cleanup();
-                    return;
-                }
-                sec--;
-            }
-        }, 1L, 20L);
-    }
 
     // ===== утилиты =====
 
@@ -2197,5 +1615,284 @@ public class GameSession
     private void cancelTask(BukkitTask task)
     {
         if (task != null && !task.isCancelled()) {task.cancel();}
+    }
+
+    // ===================== хуки платформы (их зовёт EscapeGame) =====================
+
+    /** Игрок вошёл в лобби: канал чата и бюллетень голосования за модификатор. */
+    public void onLobbyJoin(Player p)
+    {
+        lobbyChat.add(p.getUniqueId());
+        giveModifierBallot(p);
+    }
+
+    /** Старт матча: модификатор решается ДО генерации (он крутит числа), затем мир арены. */
+    public void onStart()
+    {
+        World world = arena.getWorld();
+        if (world == null)
+        {
+            DebugLog.log(Cat.SESSION, "start-abort arena=%s reason=world-not-loaded world=%s",
+                arena.getId(), arena.getWorldName());
+            return;
+        }
+        decideModifier(world);
+        // подсказки настройки убираем ДО генерации: их лут в игре не участвует
+        SetupMarkers.clearForMatch(arena);
+
+        placeChests();
+        placeContracts();
+        spawnTraders();
+        placeOres();
+        placeTables();
+
+        // «Молния прозрения»: 1 на матч + 1 за каждую пару игроков
+        respawnBlocks.distributeInsight(activeChests, match.aliveCount());
+        warmupDamage.clear();
+
+        DebugLog.log(Cat.SESSION, "start-done arena=%s playing=%d chests=%d traders=%d contracts=%d",
+            arena.getId(), match.aliveCount(), activeChests.size(), traderLocations.size(),
+            plugin.arenaConfigs().of(arena).contractIds().size());
+    }
+
+    /** Стартовый набор игрока: данные матча, чат, статистика, XP-валюта, эффекты, каст. */
+    public void giveLoadout(Player p)
+    {
+        UUID id = p.getUniqueId();
+        lobbyChat.remove(id);
+        matchData.put(id, new EscapePlayerData(id, p.getName()));
+        gameChat.add(id);
+        plugin.stats().add(id, p.getName(), "games_played", 1);
+
+        // XP — валюта зачарования: стартовый запас, пополняется убийствами
+        p.setLevel(plugin.getConfig().getInt("match.start-xp-levels", 50));
+        p.setExp(0f);
+        p.addPotionEffects(List.of(
+            new PotionEffect(PotionEffectType.RESISTANCE, 20 * 20, 1, false, false),
+            new PotionEffect(PotionEffectType.SPEED, 20 * 12, 0, false, false),
+            new PotionEffect(PotionEffectType.REGENERATION, 20 * 20, 0, false, false)));
+
+        giveKit(p);
+        Msg.send(p, "game.start-effects-hint");
+    }
+
+    /** Секунда матча: события, зарплата, молнии, глоу, объявления, финальная битва. */
+    public void onTick()
+    {
+        int remaining = match.remainingSeconds();
+        if (remaining < 0) {return;}                       // матч без лимита времени
+        if (remaining == 0)
+        {
+            if (!finalBattleStarted) {finalBattle();}      // дальше играем без таймера
+            return;
+        }
+
+        int interval = Math.max(30, (int) Math.round(EscapeArena.eventIntervalSeconds(arena) * modMult("event-interval-mult")));
+        if (currentEvent == null && remaining % interval == 0 && remaining != arena.getMatchDurationSeconds())
+        {
+            startRandomEvent();
+        }
+        else if (currentEvent != null)
+        {
+            currentEvent.onTick(this);
+            eventTicksLeft--;
+            if (eventTicksLeft <= 0) {endCurrentEvent();}
+        }
+
+        int salaryInterval = Math.max(60, EscapeArena.salaryIntervalSeconds(arena));
+        if (remaining % salaryInterval == 0)
+        {
+            int salary = Math.max(0, (int) Math.round(EscapeArena.salaryGold(arena) * modMult("salary-mult")));
+            DebugLog.log(Cat.SESSION, "salary arena=%s gold=%d alive=%d remaining=%ds",
+                arena.getId(), salary, match.aliveCount(), remaining);
+            gameChat.systemKey("game.salary", Msg.ph("n", salary));
+            forEachPlaying(p ->
+            {
+                p.getWorld().strikeLightningEffect(p.getLocation());
+                giveGold(p, salary);
+            });
+        }
+
+        int strikeInterval = Math.max(60, plugin.getConfig().getInt("respawn-block.lightning-interval-seconds", 300));
+        if (remaining % strikeInterval == 0 && remaining != arena.getMatchDurationSeconds())
+        {
+            respawnBlocks.strikeAll();
+        }
+
+        if (remaining == EscapeArena.glowSecondsBeforeEnd(arena))
+        {
+            glowActive = true;
+            DebugLog.log(Cat.SESSION, "glow-start arena=%s bonus=%d alive=%d",
+                arena.getId(), EscapeArena.glowBonusGold(arena), match.aliveCount());
+            gameChat.systemKey("game.glow-warning");
+            forEachPlaying(p ->
+            {
+                p.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0, false, false));
+                giveGold(p, EscapeArena.glowBonusGold(arena));
+            });
+        }
+
+        if (remaining % 600 == 0) {gameChat.systemKey("game.time-left-minutes", Msg.ph("n", remaining / 60));}
+        if (remaining < 15) {gameChat.systemKey("game.time-left-seconds", Msg.ph("n", remaining));}
+    }
+
+    /**
+     * Смертельный урон: Escape решает сам (блок возрождения может вернуть игрока),
+     * поэтому ядру всегда отвечаем «обработано».
+     */
+    public boolean onLethalDamage(Player p)
+    {
+        handleDeath(p);
+        return false;
+    }
+
+    /** Игрок выбыл: перевести в канал спектейта. */
+    public void onEliminated(MatchPlayer mp)
+    {
+        gameChat.remove(mp.getUuid());
+        spectatorChat.add(mp.getUuid());
+    }
+
+    /** Игрок покинул матч: убрать из всех каналов чата. */
+    public void onPlayerRemoved(UUID id)
+    {
+        lobbyChat.remove(id);
+        gameChat.remove(id);
+        spectatorChat.remove(id);
+    }
+
+    /** Условие победы — последний выживший (дефолт платформы). */
+    public MatchResult checkResult() {return match.defaultResult();}
+
+    /** Итоги: статистика всем участникам, MVP по убийствам, объявление победителя. */
+    public void onEnd(MatchResult result)
+    {
+        EscapePlayerData mvp = null;
+        for (EscapePlayerData data : matchData.values())
+        {
+            plugin.stats().recordGameKills(data.uuid, data.name, data.kills);
+            if (data.kills > 0 && (mvp == null || data.kills > mvp.kills)) {mvp = data;}
+        }
+        if (mvp != null) {plugin.stats().add(mvp.uuid, mvp.name, "mvp_games", 1);}
+        DebugLog.log(Cat.SESSION, "finish arena=%s alive=%d participants=%d mvp=%s",
+            arena.getId(), match.aliveCount(), matchData.size(), mvp == null ? "-" : mvp.name);
+
+        if (!result.hasWinner()) {return;}
+        UUID winnerId = result.winners().get(0);
+        EscapePlayerData data = matchData.get(winnerId);
+        if (data == null) {return;}
+        // победитель может быть и оффлайн (пережил всех под стражем) — статистика всё равно его
+        plugin.stats().add(winnerId, data.name, "wins", 1);
+        DebugLog.log(Cat.SESSION, "winner arena=%s player=%s kills=%d quests=%d trades=%d ores=%d",
+            arena.getId(), data.name, data.kills, data.quests, data.trades, data.ores);
+        broadcastAll(Msg.get("game.win-header"));
+        broadcastAll(Component.empty());
+        broadcastAll(Msg.get("game.win-player", Msg.ph("player", data.name)));
+        broadcastAll(Msg.get("game.win-quests", Msg.ph("n", data.quests)));
+        broadcastAll(Msg.get("game.win-kills", Msg.ph("n", data.kills)));
+        broadcastAll(Msg.get("game.win-trades", Msg.ph("n", data.trades)));
+        broadcastAll(Component.empty());
+        broadcastAll(Msg.get("game.win-footer"));
+    }
+
+    /**
+     * Уборка после матча. Свой откат блоков Escape ведёт сам: ядровой одношаговый
+     * не чинит стыки решёток и заборов, из-за чего между ними остаются щели.
+     */
+    public void onCleanup()
+    {
+        for (BukkitTask task : refillTasks.values()) {task.cancel();}
+        refillTasks.clear();
+
+        // сундуки: очистить содержимое перед восстановлением
+        for (Location loc : activeChests)
+        {
+            if (loc.getWorld() == null) {continue;}
+            if (loc.getBlock().getState() instanceof Chest chest) {chest.getInventory().clear();}
+        }
+
+        // динамические сундуки — это блоки карты: вернуть их исходное содержимое
+        for (Map.Entry<Location, ItemStack[]> entry : dynamicChestOriginals.entrySet())
+        {
+            Location loc = entry.getKey();
+            if (loc.getWorld() == null) {continue;}
+            if (loc.getBlock().getState() instanceof Chest chest) {chest.getInventory().setContents(entry.getValue());}
+        }
+        dynamicChestOriginals.clear();
+
+        int restored = 0;
+        int skipped = 0;
+        List<Block> restoredBlocks = new ArrayList<>();
+        for (Map.Entry<Location, BlockData> entry : editedBlocks.entrySet())
+        {
+            Location loc = entry.getKey();
+            if (loc.getWorld() == null) {skipped++; continue;}
+            Block block = loc.getBlock();
+            block.setBlockData(entry.getValue(), false); // точная форма без физики
+            restoredBlocks.add(block);
+            restored++;
+        }
+        // второй проход С физикой: соседи пересчитывают стыки (иначе остаются щели)
+        for (Block block : restoredBlocks) {block.setBlockData(block.getBlockData(), true);}
+        // третий проход: уцелевшие соседи, которых не ломали, тоже пересчитывают форму
+        int neighborsFixed = fixConnectingNeighbors(restoredBlocks);
+        DebugLog.log(Cat.WORLD, "blocks-restored arena=%s restored=%d skipped-no-world=%d neighbors-fixed=%d",
+            arena.getId(), restored, skipped, neighborsFixed);
+
+        editedBlocks.clear();
+        matchFires.clear();
+        activeChests.clear();
+        activeChestCategories.clear();
+        categoryArenaSlots.clear();
+        chestStands.clear();
+        traderLocations.clear();
+
+        // мир вернулся в исходное — возвращаем и подсказки настройки
+        SetupMarkers.placeAll(arena);
+
+        // removed < tracked — часть сущностей исчезла раньше (смерть, деспавн), это норма
+        int entitiesRemoved = 0;
+        for (UUID id : spawnedEntities)
+        {
+            Entity entity = Bukkit.getEntity(id);
+            if (entity != null) {entity.remove(); entitiesRemoved++;}
+        }
+        int dropsRemoved = 0;
+        for (UUID id : droppedItems)
+        {
+            Entity entity = Bukkit.getEntity(id);
+            if (entity != null) {entity.remove(); dropsRemoved++;}
+        }
+        DebugLog.log(Cat.WORLD, "entities-removed arena=%s spawned=%d drops=%d",
+            arena.getId(), entitiesRemoved, dropsRemoved);
+        spawnedEntities.clear();
+        droppedItems.clear();
+
+        lobbyChat.clear();
+        gameChat.clear();
+        spectatorChat.clear();
+        matchData.clear();
+        chosenKit.clear();
+        modifierVotes.clear();
+        lastVoteMs.clear();
+        activeModifier = null;
+        cooldowns.clear();
+        currentEvent = null;
+        eventPositions.clear();
+        eventFlagged.clear();
+        bloodMoon = false;
+        glowActive = false;
+        finalBattleStarted = false;
+        respawnBlocks.clear();
+        offlineGuards.clear();
+    }
+
+    /** Доп. строки сайдбара (стандартные рисует ядро). */
+    public List<Component> scoreboardLines(Player viewer) {return List.of();}
+
+    /** Рассылка всем онлайн-участникам матча. */
+    private void broadcastAll(Component message)
+    {
+        for (Player p : match.onlinePlayers()) {p.sendMessage(message);}
     }
 }

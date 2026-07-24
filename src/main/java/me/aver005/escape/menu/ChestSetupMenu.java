@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+
+import me.aver005.escape.arena.EscapeArena;
 import ru.kiviuly.mg.api.menu.Menu;
 
 import java.util.ArrayList;
@@ -7,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.arena.ChestSetupManager;
 import me.aver005.escape.arena.WizardState;
 import me.aver005.escape.loot.LootCategory;
@@ -61,7 +63,7 @@ public class ChestSetupMenu extends Menu
             int idx = from + slot;
             if (idx >= order.size()) {break;}
             Location point = order.get(idx);
-            List<String> ids = arena.getChestSpots().get(point);
+            List<String> ids = EscapeArena.chestSpots(arena).get(point);
             List<LootCategory> cats = new ArrayList<>();
             if (ids != null)
             {

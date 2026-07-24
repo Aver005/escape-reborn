@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.kit.Kit;
 import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;

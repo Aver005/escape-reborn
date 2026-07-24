@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import me.aver005.escape.trader.TraderType;
 import ru.kiviuly.mg.api.util.Items;
 import ru.kiviuly.mg.api.util.Msg;
@@ -23,12 +23,12 @@ public class NpcMenu extends Menu
     private enum Role {SHOP, THEMES, SCAVENGER}
 
     private final EscapePlugin plugin;
-    private final GameSession session;
+    private final EscapeRules session;
     private final TraderType npc;
     private final Villager villager;
     private final List<Role> roles = new ArrayList<>();
 
-    public NpcMenu(EscapePlugin plugin, GameSession session, TraderType npc, Villager villager)
+    public NpcMenu(EscapePlugin plugin, EscapeRules session, TraderType npc, Villager villager)
     {
         super(27, Msg.get("npc.chooser-title-prefix").append(npc.displayName()));
         this.plugin = plugin;

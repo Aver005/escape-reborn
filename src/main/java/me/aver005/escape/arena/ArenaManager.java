@@ -1,5 +1,7 @@
 package me.aver005.escape.arena;
 
+import ru.kiviuly.mg.api.arena.Arena;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,7 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.entity.Player;
 
@@ -20,7 +22,20 @@ public class ArenaManager
 {
     private final EscapePlugin plugin;
     private final Map<String, Arena> arenas = new LinkedHashMap<>();
-    private final Map<UUID, GameSession> sessionByPlayer = new ConcurrentHashMap<>();
+    private final Map<UUID, EscapeRules> sessionByPlayer = new ConcurrentHashMap<>();
+    /** Живой матч по id арены. Держим здесь, а не в самой арене: конфиг арены — платформенный. */
+    private final Map<String, EscapeRules> sessionByArena = new ConcurrentHashMap<>();
+
+    /** Текущий матч на арене (или null). */
+    public EscapeRules sessionOf(Arena arena) {return arena == null ? null : sessionByArena.get(arena.getId());}
+
+    /** Привязать/снять матч арены (null снимает). */
+    public void setSession(Arena arena, EscapeRules session)
+    {
+        if (arena == null) {return;}
+        if (session == null) {sessionByArena.remove(arena.getId());}
+        else {sessionByArena.put(arena.getId(), session);}
+    }
 
     public ArenaManager(EscapePlugin plugin) {this.plugin = plugin;}
 
@@ -29,24 +44,32 @@ public class ArenaManager
         return new File(plugin.getDataFolder(), "arenas");
     }
 
+    private File fileOf(String arenaId) {return new File(arenasFolder(), arenaId + ".yml");}
+
+    /**
+     * Арены в платформенном формате: один файл {@code arenas/<ID>.yml} (общее + «карманы»
+     * чисел и точек). Игро-специфичный контент лежит рядом в {@code game/<ID>.yml} и
+     * подтягивается лениво через {@link EscapeArenaConfigs}.
+     */
     public void loadAll()
     {
         arenas.clear();
         File root = arenasFolder();
         if (!root.exists()) {root.mkdirs(); return;}
-        File[] folders = root.listFiles(File::isDirectory);
-        if (folders == null) {return;}
-        for (File folder : folders)
+        File[] files = root.listFiles((d, name) -> name.toLowerCase().endsWith(".yml"));
+        if (files == null) {return;}
+        for (File f : files)
         {
+            String id = f.getName().substring(0, f.getName().length() - 4).toUpperCase();
             try
             {
-                Arena arena = Arena.load(folder);
+                Arena arena = Arena.load(id, f);
                 arenas.put(arena.getId(), arena);
                 plugin.getLogger().info("Arena loaded: " + arena.getId());
             }
             catch (Exception e)
             {
-                plugin.getLogger().severe("Failed to load arena " + folder.getName() + ": " + e.getMessage());
+                plugin.getLogger().severe("Failed to load arena " + id + ": " + e.getMessage());
             }
         }
     }
@@ -56,9 +79,11 @@ public class ArenaManager
         for (Arena arena : arenas.values()) {save(arena);}
     }
 
+    /** Сохраняет и платформенную часть арены, и её игро-специфичный конфиг. */
     public void save(Arena arena)
     {
-        arena.save(new File(arenasFolder(), arena.getId()));
+        arena.save(fileOf(arena.getId()));
+        plugin.arenaConfigs().save(arena);
     }
 
     public Arena create(String id, String worldName)
@@ -77,25 +102,25 @@ public class ArenaManager
         if (cfg == null) {return;}
         arena.setMinPlayers(cfg.getInt("min-players", 2));
         arena.setMaxPlayers(cfg.getInt("max-players", 12));
-        arena.setTraderCount(cfg.getInt("trader-count", 32));
-        arena.setTableCount(cfg.getInt("table-count", 5));
-        arena.setDurationSeconds(cfg.getInt("duration-seconds", 1200));
-        arena.setEventIntervalSeconds(cfg.getInt("event-interval-seconds", 210));
-        arena.setSalaryIntervalSeconds(cfg.getInt("salary-interval-seconds", 600));
-        arena.setSalaryGold(cfg.getInt("salary-gold", 16));
-        arena.setGlowSecondsBeforeEnd(cfg.getInt("glow-seconds-before-end", 600));
-        arena.setGlowBonusGold(cfg.getInt("glow-bonus-gold", 18));
-        arena.setStartDelaySeconds(cfg.getInt("start-delay-seconds", 60));
-        arena.setStartDelayFullSeconds(cfg.getInt("start-delay-full-seconds", 10));
-        arena.setForkUses(cfg.getInt("fork-uses", 1));
-        arena.setStartGold(cfg.getInt("start-gold", 24));
+        EscapeArena.setTraderCount(arena, cfg.getInt("trader-count", 32));
+        EscapeArena.setTableCount(arena, cfg.getInt("table-count", 5));
+        arena.setMatchDurationSeconds(cfg.getInt("duration-seconds", 1200));
+        EscapeArena.setEventIntervalSeconds(arena, cfg.getInt("event-interval-seconds", 210));
+        EscapeArena.setSalaryIntervalSeconds(arena, cfg.getInt("salary-interval-seconds", 600));
+        EscapeArena.setSalaryGold(arena, cfg.getInt("salary-gold", 16));
+        EscapeArena.setGlowSecondsBeforeEnd(arena, cfg.getInt("glow-seconds-before-end", 600));
+        EscapeArena.setGlowBonusGold(arena, cfg.getInt("glow-bonus-gold", 18));
+        arena.setLobbyCountdownSeconds(cfg.getInt("start-delay-seconds", 60));
+        arena.setCountdownFullSeconds(cfg.getInt("start-delay-full-seconds", 10));
+        EscapeArena.setForkUses(arena, cfg.getInt("fork-uses", 1));
+        EscapeArena.setStartGold(arena, cfg.getInt("start-gold", 24));
     }
 
     public void delete(String id)
     {
         Arena arena = arenas.remove(id);
         if (arena == null) {return;}
-        if (arena.getSession() != null) {arena.getSession().forceStop();}
+        if (sessionOf(arena) != null) {sessionOf(arena).forceStop();}
         File folder = new File(arenasFolder(), id);
         if (folder.exists())
         {
@@ -117,9 +142,9 @@ public class ArenaManager
 
     // ===== сессии =====
 
-    public GameSession sessionOf(Player p) {return sessionByPlayer.get(p.getUniqueId());}
+    public EscapeRules sessionOf(Player p) {return sessionByPlayer.get(p.getUniqueId());}
     public boolean inSession(Player p) {return sessionByPlayer.containsKey(p.getUniqueId());}
-    public void bind(UUID player, GameSession session) {sessionByPlayer.put(player, session);}
+    public void bind(UUID player, EscapeRules session) {sessionByPlayer.put(player, session);}
     public void unbind(UUID player) {sessionByPlayer.remove(player);}
 
     /** Вход игрока на арену (создаёт сессию при необходимости). */
@@ -131,16 +156,16 @@ public class ArenaManager
             Msg.send(p, "chestsetup.busy-join");
             return false;
         }
-        GameSession session = arena.getSession();
+        EscapeRules session = sessionOf(arena);
         boolean fresh = false;
         if (session == null)
         {
-            session = new GameSession(plugin, arena);
-            arena.setSession(session);
+            session = new EscapeRules(plugin, arena);
+            setSession(arena, session);
             fresh = true;
         }
         boolean joined = session.join(p);
-        if (!joined && fresh && session.lobbySize() == 0) {arena.setSession(null);}
+        if (!joined && fresh && session.lobbySize() == 0) {setSession(arena, null);}
         return joined;
     }
 
@@ -148,7 +173,7 @@ public class ArenaManager
     {
         for (Arena arena : arenas.values())
         {
-            if (arena.getSession() != null) {arena.getSession().forceStop();}
+            if (sessionOf(arena) != null) {sessionOf(arena).forceStop();}
         }
     }
 }

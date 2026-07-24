@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+
+import me.aver005.escape.arena.EscapeArena;
 import ru.kiviuly.mg.api.menu.Menu;
 import me.aver005.escape.util.EscapeItems;
 
@@ -7,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import ru.kiviuly.mg.api.util.Items;
 import ru.kiviuly.mg.api.util.Msg;
 import org.bukkit.Bukkit;
@@ -25,9 +27,9 @@ public class AssistantMenu extends Menu
     private static final int SLOT_PLACES = 7;
 
     private final EscapePlugin plugin;
-    private final GameSession session;
+    private final EscapeRules session;
 
-    public AssistantMenu(EscapePlugin plugin, GameSession session)
+    public AssistantMenu(EscapePlugin plugin, EscapeRules session)
     {
         super(9, Msg.get("assistant.menu-title"));
         this.plugin = plugin;
@@ -133,7 +135,7 @@ public class AssistantMenu extends Menu
 
     private void usePlaces(Player p)
     {
-        if (session.getArena().getLevers().isEmpty()) {Msg.send(p, "assistant.no-places"); return;}
+        if (EscapeArena.levers(session.getArena()).isEmpty()) {Msg.send(p, "assistant.no-places"); return;}
         if (!checkCooldown(p, "places")) {return;}
         new PlacesMenu(plugin, session).open(p);
     }

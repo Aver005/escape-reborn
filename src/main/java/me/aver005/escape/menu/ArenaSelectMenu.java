@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
-import me.aver005.escape.game.GameSession;
+import ru.kiviuly.mg.api.arena.Arena;
+import me.aver005.escape.game.EscapeRules;
 import ru.kiviuly.mg.api.util.Items;
 import ru.kiviuly.mg.api.util.Msg;
 import net.kyori.adventure.text.Component;
@@ -36,9 +36,9 @@ public class ArenaSelectMenu extends Menu
         for (Arena arena : plugin.arenas().all().values())
         {
             if (!arena.isEnabled()) {continue;}
-            GameSession session = arena.getSession();
+            EscapeRules session = plugin.arenas().sessionOf(arena);
             if (session != null
-                && (session.getPhase() == GameSession.Phase.RUNNING || session.getPhase() == GameSession.Phase.ENDING))
+                && (session.getPhase() == EscapeRules.Phase.RUNNING || session.getPhase() == EscapeRules.Phase.ENDING))
             {continue;}
 
             int current = session == null ? 0 : session.lobbySize();

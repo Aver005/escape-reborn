@@ -57,10 +57,10 @@ public class OfflineGuards
     }
 
     private final EscapePlugin plugin;
-    private final GameSession session;
+    private final EscapeRules session;
     private final Map<UUID, Guard> guards = new HashMap<>();
 
-    public OfflineGuards(EscapePlugin plugin, GameSession session)
+    public OfflineGuards(EscapePlugin plugin, EscapeRules session)
     {
         this.plugin = plugin;
         this.session = session;
@@ -210,7 +210,7 @@ public class OfflineGuards
         boolean deathAnnounced = false;
         if (killer != null && session.isPlaying(killer.getUniqueId()))
         {
-            MatchPlayer killerData = session.matchData(killer.getUniqueId());
+            EscapePlayerData killerData = session.matchData(killer.getUniqueId());
             if (killerData != null) {killerData.kills++;}
             plugin.stats().add(killer.getUniqueId(), killer.getName(), "kills", 1);
             killer.giveExpLevels(plugin.getConfig().getInt("match.kill-xp-levels", 10));

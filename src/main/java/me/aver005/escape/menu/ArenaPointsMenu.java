@@ -1,11 +1,13 @@
 package me.aver005.escape.menu;
+
+import me.aver005.escape.arena.EscapeArena;
 import ru.kiviuly.mg.api.menu.Menu;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
@@ -59,13 +61,13 @@ public class ArenaPointsMenu extends Menu
     {
         inventory.clear();
         inventory.setItem(SLOT_SPAWN, marker(Material.BEACON, "spawn", arena.getSpawns().size(), false));
-        inventory.setItem(SLOT_FINAL, marker(Material.LODESTONE, "finalspawn", arena.getFinalSpawns().size(), false));
-        inventory.setItem(SLOT_CHEST, marker(Material.CHEST, "chest", arena.getChestSpots().size(), true));
-        inventory.setItem(SLOT_TABLE, marker(Material.ENCHANTING_TABLE, "table", arena.getTableSpots().size(), false));
-        inventory.setItem(SLOT_ORE, marker(Material.STONE, "ore", arena.getOreSpots().size(), false));
-        inventory.setItem(SLOT_BREAKABLE, marker(Material.IRON_AXE, "breakable", arena.getBreakables().size(), false));
-        inventory.setItem(SLOT_LEVER, hintButton(Material.LEVER, "lever", arena.getLevers().size()));
-        inventory.setItem(SLOT_VILLAGER, hintButton(Material.VILLAGER_SPAWN_EGG, "villager", arena.getTraderSpots().size()));
+        inventory.setItem(SLOT_FINAL, marker(Material.LODESTONE, "finalspawn", EscapeArena.finalSpawns(arena).size(), false));
+        inventory.setItem(SLOT_CHEST, marker(Material.CHEST, "chest", EscapeArena.chestSpots(arena).size(), true));
+        inventory.setItem(SLOT_TABLE, marker(Material.ENCHANTING_TABLE, "table", EscapeArena.tableSpots(arena).size(), false));
+        inventory.setItem(SLOT_ORE, marker(Material.STONE, "ore", EscapeArena.oreSpots(arena).size(), false));
+        inventory.setItem(SLOT_BREAKABLE, marker(Material.IRON_AXE, "breakable", EscapeArena.breakables(arena).size(), false));
+        inventory.setItem(SLOT_LEVER, hintButton(Material.LEVER, "lever", EscapeArena.levers(arena).size()));
+        inventory.setItem(SLOT_VILLAGER, hintButton(Material.VILLAGER_SPAWN_EGG, "villager", EscapeArena.traderSpots(arena).size()));
 
         List<Component> lobbyLore = new ArrayList<>();
         lobbyLore.add(Msg.get("arena-points.lobby-current", Msg.ph("value", Msg.raw(arena.getLobby() != null ? "arena-points.lobby-yes" : "arena-points.lobby-no"))));
@@ -130,7 +132,7 @@ public class ArenaPointsMenu extends Menu
     {
         p.getInventory().addItem(SetupMarkers.breakWand(arena));
         p.playSound(p.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.6f, 1.2f);
-        Msg.send(p, "breakable.wand-given", Msg.ph("arena", arena.getId()), Msg.ph("n", arena.getBreakables().size()));
+        Msg.send(p, "breakable.wand-given", Msg.ph("arena", arena.getId()), Msg.ph("n", EscapeArena.breakables(arena).size()));
     }
 
     private void setLobby(Player p)
@@ -146,7 +148,7 @@ public class ArenaPointsMenu extends Menu
     private void placeMarkers(Player p)
     {
         if (arena.getWorld() == null) {Msg.send(p, "errors.world-not-loaded"); return;}
-        if (arena.getSession() != null) {Msg.send(p, "admin.markers-busy", Msg.ph("arena", arena.getId())); return;}
+        if (plugin.arenas().sessionOf(arena) != null) {Msg.send(p, "admin.markers-busy", Msg.ph("arena", arena.getId())); return;}
         int n = SetupMarkers.placeAll(arena);
         Msg.send(p, "admin.markers-placed", Msg.ph("arena", arena.getId()), Msg.ph("n", n));
     }

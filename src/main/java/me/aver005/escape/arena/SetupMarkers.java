@@ -1,5 +1,7 @@
 package me.aver005.escape.arena;
 
+import ru.kiviuly.mg.api.arena.Arena;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -77,9 +79,9 @@ public final class SetupMarkers
     {
         int count = 0;
         for (Location loc : arena.getSpawns()) {count += placePillar(loc, SPAWN) ? 1 : 0;}
-        for (Location loc : arena.getFinalSpawns()) {count += placePillar(loc, FINAL_SPAWN) ? 1 : 0;}
-        for (Location loc : arena.getTraderSpots().keySet()) {count += placePillar(loc, TRADER) ? 1 : 0;}
-        for (Location loc : arena.getChestSpots().keySet()) {count += placeChest(loc, arena.getChestFacing(loc)) ? 1 : 0;}
+        for (Location loc : EscapeArena.finalSpawns(arena)) {count += placePillar(loc, FINAL_SPAWN) ? 1 : 0;}
+        for (Location loc : EscapeArena.traderSpots(arena).keySet()) {count += placePillar(loc, TRADER) ? 1 : 0;}
+        for (Location loc : EscapeArena.chestSpots(arena).keySet()) {count += placeChest(loc, EscapeArena.chestFacing(arena, loc)) ? 1 : 0;}
         return count;
     }
 
@@ -91,7 +93,7 @@ public final class SetupMarkers
             case "spawn" -> placePillar(loc, SPAWN);
             case "finalspawn" -> placePillar(loc, FINAL_SPAWN);
             case "villager" -> placePillar(loc, TRADER);
-            case "chest" -> placeChest(loc, arena.getChestFacing(loc));
+            case "chest" -> placeChest(loc, EscapeArena.chestFacing(arena, loc));
             default -> {}
         }
     }
@@ -152,9 +154,9 @@ public final class SetupMarkers
     public static void clearForMatch(Arena arena)
     {
         for (Location loc : arena.getSpawns()) {clearPillar(loc, SPAWN);}
-        for (Location loc : arena.getFinalSpawns()) {clearPillar(loc, FINAL_SPAWN);}
-        for (Location loc : arena.getTraderSpots().keySet()) {clearPillar(loc, TRADER);}
-        for (Location loc : arena.getChestSpots().keySet())
+        for (Location loc : EscapeArena.finalSpawns(arena)) {clearPillar(loc, FINAL_SPAWN);}
+        for (Location loc : EscapeArena.traderSpots(arena).keySet()) {clearPillar(loc, TRADER);}
+        for (Location loc : EscapeArena.chestSpots(arena).keySet())
         {
             if (loc != null && loc.getWorld() != null) {clearChest(loc.getBlock());}
         }
@@ -206,9 +208,9 @@ public final class SetupMarkers
         Location base = broken.getBlock().getLocation();
         Location below = base.clone().subtract(0, 1, 0);
         if (arena.getSpawns().contains(base) || arena.getSpawns().contains(below)) {return "spawn";}
-        if (arena.getFinalSpawns().contains(base) || arena.getFinalSpawns().contains(below)) {return "finalspawn";}
-        if (arena.getTraderSpots().containsKey(base) || arena.getTraderSpots().containsKey(below)) {return "villager";}
-        if (arena.getChestSpots().containsKey(base)) {return "chest";}
+        if (EscapeArena.finalSpawns(arena).contains(base) || EscapeArena.finalSpawns(arena).contains(below)) {return "finalspawn";}
+        if (EscapeArena.traderSpots(arena).containsKey(base) || EscapeArena.traderSpots(arena).containsKey(below)) {return "villager";}
+        if (EscapeArena.chestSpots(arena).containsKey(base)) {return "chest";}
         return null;
     }
 
@@ -233,20 +235,20 @@ public final class SetupMarkers
             }
             case "finalspawn" ->
             {
-                Location point = arena.getFinalSpawns().contains(base) ? base : below;
-                arena.getFinalSpawns().remove(point);
+                Location point = EscapeArena.finalSpawns(arena).contains(base) ? base : below;
+                EscapeArena.finalSpawns(arena).remove(point);
                 clearPillar(point, FINAL_SPAWN);
             }
             case "villager" ->
             {
-                Location point = arena.getTraderSpots().containsKey(base) ? base : below;
-                arena.getTraderSpots().remove(point);
+                Location point = EscapeArena.traderSpots(arena).containsKey(base) ? base : below;
+                EscapeArena.traderSpots(arena).remove(point);
                 clearPillar(point, TRADER);
             }
             case "chest" ->
             {
-                arena.getChestSpots().remove(base);
-                arena.getChestFacings().remove(base);
+                EscapeArena.chestSpots(arena).remove(base);
+                EscapeArena.chestFacings(arena).remove(base);
                 clearChest(base.getBlock()); // содержимое точки настройки не выпадает
             }
             default -> {return null;}

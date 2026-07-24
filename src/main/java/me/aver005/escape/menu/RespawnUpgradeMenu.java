@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import me.aver005.escape.game.RespawnBlock;
 import me.aver005.escape.game.RespawnTier;
 import ru.kiviuly.mg.api.util.Items;
@@ -21,10 +21,10 @@ public class RespawnUpgradeMenu extends Menu
     private static final int SLOT_INFO = 11;
     private static final int SLOT_UPGRADE = 15;
 
-    private final GameSession session;
+    private final EscapeRules session;
     private final RespawnBlock block;
 
-    public RespawnUpgradeMenu(EscapePlugin plugin, GameSession session, RespawnBlock block)
+    public RespawnUpgradeMenu(EscapePlugin plugin, EscapeRules session, RespawnBlock block)
     {
         super(27, Msg.get("respawn-block.menu-title"));
         this.session = session;

@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
@@ -44,11 +44,11 @@ public class ScavengerMenu extends Menu
     private static final int SLOT_SELL_ALL = 53;
 
     private final EscapePlugin plugin;
-    private final GameSession session;
+    private final EscapeRules session;
     private final TraderType trader;
     private final Villager backVillager; // null — без кнопки «назад»
 
-    public ScavengerMenu(EscapePlugin plugin, GameSession session, TraderType trader, Villager backVillager)
+    public ScavengerMenu(EscapePlugin plugin, EscapeRules session, TraderType trader, Villager backVillager)
     {
         super(54, Msg.get("scavenger.title-prefix").append(trader.displayName()));
         this.plugin = plugin;

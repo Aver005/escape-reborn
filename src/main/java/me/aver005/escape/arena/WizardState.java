@@ -1,5 +1,7 @@
 package me.aver005.escape.arena;
 
+import ru.kiviuly.mg.api.arena.Arena;
+
 import java.util.List;
 import java.util.UUID;
 

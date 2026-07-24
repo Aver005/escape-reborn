@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+
+import me.aver005.escape.arena.EscapeArena;
 import ru.kiviuly.mg.api.menu.Menu;
 
 import java.util.ArrayList;
@@ -7,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.trader.TraderType;
 import me.aver005.escape.util.DebugLog;
 import me.aver005.escape.util.DebugLog.Cat;
@@ -43,7 +45,7 @@ public class VillagerPointsMenu extends Menu
         super(54, Msg.get("villagers.menu-title").append(Component.text(" " + arena.getId())));
         this.plugin = plugin;
         this.arena = arena;
-        this.order = new ArrayList<>(arena.getTraderSpots().keySet());
+        this.order = new ArrayList<>(EscapeArena.traderSpots(arena).keySet());
     }
 
     @Override
@@ -67,7 +69,7 @@ public class VillagerPointsMenu extends Menu
             int idx = from + slot;
             if (idx >= order.size()) {break;}
             Location point = order.get(idx);
-            String traderId = arena.getTraderSpots().get(point);
+            String traderId = EscapeArena.traderSpots(arena).get(point);
             TraderType trader = traderId != null ? plugin.traders().get(traderId) : null;
 
             Component name = Msg.get("villagers.point-name",
@@ -112,11 +114,11 @@ public class VillagerPointsMenu extends Menu
         Integer idx = pointBySlot.get(raw);
         if (idx == null || idx < 0 || idx >= order.size()) {return;}
         Location point = order.get(idx);
-        if (arena.getSession() != null) {Msg.send(p, "villagers.arena-busy", Msg.ph("arena", arena.getId())); return;}
+        if (plugin.arenas().sessionOf(arena) != null) {Msg.send(p, "villagers.arena-busy", Msg.ph("arena", arena.getId())); return;}
 
         if (e.isRightClick())
         {
-            String traderId = arena.getTraderSpots().get(point);
+            String traderId = EscapeArena.traderSpots(arena).get(point);
             TraderType trader = traderId != null ? plugin.traders().get(traderId) : null;
             if (trader == null) {Msg.send(p, "villagers.no-trader"); return;}
             new TradeListEditorMenu(plugin, trader).open(p);

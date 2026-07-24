@@ -1,5 +1,7 @@
 package me.aver005.escape.arena;
 
+import ru.kiviuly.mg.api.arena.Arena;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -77,12 +79,12 @@ public final class ArenaCheck
         {
             out.add(warn(Msg.get("check.msg.loot-small", Msg.ph("n", lootTotal)), "/escape loot"));
         }
-        if (arena.getChestSpots().isEmpty() && !arena.isDynamicChests())
+        if (EscapeArena.chestSpots(arena).isEmpty() && !EscapeArena.dynamicChests(arena))
         {
             out.add(crit(Msg.get("check.msg.chests-missing"),
                 "/escape addchest " + id + "  |  /escape set " + id + " dynamicchests 1"));
         }
-        if (arena.getChestSpots().isEmpty() && arena.isDynamicChests())
+        if (EscapeArena.chestSpots(arena).isEmpty() && EscapeArena.dynamicChests(arena))
         {
             out.add(warn(Msg.get("check.msg.insight-undeliverable"), "/escape addchest " + id));
         }
@@ -90,7 +92,7 @@ public final class ArenaCheck
         // точки сундуков ссылаются на ГЛОБАЛЬНЫЕ категории лута (0..N id на точку)
         int orphanPoints = 0;   // точка ссылается на несуществующую категорию
         int emptyPoints = 0;    // точка без категорий вообще -> сундук не появится
-        for (List<String> cats : arena.getChestSpots().values())
+        for (List<String> cats : EscapeArena.chestSpots(arena).values())
         {
             if (cats == null || cats.isEmpty()) {emptyPoints++; continue;}
             for (String catId : cats)
@@ -108,37 +110,37 @@ public final class ArenaCheck
             out.add(warn(Msg.get("check.msg.chest-points-empty", Msg.ph("n", emptyPoints)),
                 "/escape chesttag " + id));
         }
-        if (arena.getTraderCount() > arena.getTraderSpots().size())
+        if (EscapeArena.traderCount(arena) > EscapeArena.traderSpots(arena).size())
         {
             out.add(warn(Msg.get("check.msg.trader-count-high",
-                Msg.ph("count", arena.getTraderCount()), Msg.ph("spots", arena.getTraderSpots().size())),
-                "/escape set " + id + " traders " + arena.getTraderSpots().size()));
+                Msg.ph("count", EscapeArena.traderCount(arena)), Msg.ph("spots", EscapeArena.traderSpots(arena).size())),
+                "/escape set " + id + " traders " + EscapeArena.traderSpots(arena).size()));
         }
-        if (arena.getTableCount() > arena.getTableSpots().size())
+        if (EscapeArena.tableCount(arena) > EscapeArena.tableSpots(arena).size())
         {
             out.add(warn(Msg.get("check.msg.table-count-high",
-                Msg.ph("count", arena.getTableCount()), Msg.ph("spots", arena.getTableSpots().size())),
-                "/escape set " + id + " tables " + arena.getTableSpots().size()));
+                Msg.ph("count", EscapeArena.tableCount(arena)), Msg.ph("spots", EscapeArena.tableSpots(arena).size())),
+                "/escape set " + id + " tables " + EscapeArena.tableSpots(arena).size()));
         }
 
         // ===== тайминги =====
-        if (arena.getGlowSecondsBeforeEnd() >= arena.getDurationSeconds() / 2)
+        if (EscapeArena.glowSecondsBeforeEnd(arena) >= arena.getMatchDurationSeconds() / 2)
         {
             out.add(warn(Msg.get("check.msg.glow-long",
-                Msg.ph("glow", arena.getGlowSecondsBeforeEnd()), Msg.ph("duration", arena.getDurationSeconds())),
+                Msg.ph("glow", EscapeArena.glowSecondsBeforeEnd(arena)), Msg.ph("duration", arena.getMatchDurationSeconds())),
                 "/escape set " + id + " glowtime 90"));
         }
-        if (arena.getSalaryIntervalSeconds() >= arena.getDurationSeconds())
+        if (EscapeArena.salaryIntervalSeconds(arena) >= arena.getMatchDurationSeconds())
         {
             out.add(warn(Msg.get("check.msg.salary-never"), "/escape set " + id + " salaryinterval 600"));
         }
-        if (arena.getEventIntervalSeconds() >= arena.getDurationSeconds())
+        if (EscapeArena.eventIntervalSeconds(arena) >= arena.getMatchDurationSeconds())
         {
             out.add(warn(Msg.get("check.msg.events-never"), "/escape set " + id + " eventinterval 210"));
         }
 
         // ===== торговцы/NPC на точках =====
-        Set<String> placedNpcTypes = new LinkedHashSet<>(arena.getTraderSpots().values());
+        Set<String> placedNpcTypes = new LinkedHashSet<>(EscapeArena.traderSpots(arena).values());
         int overseers = 0;
         for (String typeId : placedNpcTypes)
         {
@@ -177,7 +179,7 @@ public final class ArenaCheck
 
         // ===== контракты арены =====
         int contractsOk = 0;
-        for (String cid : arena.getContractIds())
+        for (String cid : plugin.arenaConfigs().of(arena).contractIds())
         {
             Contract contract = plugin.contracts().get(cid);
             if (contract == null)
@@ -197,7 +199,7 @@ public final class ArenaCheck
             {
                 case ACTIVATE ->
                 {
-                    if (!arena.getLevers().containsValue(idle))
+                    if (!EscapeArena.levers(arena).containsValue(idle))
                     {
                         out.add(crit(Msg.get("check.msg.contract-lever-missing",
                             Msg.ph("contract", cid), Msg.ph("lever", idle)),
@@ -219,7 +221,7 @@ public final class ArenaCheck
             }
             contractsOk++;
         }
-        if (arena.getContractIds().isEmpty())
+        if (plugin.arenaConfigs().of(arena).contractIds().isEmpty())
         {
             out.add(warn(Msg.get("check.msg.no-contracts"), "/escape addcontract " + id + " <CID>"));
         }
@@ -227,25 +229,25 @@ public final class ArenaCheck
         // ===== сводка (GOOD) =====
         out.add(good(Msg.get("check.msg.summary-geometry",
             Msg.ph("spawns", arena.getSpawns().size()),
-            Msg.ph("finals", arena.getFinalSpawns().isEmpty()
-                ? Msg.raw("check.msg.finals-fallback") : String.valueOf(arena.getFinalSpawns().size())),
-            Msg.ph("ores", arena.getOreSpots().size()),
-            Msg.ph("levers", arena.getLevers().size()),
-            Msg.ph("tables", arena.getTableSpots().size()))));
-        if (arena.isDynamicChests())
+            Msg.ph("finals", EscapeArena.finalSpawns(arena).isEmpty()
+                ? Msg.raw("check.msg.finals-fallback") : String.valueOf(EscapeArena.finalSpawns(arena).size())),
+            Msg.ph("ores", EscapeArena.oreSpots(arena).size()),
+            Msg.ph("levers", EscapeArena.levers(arena).size()),
+            Msg.ph("tables", EscapeArena.tableSpots(arena).size()))));
+        if (EscapeArena.dynamicChests(arena))
         {
             out.add(good(Msg.get("check.msg.summary-chests-dynamic",
-                Msg.ph("spots", arena.getChestSpots().size()))));
+                Msg.ph("spots", EscapeArena.chestSpots(arena).size()))));
         }
         else
         {
             out.add(good(Msg.get("check.msg.summary-chests-static",
-                Msg.ph("spots", arena.getChestSpots().size()),
+                Msg.ph("spots", EscapeArena.chestSpots(arena).size()),
                 Msg.ph("cats", plugin.loot().ids().size()),
                 Msg.ph("empty", emptyPoints))));
         }
         out.add(good(Msg.get("check.msg.summary-npc",
-            Msg.ph("spots", arena.getTraderSpots().size()),
+            Msg.ph("spots", EscapeArena.traderSpots(arena).size()),
             Msg.ph("types", placedNpcTypes.size()),
             Msg.ph("overseers", overseers))));
         out.add(good(Msg.get("check.msg.summary-content",
@@ -275,7 +277,7 @@ public final class ArenaCheck
         {
             case ACTIVATE ->
             {
-                if (!arena.getLevers().containsValue(idle))
+                if (!EscapeArena.levers(arena).containsValue(idle))
                 {
                     out.add(crit(Msg.get("check.msg.theme-lever-missing",
                         Msg.ph("theme", themeId), Msg.ph("lever", idle)),

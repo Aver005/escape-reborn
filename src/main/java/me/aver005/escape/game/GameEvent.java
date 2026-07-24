@@ -23,7 +23,7 @@ public enum GameEvent
     ROOF(8, "events.roof-1", "events.roof-2")
     {
         @Override
-        public void resolvePlayer(GameSession s, Player p)
+        public void resolvePlayer(EscapeRules s, Player p)
         {
             Location loc = p.getLocation();
             int top = p.getWorld().getMaxHeight();
@@ -42,7 +42,7 @@ public enum GameEvent
     GRASS(8, "events.grass-1", "events.grass-2")
     {
         @Override
-        public void resolvePlayer(GameSession s, Player p)
+        public void resolvePlayer(EscapeRules s, Player p)
         {
             if (p.getLocation().clone().add(0, -1, 0).getBlock().getType() == Material.GRASS_BLOCK)
             {
@@ -57,7 +57,7 @@ public enum GameEvent
     SNEAK(8, "events.sneak-1", "events.sneak-2")
     {
         @Override
-        public void resolvePlayer(GameSession s, Player p)
+        public void resolvePlayer(EscapeRules s, Player p)
         {
             if (p.isSneaking()) {Msg.send(p, "events.sneak-ok"); return;}
             p.damage(3.0);
@@ -68,7 +68,7 @@ public enum GameEvent
     GOLD_IN_HAND(8, "events.gold-1", "events.gold-2")
     {
         @Override
-        public void resolvePlayer(GameSession s, Player p)
+        public void resolvePlayer(EscapeRules s, Player p)
         {
             ItemStack hand = p.getInventory().getItemInMainHand();
             if (hand.getType() == Material.GOLD_INGOT && hand.getAmount() == 10)
@@ -84,7 +84,7 @@ public enum GameEvent
     NO_ARMOR(8, "events.armor-1", "events.armor-2")
     {
         @Override
-        public void resolvePlayer(GameSession s, Player p)
+        public void resolvePlayer(EscapeRules s, Player p)
         {
             PlayerInventory inv = p.getInventory();
             boolean naked = empty(inv.getHelmet()) && empty(inv.getChestplate())
@@ -101,13 +101,13 @@ public enum GameEvent
     LOCKDOWN(8, "events.lockdown-1", "events.lockdown-2")
     {
         @Override
-        public void onAnnounce(GameSession s)
+        public void onAnnounce(EscapeRules s)
         {
             s.captureEventPositions();
         }
 
         @Override
-        public void resolvePlayer(GameSession s, Player p)
+        public void resolvePlayer(EscapeRules s, Player p)
         {
             Location start = s.getEventPositions().get(p.getUniqueId());
             boolean moved = start == null
@@ -123,7 +123,7 @@ public enum GameEvent
     SEARCH(8, "events.search-1", "events.search-2")
     {
         @Override
-        public void resolvePlayer(GameSession s, Player p)
+        public void resolvePlayer(EscapeRules s, Player p)
         {
             if (s.isEventFlagged(p)) {Msg.send(p, "events.search-ok"); return;}
 
@@ -148,7 +148,7 @@ public enum GameEvent
     BRIBE(8, "events.bribe-1", "events.bribe-2")
     {
         @Override
-        public void resolvePlayer(GameSession s, Player p)
+        public void resolvePlayer(EscapeRules s, Player p)
         {
             ItemStack hand = p.getInventory().getItemInMainHand();
             if (hand.getType() != Material.GOLD_INGOT || hand.getAmount() < 5)
@@ -166,7 +166,7 @@ public enum GameEvent
     DIG(20, "events.dig-1", "events.dig-2")
     {
         @Override
-        public void resolvePlayer(GameSession s, Player p)
+        public void resolvePlayer(EscapeRules s, Player p)
         {
             if (!s.isEventFlagged(p)) {Msg.send(p, "events.dig-fail"); return;}
             s.giveGold(p, 6);
@@ -178,14 +178,14 @@ public enum GameEvent
     BLOOD_MOON(120, "events.bloodmoon-1", "events.bloodmoon-2")
     {
         @Override
-        public boolean canStart(GameSession s)
+        public boolean canStart(EscapeRules s)
         {
             var world = s.getArena().getWorld();
             return world != null && !world.isDayTime();
         }
 
         @Override
-        public void onAnnounce(GameSession s)
+        public void onAnnounce(EscapeRules s)
         {
             s.setBloodMoon(true);
             s.forEachPlaying(p ->
@@ -193,7 +193,7 @@ public enum GameEvent
         }
 
         @Override
-        public void onEnd(GameSession s)
+        public void onEnd(EscapeRules s)
         {
             s.setBloodMoon(false);
             s.gameChat().systemKey("events.bloodmoon-end");
@@ -204,7 +204,7 @@ public enum GameEvent
     FOG(50, "events.fog-1", "events.fog-2")
     {
         @Override
-        public void onTick(GameSession s)
+        public void onTick(EscapeRules s)
         {
             s.forEachPlaying(p ->
             {
@@ -216,7 +216,7 @@ public enum GameEvent
         }
 
         @Override
-        public void onEnd(GameSession s)
+        public void onEnd(EscapeRules s)
         {
             s.gameChat().systemKey("events.fog-end");
         }
@@ -226,7 +226,7 @@ public enum GameEvent
     RATION(0, "events.ration-1", "events.ration-2")
     {
         @Override
-        public void onAnnounce(GameSession s)
+        public void onAnnounce(EscapeRules s)
         {
             s.forEachPlaying(p -> p.setFoodLevel(Math.min(p.getFoodLevel(), 6)));
         }
@@ -245,19 +245,19 @@ public enum GameEvent
     public String[] announceKeys() {return announceKeys;}
 
     /** Можно ли запустить событие сейчас (например, «кровавая луна» — только ночью). */
-    public boolean canStart(GameSession s) {return true;}
+    public boolean canStart(EscapeRules s) {return true;}
 
     /** Вызывается сразу после объявления. */
-    public void onAnnounce(GameSession s) {}
+    public void onAnnounce(EscapeRules s) {}
 
     /** Вызывается каждую секунду, пока окно события открыто. */
-    public void onTick(GameSession s) {}
+    public void onTick(EscapeRules s) {}
 
     /** Вызывается для каждого живого игрока по окончании окна. */
-    public void resolvePlayer(GameSession s, Player p) {}
+    public void resolvePlayer(EscapeRules s, Player p) {}
 
     /** Вызывается по окончании окна (после resolvePlayer). */
-    public void onEnd(GameSession s) {}
+    public void onEnd(EscapeRules s) {}
 
     /** Пустой слот брони приходит как null ИЛИ как предмет AIR — учитываем оба. */
     private static boolean empty(ItemStack item) {return item == null || item.getType().isAir();}

@@ -1,4 +1,6 @@
 package me.aver005.escape.command;
+
+import me.aver005.escape.arena.EscapeArena;
 import me.aver005.escape.util.EscapeKeys;
 
 import java.io.File;
@@ -8,14 +10,14 @@ import java.util.Locale;
 import java.util.Map;
 
 import me.aver005.escape.EscapePlugin;
-import me.aver005.escape.arena.Arena;
+import ru.kiviuly.mg.api.arena.Arena;
 import me.aver005.escape.arena.ArenaCheck;
 import me.aver005.escape.arena.SetupMarkers;
 import me.aver005.escape.loot.LootCategory;
 import me.aver005.escape.game.GameEvent;
 import me.aver005.escape.contract.Contract;
 import me.aver005.escape.contract.ContractType;
-import me.aver005.escape.game.GameSession;
+import me.aver005.escape.game.EscapeRules;
 import me.aver005.escape.kit.Kit;
 import me.aver005.escape.menu.ArenaHubMenu;
 import me.aver005.escape.menu.ArenaSelectMenu;
@@ -119,7 +121,7 @@ public class EscapeCommand implements TabExecutor
             }
             case "leave" ->
             {
-                GameSession session = plugin.arenas().sessionOf(p);
+                EscapeRules session = plugin.arenas().sessionOf(p);
                 if (session == null) {Msg.send(p, "errors.not-in-game"); return true;}
                 if (session.leave(p)) {Msg.send(p, "lobby.left-match");}
                 return true;
@@ -157,7 +159,7 @@ public class EscapeCommand implements TabExecutor
                 Msg.send(p, "admin.list-header");
                 for (Arena arena : plugin.arenas().all().values())
                 {
-                    GameSession session = arena.getSession();
+                    EscapeRules session = plugin.arenas().sessionOf(arena);
                     String statusKey;
                     int current = 0;
                     if (!arena.isEnabled()) {statusKey = "admin.list-status-disabled";}
@@ -301,7 +303,7 @@ public class EscapeCommand implements TabExecutor
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
                 if (arena.getWorld() == null) {Msg.send(p, "errors.world-not-loaded"); return true;}
-                if (arena.getSession() != null) {Msg.send(p, "admin.markers-busy", Msg.ph("arena", id)); return true;}
+                if (plugin.arenas().sessionOf(arena) != null) {Msg.send(p, "admin.markers-busy", Msg.ph("arena", id)); return true;}
                 int n = SetupMarkers.placeAll(arena);
                 Msg.send(p, "admin.markers-placed", Msg.ph("arena", id), Msg.ph("n", n));
                 return true;
@@ -312,14 +314,14 @@ public class EscapeCommand implements TabExecutor
                 {
                     for (Arena arena : plugin.arenas().all().values())
                     {
-                        if (arena.getSession() != null) {arena.getSession().adminStop();}
+                        if (plugin.arenas().sessionOf(arena) != null) {plugin.arenas().sessionOf(arena).adminStop();}
                     }
                     Msg.send(p, "admin.arena-stopped", Msg.ph("arena", "ALL"));
                     return true;
                 }
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
-                if (arena.getSession() != null) {arena.getSession().adminStop();}
+                if (plugin.arenas().sessionOf(arena) != null) {plugin.arenas().sessionOf(arena).adminStop();}
                 Msg.send(p, "admin.arena-stopped", Msg.ph("arena", id));
                 return true;
             }
@@ -327,7 +329,7 @@ public class EscapeCommand implements TabExecutor
             {
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
-                GameSession session = arena.getSession();
+                EscapeRules session = plugin.arenas().sessionOf(arena);
                 if (session == null || !session.forceStart()) {Msg.send(p, "admin.cannot-force-start"); return true;}
                 Msg.send(p, "admin.arena-started", Msg.ph("arena", id));
                 return true;
@@ -390,25 +392,25 @@ public class EscapeCommand implements TabExecutor
                 if (n == null) {return true;}
                 switch (key)
                 {
-                    case "wearmin" -> arena.setWearMinPercent(Math.min(99, n));
-                    case "wearmax" -> arena.setWearMaxPercent(Math.min(99, n));
-                    case "dynamicchests" -> arena.setDynamicChests(n > 0);
-                    case "duration" -> arena.setDurationSeconds(n);
-                    case "eventinterval" -> arena.setEventIntervalSeconds(n);
-                    case "salaryinterval" -> arena.setSalaryIntervalSeconds(n);
-                    case "salarygold" -> arena.setSalaryGold(n);
-                    case "glowtime" -> arena.setGlowSecondsBeforeEnd(n);
-                    case "glowgold" -> arena.setGlowBonusGold(n);
-                    case "contractminarena" -> arena.setContractsMinPerArena(n);
-                    case "contractmaxarena" -> arena.setContractsMaxPerArena(n);
-                    case "contractminchest" -> arena.setContractsMinPerChest(n);
-                    case "contractmaxchest" -> arena.setContractsMaxPerChest(n);
-                    case "traders" -> arena.setTraderCount(n);
-                    case "tables" -> arena.setTableCount(n);
-                    case "forkuses" -> arena.setForkUses(n);
-                    case "startgold" -> arena.setStartGold(n);
-                    case "startdelay" -> arena.setStartDelaySeconds(n);
-                    case "startdelayfull" -> arena.setStartDelayFullSeconds(n);
+                    case "wearmin" -> EscapeArena.setWearMinPercent(arena, Math.min(99, n));
+                    case "wearmax" -> EscapeArena.setWearMaxPercent(arena, Math.min(99, n));
+                    case "dynamicchests" -> EscapeArena.setDynamicChests(arena, n > 0);
+                    case "duration" -> arena.setMatchDurationSeconds(n);
+                    case "eventinterval" -> EscapeArena.setEventIntervalSeconds(arena, n);
+                    case "salaryinterval" -> EscapeArena.setSalaryIntervalSeconds(arena, n);
+                    case "salarygold" -> EscapeArena.setSalaryGold(arena, n);
+                    case "glowtime" -> EscapeArena.setGlowSecondsBeforeEnd(arena, n);
+                    case "glowgold" -> EscapeArena.setGlowBonusGold(arena, n);
+                    case "contractminarena" -> EscapeArena.setContractsMinPerArena(arena, n);
+                    case "contractmaxarena" -> EscapeArena.setContractsMaxPerArena(arena, n);
+                    case "contractminchest" -> EscapeArena.setContractsMinPerChest(arena, n);
+                    case "contractmaxchest" -> EscapeArena.setContractsMaxPerChest(arena, n);
+                    case "traders" -> EscapeArena.setTraderCount(arena, n);
+                    case "tables" -> EscapeArena.setTableCount(arena, n);
+                    case "forkuses" -> EscapeArena.setForkUses(arena, n);
+                    case "startgold" -> EscapeArena.setStartGold(arena, n);
+                    case "startdelay" -> arena.setLobbyCountdownSeconds(n);
+                    case "startdelayfull" -> arena.setCountdownFullSeconds(n);
                     default -> {Msg.send(p, "errors.unknown-subcommand"); return true;}
                 }
                 plugin.arenas().save(arena);
@@ -437,7 +439,7 @@ public class EscapeCommand implements TabExecutor
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
                 p.getInventory().addItem(SetupMarkers.breakWand(arena));
-                Msg.send(p, "breakable.wand-given", Msg.ph("arena", id), Msg.ph("n", arena.getBreakables().size()));
+                Msg.send(p, "breakable.wand-given", Msg.ph("arena", id), Msg.ph("n", EscapeArena.breakables(arena).size()));
                 return true;
             }
             case "chestface" ->
@@ -445,13 +447,13 @@ public class EscapeCommand implements TabExecutor
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
                 Block target = p.getTargetBlockExact(6);
-                if (target == null || !arena.getChestSpots().containsKey(target.getLocation()))
+                if (target == null || !EscapeArena.chestSpots(arena).containsKey(target.getLocation()))
                 {
                     Msg.send(p, "chestface.not-a-point");
                     return true;
                 }
                 BlockFace facing = p.getFacing().getOppositeFace(); // сундук лицом к смотрящему
-                arena.getChestFacings().put(target.getLocation(), facing);
+                EscapeArena.chestFacings(arena).put(target.getLocation(), facing);
                 plugin.arenas().save(arena);
                 if (target.getBlockData() instanceof Directional dir && dir.getFaces().contains(facing))
                 {
@@ -472,7 +474,7 @@ public class EscapeCommand implements TabExecutor
                 if (args.length < 3) {Msg.send(p, "errors.not-enough-args"); return true;}
                 String cid = args[2].toUpperCase(Locale.ROOT);
                 if (!plugin.contracts().exists(cid)) {Msg.send(p, "errors.contract-not-exists"); return true;}
-                if (!arena.getContractIds().contains(cid)) {arena.getContractIds().add(cid);}
+                if (!plugin.arenaConfigs().of(arena).contractIds().contains(cid)) {plugin.arenaConfigs().of(arena).contractIds().add(cid);}
                 plugin.arenas().save(arena);
                 Msg.send(p, "admin.contract-added", Msg.ph("arena", id));
                 return true;
@@ -673,9 +675,9 @@ public class EscapeCommand implements TabExecutor
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
                 if (arena.getWorld() == null) {Msg.send(p, "errors.world-not-loaded"); return true;}
-                if (arena.getTraderSpots().isEmpty()) {Msg.send(p, "villagers.no-points", Msg.ph("arena", id)); return true;}
+                if (EscapeArena.traderSpots(arena).isEmpty()) {Msg.send(p, "villagers.no-points", Msg.ph("arena", id)); return true;}
                 new VillagerPointsMenu(plugin, arena).open(p);
-                Msg.send(p, "villagers.opened-hint", Msg.ph("arena", id), Msg.ph("n", arena.getTraderSpots().size()));
+                Msg.send(p, "villagers.opened-hint", Msg.ph("arena", id), Msg.ph("n", EscapeArena.traderSpots(arena).size()));
                 return true;
             }
             case "chesttag" ->
@@ -709,12 +711,12 @@ public class EscapeCommand implements TabExecutor
                 if (n == null) {return true;}
                 if (n < 0)
                 {
-                    arena.getTraderQuotas().remove(type);
+                    EscapeArena.traderQuotas(arena).remove(type);
                     Msg.send(p, "admin.traderquota-cleared", Msg.ph("arena", id), Msg.ph("type", type));
                 }
                 else
                 {
-                    arena.getTraderQuotas().put(type, n);
+                    EscapeArena.traderQuotas(arena).put(type, n);
                     Msg.send(p, "admin.traderquota-set", Msg.ph("arena", id), Msg.ph("type", type), Msg.ph("n", n));
                 }
                 plugin.arenas().save(arena);
@@ -810,9 +812,9 @@ public class EscapeCommand implements TabExecutor
                     Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
                     if (arena == null) {return;}
                     Msg.send(p, "kit.list-arena-header",
-                        Msg.ph("arena", arena.getId()), Msg.ph("default", arena.getDefaultKit()));
-                    if (arena.getKits().isEmpty()) {Msg.send(p, "kit.list-empty"); return;}
-                    for (Kit kit : arena.getKits()) {sendKitLine(p, kit);}
+                        Msg.ph("arena", arena.getId()), Msg.ph("default", plugin.arenaConfigs().of(arena).defaultKit()));
+                    if (plugin.kitsFor(arena).isEmpty()) {Msg.send(p, "kit.list-empty"); return;}
+                    for (Kit kit : plugin.kitsFor(arena)) {sendKitLine(p, kit);}
                 }
                 else
                 {
@@ -829,12 +831,12 @@ public class EscapeCommand implements TabExecutor
                 Arena arena = requireArenaGet(p, args[3].toUpperCase(Locale.ROOT));
                 if (arena == null) {return;}
                 String newId = args.length >= 5 ? args[4] : source.getId();
-                if (arena.getKit(newId) != null)
+                if (plugin.kitFor(arena, newId) != null)
                 {
                     Msg.send(p, "kit.exists", Msg.ph("id", newId), Msg.ph("arena", arena.getId()));
                     return;
                 }
-                arena.addKit(source.copy(newId));
+                plugin.arenaConfigs().of(arena).allowedKits().add(source.copy(newId).getId());
                 plugin.arenas().save(arena);
                 Msg.send(p, "kit.copied",
                     Msg.ph("id", source.getId()), Msg.ph("arena", arena.getId()), Msg.ph("newid", newId));
@@ -845,12 +847,12 @@ public class EscapeCommand implements TabExecutor
                 Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
                 if (arena == null) {return;}
                 String kid = args[3];
-                if (arena.getKit(kid) != null)
+                if (plugin.kitFor(arena, kid) != null)
                 {
                     Msg.send(p, "kit.exists", Msg.ph("id", kid), Msg.ph("arena", arena.getId()));
                     return;
                 }
-                arena.addKit(new Kit(kid));
+                plugin.arenaConfigs().of(arena).allowedKits().add(new Kit(kid).getId());
                 plugin.arenas().save(arena);
                 Msg.send(p, "kit.created", Msg.ph("id", kid), Msg.ph("arena", arena.getId()));
                 Msg.send(p, "kit.created-hint", Msg.ph("id", kid), Msg.ph("arena", arena.getId()));
@@ -860,7 +862,7 @@ public class EscapeCommand implements TabExecutor
                 Kit kit = kitArg(p, args);
                 if (kit == null) {return;}
                 Arena arena = plugin.arenas().get(args[2]);
-                arena.removeKit(kit.getId());
+                plugin.arenaConfigs().of(arena).allowedKits().remove(kit.getId());
                 plugin.arenas().save(arena);
                 Msg.send(p, "kit.deleted", Msg.ph("id", kit.getId()), Msg.ph("arena", arena.getId()));
             }
@@ -913,11 +915,11 @@ public class EscapeCommand implements TabExecutor
                 if (arena == null) {return;}
                 String value = args[3];
                 boolean special = value.equalsIgnoreCase("random") || value.equalsIgnoreCase("none");
-                Kit named = arena.getKit(value);
+                Kit named = plugin.kitFor(arena, value);
                 if (!special && named == null) {Msg.send(p, "kit.default-invalid", Msg.ph("value", value)); return;}
-                arena.setDefaultKit(special ? value.toLowerCase(Locale.ROOT) : named.getId());
+                plugin.arenaConfigs().of(arena).setDefaultKit(special ? value.toLowerCase(Locale.ROOT) : named.getId());
                 plugin.arenas().save(arena);
-                Msg.send(p, "kit.default-set", Msg.ph("arena", arena.getId()), Msg.ph("value", arena.getDefaultKit()));
+                Msg.send(p, "kit.default-set", Msg.ph("arena", arena.getId()), Msg.ph("value", plugin.arenaConfigs().of(arena).defaultKit()));
             }
             default -> Msg.send(p, "kit.usage");
         }
@@ -938,7 +940,7 @@ public class EscapeCommand implements TabExecutor
         if (args.length < 4) {Msg.send(p, "errors.not-enough-args"); return null;}
         Arena arena = requireArenaGet(p, args[2].toUpperCase(Locale.ROOT));
         if (arena == null) {return null;}
-        Kit kit = arena.getKit(args[3]);
+        Kit kit = plugin.kitFor(arena, args[3]);
         if (kit == null) {Msg.send(p, "kit.not-found", Msg.ph("id", args[3]), Msg.ph("arena", arena.getId()));}
         return kit;
     }
@@ -1124,12 +1126,12 @@ public class EscapeCommand implements TabExecutor
     private void handleDebug(Player p, String[] args)
     {
         if (!p.hasPermission("escape.admin.debug")) {Msg.send(p, "debug.no-permission"); return;}
-        GameSession session = plugin.arenas().sessionOf(p);
+        EscapeRules session = plugin.arenas().sessionOf(p);
         if (session == null) {Msg.send(p, "debug.not-in-match"); return;}
         if (args.length < 2) {Msg.send(p, "debug.usage"); return;}
         String action = args[1].toLowerCase(Locale.ROOT);
 
-        if (session.getPhase() != GameSession.Phase.RUNNING)
+        if (session.getPhase() != EscapeRules.Phase.RUNNING)
         {
             Msg.send(p, "debug.need-running");
             return;
@@ -1434,7 +1436,7 @@ public class EscapeCommand implements TabExecutor
     {
         Arena arena = plugin.arenas().get(arenaId);
         List<String> ids = new ArrayList<>();
-        if (arena != null) {for (Kit kit : arena.getKits()) {ids.add(kit.getId());}}
+        if (arena != null) {for (Kit kit : plugin.kitsFor(arena)) {ids.add(kit.getId());}}
         return ids;
     }
 
