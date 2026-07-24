@@ -1,4 +1,6 @@
 package me.aver005.escape.menu;
+
+import ru.kiviuly.mg.api.game.GamePhase;
 import ru.kiviuly.mg.api.menu.Menu;
 
 import java.util.ArrayList;
@@ -33,12 +35,12 @@ public class ArenaSelectMenu extends Menu
 
     private void render()
     {
-        for (Arena arena : plugin.arenas().all().values())
+        for (Arena arena : plugin.arenas().all())
         {
             if (!arena.isEnabled()) {continue;}
             EscapeRules session = plugin.arenas().sessionOf(arena);
             if (session != null
-                && (session.getPhase() == EscapeRules.Phase.RUNNING || session.getPhase() == EscapeRules.Phase.ENDING))
+                && (session.getPhase() == GamePhase.RUNNING || session.getPhase() == GamePhase.ENDING))
             {continue;}
 
             int current = session == null ? 0 : session.lobbySize();

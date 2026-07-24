@@ -11,8 +11,9 @@ import ru.kiviuly.mg.api.arena.Arena;
 import java.util.ArrayList;
 import java.util.List;
 import me.aver005.escape.arena.ChestSetupManager;
-import me.aver005.escape.command.EscapeCommand;
 import me.aver005.escape.contract.ContractRegistry;
+import me.aver005.escape.game.EscapeGame;
+import ru.kiviuly.mg.api.MgCore;
 import me.aver005.escape.kit.KitRegistry;
 import me.aver005.escape.loot.LootCategoryRegistry;
 import me.aver005.escape.loot.LootMigration;
@@ -21,7 +22,6 @@ import me.aver005.escape.theme.ThemeRegistry;
 import me.aver005.escape.listener.ChatListener;
 import me.aver005.escape.listener.GameListener;
 import me.aver005.escape.listener.MechanicsListener;
-import me.aver005.escape.listener.ProtectionListener;
 import me.aver005.escape.listener.SetupListener;
 import me.aver005.escape.stats.StatsRepository;
 import me.aver005.escape.trader.TraderRegistry;
@@ -44,10 +44,20 @@ public final class EscapePlugin extends JavaPlugin
     private ChestSetupManager chestSetup;
     private StatsRepository statsRepository;
     private EscapeArenaConfigs arenaConfigs;
+    private MgCore core;
+    private EscapeGame game;
 
     @Override
     public void onEnable()
     {
+        core = getServer().getServicesManager().load(MgCore.class);
+        if (core == null)
+        {
+            getLogger().severe("MgCore не найден — Escape выключается (нужен плагин MgCore).");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
         saveDefaultConfig();
         // Общий тулкит (Keys/Msg/DebugLog) инициализирует ядро MgCore — здесь только
         // свои игровые ключи и подмешивание собственного messages.yml в общий каталог.
@@ -73,28 +83,33 @@ public final class EscapePlugin extends JavaPlugin
         kitRegistry.load();
         modifierRegistry.load();
         lootRegistry.load();
-        arenaManager.loadAll();
         contractRegistry.load();
         themeRegistry.load();
         traderRegistry.load();
         // одноразовая миграция старых пулов/пер-ареновых категорий в глобальные loot/*.yml
         LootMigration.run(this);
 
+        // Регистрируем игру в ядре: арены Escape ядро грузит из plugins/Escape/arenas/,
+        // жизненный цикл матча ведёт оно же и зовёт хуки EscapeGame.
+        game = new EscapeGame(this, core);
+        core.register(game);
+
         var pm = getServer().getPluginManager();
-        // MenuListener не регистрируем: меню наследуют общий mg-api Menu, клики
-        // маршрутизирует MenuListener ядра (иначе обработка была бы двойной).
+        // MenuListener/GameListener/ProtectionListener/ChatListener НЕ регистрируем:
+        // общие события матча (смерть, откат, защита, чат-роутинг) ведёт ядро. Здесь —
+        // только игро-специфичные листенеры Escape.
+        pm.registerEvents(new GameListener(this), this);   // игро-события: сундуки, контракты, торговцы, вилка
+        pm.registerEvents(new ChatListener(this), this);   // роутинг чата по каналам лобби/игра/спектейт
         pm.registerEvents(new SetupListener(this), this);
-        pm.registerEvents(new GameListener(this), this);
         pm.registerEvents(new MechanicsListener(this), this);
-        pm.registerEvents(new ChatListener(this), this);
-        pm.registerEvents(new ProtectionListener(this), this);
 
-        EscapeCommand command = new EscapeCommand(this);
+        // Своя команда: обработчик привязан к EscapeGame — только арены Escape.
         var escape = getCommand("escape");
-        escape.setExecutor(command);
-        escape.setTabCompleter(command);
+        var handler = core.commandFor(game);
+        escape.setExecutor(handler);
+        escape.setTabCompleter(handler);
 
-        getLogger().info("Escape enabled, arenas loaded: " + arenaManager.all().size());
+        getLogger().info("Escape enabled and registered in MgCore.");
         if (DebugLog.on()) {getLogger().info("Escape debug log is ON (/escape debuglog off to stop)");}
         DebugLog.log(Cat.ADMIN, "plugin enable arenas=%d contracts=%d themes=%d traders=%d",
             arenaManager.all().size(), contractRegistry.ids().size(),
@@ -135,6 +150,8 @@ public final class EscapePlugin extends JavaPlugin
         traderRegistry.load();
     }
 
+    public MgCore core() {return core;}
+    public EscapeGame game() {return game;}
     public EscapeArenaConfigs arenaConfigs() {return arenaConfigs;}
 
     /** Киты, разрешённые на арене: глобальный реестр, отфильтрованный списком арены. */

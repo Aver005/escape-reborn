@@ -309,7 +309,7 @@ public class GameListener implements Listener
             if (Items.isSpecial(hand, "leave") && rightClick)
             {
                 e.setCancelled(true);
-                if (session.leave(p)) {Msg.send(p, "lobby.left-match");}
+                plugin.arenas().leave(p); Msg.send(p, "lobby.left-match");
             }
             else if (Items.isSpecial(hand, "kit-select") && rightClick)
             {
@@ -575,45 +575,14 @@ public class GameListener implements Listener
         if (session != null && session.isLobbyMember(p.getUniqueId())) {e.setCancelled(true);}
     }
 
-    @EventHandler
-    public void onQuit(PlayerQuitEvent e)
-    {
-        EscapeRules session = session(e.getPlayer());
-        if (session != null) {session.handleQuit(e.getPlayer());}
-    }
 
-    @EventHandler
-    public void onJoin(PlayerJoinEvent e)
-    {
-        Player p = e.getPlayer();
-
-        // возврат в матч, которым всё ещё владеет сессия (оффлайн-страж)
-        EscapeRules session = session(p);
-        if (session != null)
-        {
-            if (session.handleRejoin(p)) {return;}
-            plugin.arenas().unbind(p.getUniqueId());
-        }
-
-        // восстановление после краша/выбытия в отсутствие
-        if (PlayerSnapshot.exists(plugin, p.getUniqueId()))
-        {
-            plugin.getServer().getScheduler().runTask(plugin, () ->
-            {
-                if (p.isOnline() && plugin.arenas().sessionOf(p) == null)
-                {
-                    PlayerSnapshot.restore(plugin, p);
-                }
-            });
-        }
-    }
 
     /** Смерть зомби-стража: убийца-игрок = смерть владельца. */
     @EventHandler
     public void onZombieDeath(EntityDeathEvent e)
     {
         if (!(e.getEntity() instanceof Zombie zombie)) {return;}
-        for (var arena : plugin.arenas().all().values())
+        for (var arena : plugin.arenas().all())
         {
             EscapeRules session = plugin.arenas().sessionOf(arena);
             if (session == null || !session.offlineGuards().ownsZombie(zombie.getUniqueId())) {continue;}

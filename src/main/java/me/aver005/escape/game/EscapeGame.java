@@ -10,6 +10,8 @@ import org.bukkit.inventory.ItemStack;
 
 import me.aver005.escape.EscapePlugin;
 import ru.kiviuly.mg.api.MgCore;
+import ru.kiviuly.mg.api.arena.Arena;
+import me.aver005.escape.arena.EscapeArena;
 import ru.kiviuly.mg.api.data.DataKey;
 import ru.kiviuly.mg.api.game.Match;
 import ru.kiviuly.mg.api.game.MatchPlayer;
@@ -29,6 +31,9 @@ import ru.kiviuly.mg.api.util.Msg;
  */
 public final class EscapeGame extends Minigame
 {
+    /** Стабильный id игры (владелец арен, узел прав, папка данных). */
+    public static final String ID = "escape";
+
     private final EscapePlugin plugin;
 
     public EscapeGame(EscapePlugin plugin, MgCore core)
@@ -38,7 +43,32 @@ public final class EscapeGame extends Minigame
     }
 
     @Override
-    public String id() {return "escape";}
+    public String id() {return ID;}
+
+    /** Игро-дефолты новой арены (числа из config.yml → «карман» настроек арены). */
+    @Override
+    public void onArenaCreated(Arena arena)
+    {
+        var cfg = plugin.getConfig().getConfigurationSection("defaults");
+        if (cfg != null)
+        {
+            arena.setMinPlayers(cfg.getInt("min-players", 2));
+            arena.setMaxPlayers(cfg.getInt("max-players", 12));
+            arena.setMatchDurationSeconds(cfg.getInt("duration-seconds", 1200));
+            arena.setLobbyCountdownSeconds(cfg.getInt("start-delay-seconds", 60));
+            arena.setCountdownFullSeconds(cfg.getInt("start-delay-full-seconds", 10));
+            EscapeArena.setTraderCount(arena, cfg.getInt("trader-count", 32));
+            EscapeArena.setTableCount(arena, cfg.getInt("table-count", 5));
+            EscapeArena.setEventIntervalSeconds(arena, cfg.getInt("event-interval-seconds", 210));
+            EscapeArena.setSalaryIntervalSeconds(arena, cfg.getInt("salary-interval-seconds", 600));
+            EscapeArena.setSalaryGold(arena, cfg.getInt("salary-gold", 16));
+            EscapeArena.setGlowSecondsBeforeEnd(arena, cfg.getInt("glow-seconds-before-end", 600));
+            EscapeArena.setGlowBonusGold(arena, cfg.getInt("glow-bonus-gold", 18));
+            EscapeArena.setForkUses(arena, cfg.getInt("fork-uses", 1));
+            EscapeArena.setStartGold(arena, cfg.getInt("start-gold", 24));
+        }
+        plugin.arenas().save(arena);
+    }
 
     @Override
     public String displayName() {return Msg.raw("game.display-name");}
@@ -64,6 +94,9 @@ public final class EscapeGame extends Minigame
         if (r == null) {r = new EscapeRules(plugin, m); m.set(RULES, r);}
         return r;
     }
+
+    /** Правила уже идущего матча (или null, если матч ещё не заведён). Без создания. */
+    public static EscapeRules rulesOf(Match m) {return m == null ? null : m.get(RULES);}
 
     // ===== хуки жизненного цикла (ядро -> правила) =====
 

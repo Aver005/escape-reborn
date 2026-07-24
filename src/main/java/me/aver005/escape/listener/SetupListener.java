@@ -302,7 +302,7 @@ public class SetupListener implements Listener
 
     private Arena arenaInWorld(World world)
     {
-        for (Arena arena : plugin.arenas().all().values())
+        for (Arena arena : plugin.arenas().all())
         {
             if (world.getName().equals(arena.getWorldName())) {return arena;}
         }

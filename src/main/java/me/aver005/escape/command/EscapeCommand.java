@@ -1,5 +1,7 @@
 package me.aver005.escape.command;
 
+import ru.kiviuly.mg.api.game.GamePhase;
+
 import me.aver005.escape.arena.EscapeArena;
 import me.aver005.escape.util.EscapeKeys;
 
@@ -123,7 +125,7 @@ public class EscapeCommand implements TabExecutor
             {
                 EscapeRules session = plugin.arenas().sessionOf(p);
                 if (session == null) {Msg.send(p, "errors.not-in-game"); return true;}
-                if (session.leave(p)) {Msg.send(p, "lobby.left-match");}
+                plugin.arenas().leave(p); Msg.send(p, "lobby.left-match");
                 return true;
             }
             case "join" ->
@@ -157,7 +159,7 @@ public class EscapeCommand implements TabExecutor
             case "list" ->
             {
                 Msg.send(p, "admin.list-header");
-                for (Arena arena : plugin.arenas().all().values())
+                for (Arena arena : plugin.arenas().all())
                 {
                     EscapeRules session = plugin.arenas().sessionOf(arena);
                     String statusKey;
@@ -312,16 +314,16 @@ public class EscapeCommand implements TabExecutor
             {
                 if (id.equals("ALL"))
                 {
-                    for (Arena arena : plugin.arenas().all().values())
+                    for (Arena arena : plugin.arenas().all())
                     {
-                        if (plugin.arenas().sessionOf(arena) != null) {plugin.arenas().sessionOf(arena).adminStop();}
+                        plugin.arenas().stop(arena);
                     }
                     Msg.send(p, "admin.arena-stopped", Msg.ph("arena", "ALL"));
                     return true;
                 }
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
-                if (plugin.arenas().sessionOf(arena) != null) {plugin.arenas().sessionOf(arena).adminStop();}
+                plugin.arenas().stop(arena);
                 Msg.send(p, "admin.arena-stopped", Msg.ph("arena", id));
                 return true;
             }
@@ -329,8 +331,7 @@ public class EscapeCommand implements TabExecutor
             {
                 Arena arena = requireArenaGet(p, id);
                 if (arena == null) {return true;}
-                EscapeRules session = plugin.arenas().sessionOf(arena);
-                if (session == null || !session.forceStart()) {Msg.send(p, "admin.cannot-force-start"); return true;}
+                if (!plugin.arenas().forceStart(arena)) {Msg.send(p, "admin.cannot-force-start"); return true;}
                 Msg.send(p, "admin.arena-started", Msg.ph("arena", id));
                 return true;
             }
@@ -1131,7 +1132,7 @@ public class EscapeCommand implements TabExecutor
         if (args.length < 2) {Msg.send(p, "debug.usage"); return;}
         String action = args[1].toLowerCase(Locale.ROOT);
 
-        if (session.getPhase() != EscapeRules.Phase.RUNNING)
+        if (session.getPhase() != GamePhase.RUNNING)
         {
             Msg.send(p, "debug.need-running");
             return;

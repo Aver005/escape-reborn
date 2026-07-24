@@ -49,7 +49,7 @@ public final class LootMigration
         int arenasProcessed = 0;
         int categoriesCreated = 0;
 
-        for (Arena arena : plugin.arenas().all().values())
+        for (Arena arena : plugin.arenas().all())
         {
             try
             {
